@@ -29,8 +29,10 @@ if (shots) mkdirSync(shots, { recursive: true });
 
 const chrome = await launchChrome({ software: args.flag('software') });
 const report = progress();
+/** 放在外面：没过的时候还要拿它截一张图 */
+let page;
 try {
-  const page = await chrome.open(args.url, { init: LOCALE_INIT });
+  page = await chrome.open(args.url, { init: LOCALE_INIT });
   /** 做完一步：报一行，要截图的话截一张 */
   const done = async (what) => {
     report(what);
@@ -150,6 +152,8 @@ try {
   console.log('冒烟测试通过');
 } catch (error) {
   console.error(`第 ${report.steps() + 1} 步没过：${error.message}`);
+  // 没过的那一刻画面是什么样：存下来（CI 里会作为构件传上去）
+  if (shots && page) await page.screenshot(join(shots, 'failed.png')).catch(() => {});
   process.exitCode = 1;
 } finally {
   await chrome.close();

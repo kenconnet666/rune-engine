@@ -52,6 +52,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @miwang/client build
+      # 下载体积的预算（见 docs/performance.md）
+      - run: pnpm check:budget
       - run: pnpm --filter @miwang/server build:site
       - name: 起服务并跑冒烟测试
         env:
@@ -61,7 +63,7 @@ jobs:
           # 先测没有服务端的那份
           pnpm --filter @miwang/client exec vite preview --port 4173 --strictPort &
           for attempt in $(seq 1 30); do curl -sf http://localhost:4173/ > /dev/null && break; sleep 1; done
-          pnpm smoke http://localhost:4173 --software
+          pnpm smoke http://localhost:4173 --software --shots=smoke-shots
           pnpm smoke:chapters http://localhost:4173 --software
           pnpm smoke:online http://localhost:4173 --software
           # 再照部署的形态起带服务端的那份：联机先试直连、再只走中转，然后是云存档
@@ -74,3 +76,10 @@ jobs:
           pnpm smoke:online http://localhost:8787 --software
           pnpm smoke:online http://localhost:8787 --software --relay
           pnpm smoke:cloud http://localhost:8787 --software
+      # 冒烟测试每一步的截图：没过的时候下载下来看当时的画面
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-shots
+          path: smoke-shots
+          if-no-files-found: ignore

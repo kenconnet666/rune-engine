@@ -17,6 +17,9 @@ playwright-report/
 # 构建时生成的素材（地图网格等）：由各包的 build 脚本产出，不进仓库
 **/generated/
 
+# 冒烟测试的截图（--shots）
+smoke-shots/
+
 # wrangler 在本地模拟 Cloudflare 时存的状态
 **/.wrangler/
 
