@@ -1,12 +1,13 @@
 /**
- * 分段选择：几个互斥的选项排成一行（倍速、视角）。
+ * 分段选择：几个互斥的选项排成一行（倍速、视角）。没声明的属性落到外层上。
  *
  *   <Segmented label="倍速" options={[{ value: 1, label: '1×' }, { value: 4, label: '4×' }]} value={speed} onChange={setSpeed} />
  */
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import type { VNodeChild } from 'vue';
-import { colors, fonts } from './tokens.ts';
+import { mergeAttrs, type PartProps } from './props.ts';
+import { colors, durations, fonts } from './tokens.ts';
 
 /** 选项的值 */
 export type SegmentedValue = string | number;
@@ -16,7 +17,7 @@ export interface SegmentedOption {
   label: VNodeChild;
 }
 
-export interface SegmentedProps {
+export interface SegmentedProps extends PartProps<'div', 'role' | 'aria-label' | 'onChange'> {
   /** 这组选项是选什么的（读屏念它） */
   label: string;
   options: readonly SegmentedOption[];
@@ -41,22 +42,28 @@ const styles = css.create({
     marginInlineStart: '-1px',
     outline: 'none',
     cursor: 'pointer',
+    transition: `background-color ${durations.fast}`,
   },
   selected: { color: colors.onSignal, backgroundColor: colors.signal, borderColor: colors.signal },
 });
 
-export const Segmented = _component(({ label, options, value, onChange }: SegmentedProps) => () => (
-  <div role="group" aria-label={label} {...css.attrs(styles.root)}>
-    {options.map((option) => (
-      <button
-        key={option.value}
-        type="button"
-        aria-pressed={option.value === value}
-        onClick={() => onChange?.(option.value)}
-        {...css.attrs(styles.item, option.value === value && styles.selected)}
+export const Segmented = _component(
+  ({ label, options, value, onChange, ...rest }: SegmentedProps) =>
+    () => (
+      <div
+        {...mergeAttrs<'div'>({ sx: styles.root }, rest, { role: 'group', 'aria-label': label })}
       >
-        {option.label}
-      </button>
-    ))}
-  </div>
-));
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={option.value === value}
+            onClick={() => onChange?.(option.value)}
+            {...css.attrs(styles.item, option.value === value && styles.selected)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    ),
+);

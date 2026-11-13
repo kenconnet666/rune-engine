@@ -1,6 +1,7 @@
 /** 主线程和两个 Worker 之间的控制消息（对局本身的消息走 net 的会话协议，见各自收到的 port） */
 import type { Command, OutbreakConfig } from '@miwang/sim';
 import type { PlayerId, Recording } from '@rune-engine/core';
+import type { MapCamera } from '@rune-engine/render/map-view';
 
 export type GameRecording = Recording<OutbreakConfig, Command>;
 
@@ -45,11 +46,23 @@ export type RenderControl =
   /** 对局的状态从这个 port 来 */
   | { readonly type: 'connect'; readonly port: MessagePort }
   /** 对局的状态从这个名字的广播通道来（作为客人加入别人的房间时） */
-  | { readonly type: 'connect-channel'; readonly name: string };
+  | { readonly type: 'connect-channel'; readonly name: string }
+  | { readonly type: 'camera'; readonly camera: MapCamera }
+  /** 指针在画布上的位置（占画布宽高的比例，0–1）；离开画布时是 null。tap 是在那里点了一下 */
+  | {
+      readonly type: 'pointer';
+      readonly at: { readonly x: number; readonly y: number } | null;
+      readonly tap: boolean;
+    }
+  /** 选中的地区（下标），没有时是 -1 */
+  | { readonly type: 'select'; readonly region: number };
 
 /** 渲染 Worker → 主线程 */
 export type RenderReport =
-  { readonly type: 'ready' } | { readonly type: 'error'; readonly message: string };
+  | { readonly type: 'ready' }
+  /** 指针停在哪个地区上（下标，海上是 -1）；picked 表示在那里点了一下 */
+  | { readonly type: 'region'; readonly region: number; readonly picked: boolean }
+  | { readonly type: 'error'; readonly message: string };
 
 /**
  * 房间里的招呼（广播通道 `miwang:<房间号>`）：客人报上自己的通道名和要扮演的一方，

@@ -17,6 +17,7 @@
     "@miwang/content": "workspace:^",
     "@miwang/sim": "workspace:^",
     "@rune-engine/core": "workspace:^",
+    "@rune-engine/input": "workspace:^",
     "@rune-engine/net": "workspace:^",
     "@rune-engine/render": "workspace:^",
     "@rune-engine/runtime": "workspace:^",

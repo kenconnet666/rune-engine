@@ -1,0 +1,17 @@
+{
+  "name": "@rune-engine/input",
+  "version": "0.0.0",
+  "private": true,
+  "description": "输入：把鼠标、触屏、键盘在一个元素上的操作认成拖动、缩放、轻点、停留这些手势",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

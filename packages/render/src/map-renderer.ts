@@ -2,15 +2,8 @@
  * 地区地图：每个地区是一组三角形，颜色不写在顶点里，而是按地区下标去一张小小的数据纹理里查。
  * 数值变了只改那张纹理（几 KB），网格不动；新旧数值之间在着色器里过渡，地图的颜色是“化开”的而不是跳变。
  */
+import { fitCamera, mapScale, type MapCamera } from './map-view.ts';
 import type { RegionMeshData } from './mesh-format.ts';
-
-export interface MapCamera {
-  /** 视野中心（地图坐标） */
-  x: number;
-  y: number;
-  /** 1 是整张地图刚好放进画布 */
-  zoom: number;
-}
 
 export interface MapRendererOptions {
   canvas: OffscreenCanvas;
@@ -25,6 +18,8 @@ export interface MapRenderer {
   setValues(values: Float32Array, nowMs: number): void;
   /** 各地区的标记，按位：1 画斜纹（封锁） */
   setFlags(flags: Uint8Array): void;
+  /** 指针停在哪个地区上、选中了哪个地区（下标，没有时给 -1）：停留的提亮，选中的描边 */
+  setHighlight(hovered: number, selected: number): void;
   setCamera(camera: MapCamera): void;
   render(nowMs: number): void;
   destroy(): void;
@@ -42,7 +37,7 @@ struct View {
   time: f32,
 };
 @group(0) @binding(0) var<uniform> view: View;
-// 每个地区一个像素：r 是过渡前的数值，g 是目标数值，b 是标记
+// 每个地区一个像素：r 是过渡前的数值，g 是目标数值，b 是玩法的标记（1 封锁），a 是界面的标记（1 指针停留、2 选中）
 @group(0) @binding(1) var regions: texture_2d<f32>;
 
 struct VOut {
@@ -74,10 +69,17 @@ const HOT = vec3f(0.898, 0.282, 0.302);
     let stripe = fract((in.position.x + in.position.y) / 14.0);
     color = mix(color, vec3f(0.75, 0.85, 0.95), step(0.6, stripe) * 0.35);
   }
+  let marks = u32(data.a);
+  if ((marks & 1u) != 0u) { color = mix(color, vec3f(1.0), 0.14); }
+  if ((marks & 2u) != 0u) { color = mix(color, vec3f(1.0), 0.07 + 0.05 * sin(view.time * 3.0)); }
   return vec4f(color, 1.0);
 }
 
 @fragment fn outline(in: VOut) -> @location(0) vec4f {
+  let marks = u32(textureLoad(regions, vec2i(i32(in.region), 0), 0).a);
+  // 选中的描边用近白色：地区本身可能已经是橙色、红色，信号色的线在上面看不出来
+  if ((marks & 2u) != 0u) { return vec4f(1.0, 0.98, 0.92, 1.0); }
+  if ((marks & 1u) != 0u) { return vec4f(0.85, 0.92, 1.0, 0.7); }
   return vec4f(0.62, 0.72, 0.82, 0.22);
 }`;
 
@@ -171,11 +173,8 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
     }),
   ]);
 
-  const camera: MapCamera = {
-    x: (mesh.bounds[0] + mesh.bounds[2]) / 2,
-    y: (mesh.bounds[1] + mesh.bounds[3]) / 2,
-    zoom: 1,
-  };
+  const camera: MapCamera = fitCamera(mesh.bounds);
+  let highlight: [hovered: number, selected: number] = [-1, -1];
   let multisampled: GPUTexture | undefined;
   let blendStart = -BLEND_MS;
   let dirty = true;
@@ -212,6 +211,13 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
       }
       dirty = true;
     },
+    setHighlight(hovered, selected) {
+      for (const region of highlight) if (region >= 0) regionData[region * 4 + 3] = 0;
+      highlight = [hovered, selected];
+      if (hovered >= 0 && hovered < regionCount) regionData[hovered * 4 + 3]! += 1;
+      if (selected >= 0 && selected < regionCount) regionData[selected * 4 + 3]! += 2;
+      dirty = true;
+    },
     setCamera(next) {
       Object.assign(camera, next);
     },
@@ -226,14 +232,7 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
         );
         dirty = false;
       }
-      // 整张地图刚好放进画布时每个地图单位占多少像素，再乘缩放
-      const pixels =
-        Math.min(
-          canvas.width / (mesh.bounds[2] - mesh.bounds[0]),
-          canvas.height / (mesh.bounds[3] - mesh.bounds[1]),
-        ) *
-        0.94 *
-        camera.zoom;
+      const pixels = mapScale(mesh.bounds, canvas, camera.zoom);
       viewData.set([
         (pixels * 2) / canvas.width,
         (pixels * 2) / canvas.height,

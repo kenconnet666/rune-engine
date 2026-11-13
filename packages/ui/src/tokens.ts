@@ -4,6 +4,8 @@ import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 export const colors = css.defineVars('rune-colors', {
   /** 面板的底：压在地图上，要透一点 */
   panel: 'rgba(12, 17, 23, 0.84)',
+  /** 浮在最上面的小块（提示）：几乎不透 */
+  raised: 'rgba(8, 12, 17, 0.94)',
   /** 面板里的凹陷区域、按钮的底 */
   inset: 'rgba(150, 180, 205, 0.08)',
   insetHover: 'rgba(150, 180, 205, 0.16)',
@@ -24,4 +26,22 @@ export const colors = css.defineVars('rune-colors', {
 export const fonts = css.defineVars('rune-fonts', {
   text: '"Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", system-ui, sans-serif',
   numeric: 'Bahnschrift, "DIN Alternate", "Roboto Condensed", ui-monospace, monospace',
+});
+
+/** 间距：面板之间、面板里的元素之间 */
+export const space = css.defineVars('rune-space', {
+  xs: '0.25rem',
+  sm: '0.4rem',
+  md: '0.75rem',
+  lg: '1.25rem',
+});
+
+const reduce = '@media (prefers-reduced-motion: reduce)';
+
+/** 动效时长；系统开了“减少动态效果”时都是 0，组件直接用，不必各自判断 */
+export const durations = css.defineVars('rune-durations', {
+  /** 悬停、按下的颜色变化 */
+  fast: { default: '120ms', [reduce]: '0ms' },
+  /** 面板出现、数值条的伸缩 */
+  normal: { default: '220ms', [reduce]: '0ms' },
 });

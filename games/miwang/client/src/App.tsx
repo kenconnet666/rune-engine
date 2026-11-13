@@ -1,21 +1,37 @@
 /**
  * 主界面：整屏的地图（画布在渲染 Worker 里画），上面压一层界面。
- * 界面层自己不接收指针，只有面板和按钮接收：点得到下面的地图。
+ * 界面层自己不接收指针，只有面板和按钮接收：拖得动、点得到下面的地图。
+ *
+ * 地图和界面互相配合：指针停在一个地区上，旁边出现它的名字；点一下选中，右侧出现它的详情与可做的事；
+ * 在“重点地区”里点一个名字，地图飞过去并选中它。
  */
 import { DateFormatter, parseDate } from '@internationalized/date';
-import { regions } from '@miwang/content';
+import { populations, regions } from '@miwang/content';
 import {
   ATTACKER,
   COSTS,
   DEFENDER,
   MEASURE_BITS,
+  type Measure,
   type OutbreakView,
   type Trait,
 } from '@miwang/sim';
-import { ActionButton, colors, fonts, Frame, Readout, Segmented } from '@rune-engine/ui';
+import {
+  ActionButton,
+  Callout,
+  colors,
+  Fact,
+  fonts,
+  Frame,
+  Meter,
+  Readout,
+  Segmented,
+  space,
+} from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { onBeforeUnmount, onMounted } from 'vue';
+import { createMapController, type MapController } from './map.ts';
 import { createGameSession, type GameSession } from './session.ts';
 
 const TRAITS: { trait: Trait; label: string }[] = [
@@ -24,13 +40,27 @@ const TRAITS: { trait: Trait; label: string }[] = [
   { trait: 'stealth', label: '更难发现' },
 ];
 
+const MEASURES: { measure: Measure; label: string; on: string }[] = [
+  { measure: 'lockdown', label: '封锁', on: '封锁中' },
+  { measure: 'testing', label: '加强检测', on: '检测中' },
+];
+
 const dateFormat = new DateFormatter('zh-CN', { dateStyle: 'long', timeZone: 'UTC' });
 const compact = new Intl.NumberFormat('zh-CN', { notation: 'compact', maximumFractionDigits: 1 });
 const whole = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 0 });
+const percent = new Intl.NumberFormat('zh-CN', { style: 'percent', maximumFractionDigits: 0 });
 
 const styles = css.create({
   root: { position: 'relative', width: '100%', height: '100%', overflow: 'hidden' },
-  canvas: { position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' },
+  canvas: {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    display: 'block',
+    outline: 'none',
+    cursor: { default: 'grab', ':active': 'grabbing' },
+  },
   // 避开刘海和手势区（手机横屏）
   layer: {
     position: 'absolute',
@@ -38,24 +68,25 @@ const styles = css.create({
     display: 'grid',
     gridTemplateColumns: 'auto 1fr auto',
     gridTemplateRows: 'auto 1fr auto',
-    gap: '0.75rem',
-    paddingBlock: 'max(0.75rem, env(safe-area-inset-top))',
-    paddingInline: 'max(0.75rem, env(safe-area-inset-left))',
+    gap: space.md,
+    paddingBlock: `max(${space.md}, env(safe-area-inset-top))`,
+    paddingInline: `max(${space.md}, env(safe-area-inset-left))`,
     pointerEvents: 'none',
   },
   status: { gridColumn: '1', gridRow: '1' },
-  readouts: { display: 'flex', flexWrap: 'wrap', gap: '1.25rem' },
+  readouts: { display: 'flex', flexWrap: 'wrap', gap: space.lg },
   date: { fontFamily: fonts.numeric, fontSize: '0.9375rem', color: colors.text },
   side: {
     gridColumn: '3',
     gridRow: '1 / span 2',
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.75rem',
+    gap: space.md,
     width: '15rem',
+    minHeight: 0,
     overflowY: 'auto',
   },
-  actions: { display: 'flex', flexDirection: 'column', gap: '0.4rem' },
+  actions: { display: 'flex', flexDirection: 'column', gap: space.sm },
   bottom: {
     gridColumn: '1 / span 3',
     gridRow: '3',
@@ -63,9 +94,10 @@ const styles = css.create({
     flexWrap: 'wrap',
     alignItems: 'end',
     justifyContent: 'space-between',
-    gap: '0.75rem',
+    gap: space.md,
   },
-  controls: { display: 'flex', flexWrap: 'wrap', gap: '0.75rem' },
+  controls: { display: 'flex', flexWrap: 'wrap', gap: space.md },
+  zoom: { display: 'flex', gap: space.xs },
   note: {
     maxWidth: '26rem',
     fontFamily: fonts.text,
@@ -75,10 +107,11 @@ const styles = css.create({
   },
   // 邀请地址要能选中复制（页面整体关了选字）
   invite: { userSelect: 'text', pointerEvents: 'auto', wordBreak: 'break-all', color: colors.text },
+  calloutDetail: { fontFamily: fonts.numeric, color: colors.textMuted },
   error: { color: colors.danger },
 });
 
-/** 守方的“重点地区”：上报最多的几个，可以逐个封锁 */
+/** 守方的“重点地区”：上报最多的几个 */
 function hotRegions(view: OutbreakView) {
   return [...view.intensity.keys()]
     .filter((index) => view.intensity[index]! > 0)
@@ -86,14 +119,72 @@ function hotRegions(view: OutbreakView) {
     .slice(0, 6);
 }
 
+/** 选中的地区：它的情况，以及这一方能对它做的事 */
+const RegionPanel = _component(
+  ({
+    index,
+    view,
+    onClose,
+    onMeasure,
+  }: {
+    index: number;
+    view: OutbreakView;
+    onClose: () => void;
+    onMeasure: (measure: Measure, on: boolean) => void;
+  }) =>
+    () => {
+      const region = regions[index];
+      const level = view.intensity[index] ?? 0;
+      const bits = view.measures[index] ?? 0;
+      return (
+        <Frame title={region?.name} onClose={onClose} closeLabel="取消选中">
+          <Meter
+            label={view.attacker ? '感染程度' : '上报程度'}
+            value={level}
+            detail={percent.format(level)}
+            tone={level > 0.5 ? 'danger' : 'signal'}
+          />
+          <Fact label="人口（占位）" value={compact.format(populations[index] ?? 0)} />
+          <Fact label="陆路相邻" value={`${region?.neighbors.length ?? 0} 个地区`} />
+          {view.attacker ? (
+            (bits & MEASURE_BITS.lockdown) !== 0 && <Fact label="守方措施" value="封锁中" />
+          ) : (
+            <div {...css.attrs(styles.actions)}>
+              {MEASURES.map(({ measure, label, on }) => {
+                const active = (bits & MEASURE_BITS[measure]) !== 0;
+                return (
+                  <ActionButton
+                    key={measure}
+                    active={active}
+                    detail={active ? on : `${COSTS.measure}`}
+                    disabled={!active && view.resource < COSTS.measure}
+                    onPress={() => onMeasure(measure, !active)}
+                  >
+                    {label}
+                  </ActionButton>
+                );
+              })}
+            </div>
+          )}
+        </Frame>
+      );
+    },
+);
+
 export const App = _component(() => {
   let canvas = _state.raw<HTMLCanvasElement | null>(null);
   let game = _state.raw<GameSession | null>(null);
+  let map = _state.raw<MapController | null>(null);
   let invite = _state<string | null>(null);
   onMounted(() => {
-    if (canvas) game = createGameSession(canvas);
+    if (!canvas) return;
+    game = createGameSession(canvas);
+    map = createMapController(canvas, game.renderLink);
   });
-  onBeforeUnmount(() => game?.dispose());
+  onBeforeUnmount(() => {
+    map?.dispose();
+    game?.dispose();
+  });
 
   /** 最下面那行小字：出错了说错误，否则说这一局的来历 */
   const note = (session: GameSession) => {
@@ -111,11 +202,14 @@ export const App = _component(() => {
     const attacker = game?.player.value === ATTACKER;
     const host = game?.role === 'host';
     const human = game?.opponent.value === 'human';
+    const hovered = map?.hovered.value ?? -1;
+    const selected = map?.selected.value ?? -1;
+    const pointer = map?.pointer.value ?? null;
     return (
       <div {...css.attrs(styles.root)}>
         <canvas
           ref={_toRef(canvas)}
-          aria-label="世界地图：各地区的感染程度"
+          aria-label="世界地图：拖动平移，滚轮或双指缩放，点一个地区看详情"
           {...css.attrs(styles.canvas)}
         />
         <div {...css.attrs(styles.layer)}>
@@ -147,6 +241,16 @@ export const App = _component(() => {
 
           {view && game && (
             <div {...css.attrs(styles.side)}>
+              {selected >= 0 && (
+                <RegionPanel
+                  index={selected}
+                  view={view}
+                  onClose={() => map?.select(-1)}
+                  onMeasure={(measure, on) =>
+                    game?.send({ type: 'measure', region: selected, measure, on })
+                  }
+                />
+              )}
               {attacker ? (
                 <Frame title="病原体">
                   <div {...css.attrs(styles.actions)}>
@@ -165,27 +269,16 @@ export const App = _component(() => {
               ) : (
                 <Frame title="重点地区">
                   <div {...css.attrs(styles.actions)}>
-                    {hotRegions(view).map((index) => {
-                      const locked = (view.measures[index]! & MEASURE_BITS.lockdown) !== 0;
-                      return (
-                        <ActionButton
-                          key={index}
-                          active={locked}
-                          detail={locked ? '封锁中' : `封锁 · ${COSTS.measure}`}
-                          disabled={!locked && view.resource < COSTS.measure}
-                          onPress={() =>
-                            game?.send({
-                              type: 'measure',
-                              region: index,
-                              measure: 'lockdown',
-                              on: !locked,
-                            })
-                          }
-                        >
-                          {regions[index]?.name}
-                        </ActionButton>
-                      );
-                    })}
+                    {hotRegions(view).map((index) => (
+                      <ActionButton
+                        key={index}
+                        active={index === selected}
+                        detail={percent.format(view.intensity[index]!)}
+                        onPress={() => map?.select(index, true)}
+                      >
+                        {regions[index]?.name}
+                      </ActionButton>
+                    ))}
                     {hotRegions(view).length === 0 && (
                       <span {...css.attrs(styles.note)}>还没有地区上报病例。</span>
                     )}
@@ -228,6 +321,17 @@ export const App = _component(() => {
                   if (value !== 0) game?.setSpeed(Number(value));
                 }}
               />
+              <div {...css.attrs(styles.zoom)}>
+                <ActionButton compact aria-label="放大" onPress={() => map?.zoomBy(1.6)}>
+                  ＋
+                </ActionButton>
+                <ActionButton compact aria-label="缩小" onPress={() => map?.zoomBy(1 / 1.6)}>
+                  －
+                </ActionButton>
+                <ActionButton aria-label="回到整张地图" onPress={() => map?.reset()}>
+                  全图
+                </ActionButton>
+              </div>
               {host && !human && (
                 <Segmented
                   label="扮演"
@@ -247,6 +351,15 @@ export const App = _component(() => {
               </span>
             )}
           </div>
+
+          {view && pointer && hovered >= 0 && (
+            <Callout x={pointer.x} y={pointer.y}>
+              <span>{regions[hovered]?.name}</span>
+              <span {...css.attrs(styles.calloutDetail)}>
+                {attacker ? '感染程度' : '上报程度'} {percent.format(view.intensity[hovered] ?? 0)}
+              </span>
+            </Callout>
+          )}
         </div>
       </div>
     );

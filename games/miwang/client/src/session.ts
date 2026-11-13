@@ -50,6 +50,8 @@ export interface GameSession {
   readonly room: ShallowRef<string | null>;
   /** 渲染起不来时的原因（没有 WebGPU 等） */
   readonly renderError: ShallowRef<string | null>;
+  /** 和渲染线程说话的口子：地图的相机、指针、选中都经它（见 map.ts） */
+  readonly renderLink: RenderLink;
   /** 这一局是照着暂存的记录重放接上的：重放了几步、用了多久；新开的一局是 null */
   readonly resumed: ShallowRef<{ ticks: number; replayMs: number } | null>;
   send(command: Command): void;
@@ -62,6 +64,12 @@ export interface GameSession {
   /** 丢掉当前这局，换个种子重新开始（只有主人可以） */
   restart(): void;
   dispose(): void;
+}
+
+export interface RenderLink {
+  send(message: RenderControl): void;
+  /** 渲染线程报告指针停在、点在哪个地区上；地图控制器接上它 */
+  onRegion: ((region: number, picked: boolean) => void) | null;
 }
 
 const store = sessionStore<GameRecording>('miwang:recording');
@@ -86,8 +94,10 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
   });
   const toRender = (message: RenderControl, transfer: Transferable[] = []) =>
     render.postMessage(message, transfer);
+  const renderLink: RenderLink = { send: (message) => toRender(message), onRegion: null };
   render.onmessage = ({ data }: MessageEvent<RenderReport>) => {
     if (data.type === 'error') renderError.value = data.message;
+    else if (data.type === 'region') renderLink.onRegion?.(data.region, data.picked);
   };
   const offscreen = canvas.transferControlToOffscreen();
   toRender({ type: 'init', canvas: offscreen, meshUrl, regionCount: regions.length }, [offscreen]);
@@ -116,6 +126,7 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
     opponent,
     room,
     renderError,
+    renderLink,
     resumed,
     send: (command: Command) => session?.send(command),
     setSpeed: (next: number) => session?.setSpeed(next),

@@ -7,13 +7,15 @@
   "license": "MIT",
   "exports": {
     ".": "./src/index.ts",
-    "./mesh-format": "./src/mesh-format.ts"
+    "./mesh-format": "./src/mesh-format.ts",
+    "./map-view": "./src/map-view.ts"
   },
   "scripts": {
     "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"
   },
   "devDependencies": {
     "@webgpu/types": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

@@ -6,9 +6,10 @@
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import type { VNodeChild } from 'vue';
+import { mergeAttrs, type PartProps } from './props.ts';
 import { colors, fonts } from './tokens.ts';
 
-export interface ReadoutProps {
+export interface ReadoutProps extends PartProps<'div'> {
   label: VNodeChild;
   /** 已经格式化好的数字（格式化跟语言有关，由使用方做） */
   value: VNodeChild;
@@ -31,8 +32,8 @@ const styles = css.create({
   calm: { color: colors.calm },
 });
 
-export const Readout = _component(({ label, value, tone }: ReadoutProps) => () => (
-  <div {...css.attrs(styles.root)}>
+export const Readout = _component(({ label, value, tone, ...rest }: ReadoutProps) => () => (
+  <div {...mergeAttrs<'div'>({ sx: styles.root }, rest)}>
     <span {...css.attrs(styles.label)}>{label}</span>
     <span {...css.attrs(styles.value, tone && styles[tone])}>{value}</span>
   </div>

@@ -26,20 +26,28 @@ const HUBS = 14;
 /** 南极洲（ISO 010）没有常住人口 */
 const UNINHABITED = new Set(['010']);
 
+const inhabitedArea = regions.reduce(
+  (sum, region) => sum + (UNINHABITED.has(region.id) ? 0 : region.area),
+  0,
+);
+
+/** 各地区的人口（占位：按面积摊，见文件开头的说明） */
+export const populations: readonly number[] = regions.map((region) =>
+  UNINHABITED.has(region.id)
+    ? 0
+    : Math.max(50_000, Math.round((region.area / inhabitedArea) * WORLD_POPULATION)),
+);
+
 /** 按种子开一局：起点在有人住的地区里按种子挑一个 */
 export function createConfig(seed: number, startDate: string): OutbreakConfig {
-  const inhabited = regions.filter((region) => !UNINHABITED.has(region.id));
-  const totalArea = inhabited.reduce((sum, region) => sum + region.area, 0);
   const hubs = regions
-    .map((region, index) => ({ index, area: UNINHABITED.has(region.id) ? 0 : region.area }))
-    .sort((a, b) => b.area - a.area)
+    .map((_, index) => ({ index, population: populations[index]! }))
+    .sort((a, b) => b.population - a.population)
     .slice(0, HUBS)
     .map((hub) => hub.index);
 
   const config: RegionConfig[] = regions.map((region, index) => ({
-    population: UNINHABITED.has(region.id)
-      ? 0
-      : Math.max(50_000, Math.round((region.area / totalArea) * WORLD_POPULATION)),
+    population: populations[index]!,
     neighbors: region.neighbors,
     flights: hubs.includes(index) ? hubs.filter((hub) => hub !== index) : [],
   }));
