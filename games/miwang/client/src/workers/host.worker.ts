@@ -105,6 +105,8 @@ self.onmessage = ({ data }: MessageEvent<HostControl>) => {
       });
       tell({ type: 'started', replayedTicks: host.tick, replayMs: performance.now() - began });
       reported = { ticks: -1, commands: -1 };
+      // 开局就把记录交一次，不等第一个计时周期：存档页一打开就有东西可存
+      report();
       playAi(aiPlayer, aiLevel);
       stopLoop = startHostLoop(host, 50, report);
       break;

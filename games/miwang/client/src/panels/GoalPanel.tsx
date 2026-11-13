@@ -7,8 +7,8 @@ import type { OutbreakView } from '@miwang/sim';
 import { Frame, Meter, Note } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { Flag } from 'lucide';
 import { useContent, useFormats, useUi } from '../i18n.ts';
+import { CHAPTER_ICONS } from '../icons.ts';
 
 const styles = css.create({ root: { width: '22rem' } });
 
@@ -17,11 +17,12 @@ export const GoalPanel = _component(({ view }: { view: OutbreakView }) => () => 
   if (!scenario) return null;
   const ui = useUi().chapters;
   const format = useFormats();
-  const chapter = useContent().chapters[scenario.id as ChapterId];
+  const id = scenario.id as ChapterId;
+  const chapter = useContent().chapters[id];
   const daysLeft = Math.max(0, scenario.days - view.tick);
   return (
     <Frame
-      icon={Flag}
+      icon={CHAPTER_ICONS[id]}
       title={`${chapter.name} · ${chapter.theme}`}
       aside={ui.daysLeft(daysLeft)}
       data-chapter={scenario.id}

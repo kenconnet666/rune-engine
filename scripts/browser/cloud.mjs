@@ -7,6 +7,7 @@
 import { launchChrome } from './chrome.mjs';
 import {
   assertNoErrors,
+  canPress,
   dayOf,
   dayPast,
   hasButton,
@@ -60,6 +61,7 @@ try {
     },
   );
   const key = await first.evaluate(`document.querySelector('[data-cloud-key]').dataset.cloudKey`);
+  await first.waitFor(canPress('把这一局存到云端'), { what: '可以存到云端' });
   await first.clickButton('把这一局存到云端');
   await first.waitFor(hasText('已经存到云端'), { what: '存到云端' });
   if ((await rows(first)) !== 1) throw new Error('存上去之后云端应该有一份存档');

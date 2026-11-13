@@ -16,23 +16,14 @@ import {
   Segmented,
   space,
   Stack,
-  type IconData,
 } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { Dna, Footprints, Mountain, Plane, Play, Sprout } from 'lucide';
+import { Play } from 'lucide';
 import { chapterProgress } from '../chapters/progress.ts';
 import { useContent, useFormats, useUi } from '../i18n.ts';
+import { CHAPTER_ICONS } from '../icons.ts';
 import type { GameSetup } from '../session/index.ts';
-
-/** 每章一个图标：萌芽、变异、脚印、山、飞机 */
-export const CHAPTER_ICONS: Readonly<Record<ChapterId, IconData>> = {
-  bewilderment: Sprout,
-  malice: Dna,
-  wilds: Footprints,
-  hills: Mountain,
-  sky: Plane,
-};
 
 const styles = css.create({
   root: { width: 'min(54rem, calc(100vw - 2rem))' },

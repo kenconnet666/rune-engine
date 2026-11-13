@@ -20,6 +20,10 @@ export const hasText = (text) => `document.body.innerText.includes(${JSON.string
 export const hasButton = (text) =>
   `[...document.querySelectorAll('button')].some((b) => b.textContent.trim().startsWith(${JSON.stringify(text)}) && b.checkVisibility())`;
 
+/** 有这个按钮、而且按得动 */
+export const canPress = (text) =>
+  `[...document.querySelectorAll('button')].some((b) => b.textContent.trim().startsWith(${JSON.stringify(text)}) && b.checkVisibility() && !b.disabled)`;
+
 /** 页面上现在是第几天；没有是 -1 */
 export const dayOf = (page) =>
   page.evaluate(`Number(document.body.innerText.match(/第 ([0-9]+) 天/)?.[1] ?? -1)`);

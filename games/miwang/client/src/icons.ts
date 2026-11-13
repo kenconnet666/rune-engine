@@ -2,6 +2,7 @@
  * 游戏里每样东西用哪个图标。大多数来自 lucide，它没有的几个（蚊子、口罩、肺、停飞）是组件库里自己画的。
  * 表里没有的 id（以后内容加了新东西、这里还没配）用各自的默认图标顶上。
  */
+import type { ChapterId } from '@miwang/content';
 import type { Measure, NewsKind, TraitGroup } from '@miwang/sim';
 import { FaceMask, Lungs, Mosquito, PlaneOff, type IconData } from '@rune-engine/ui';
 import {
@@ -30,6 +31,7 @@ import {
   Factory,
   Fence,
   FlaskConical,
+  Footprints,
   Ghost,
   GlassWater,
   Hand,
@@ -47,6 +49,7 @@ import {
   PawPrint,
   Pill,
   PillBottle,
+  Plane,
   Radar,
   ScanLine,
   SearchX,
@@ -57,6 +60,7 @@ import {
   Snowflake,
   Sparkles,
   SprayCan,
+  Sprout,
   Sun,
   Syringe,
   Tablets,
@@ -195,3 +199,12 @@ export const traitIcon = (id: string): IconData => TRAITS[id] ?? Dna;
 export const techIcon = (id: string): IconData => TECHS[id] ?? FlaskConical;
 export const newsIcon = (kind: NewsKind, subject: string): IconData =>
   (kind === 'event' ? EVENTS[subject] : undefined) ?? NEWS[kind];
+
+/** 每章一个图标：萌芽、变异、脚印、山、飞机 */
+export const CHAPTER_ICONS: Readonly<Record<ChapterId, IconData>> = {
+  bewilderment: Sprout,
+  malice: Dna,
+  wilds: Footprints,
+  hills: Mountain,
+  sky: Plane,
+};

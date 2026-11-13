@@ -189,14 +189,18 @@ export async function launchChrome({
          * 直接让按钮自己“被点一下”，不按坐标发鼠标事件：按钮正在动（对话框的进场动画）时按坐标点会偶尔点偏。
          */
         async clickButton(text) {
-          const clicked = await page.evaluate(`(() => {
+          const result = await page.evaluate(`(() => {
             const button = [...document.querySelectorAll('button')].find(
               (candidate) => candidate.textContent.trim().startsWith(${JSON.stringify(text)}) && candidate.checkVisibility(),
             );
-            button?.click();
-            return Boolean(button);
+            if (!button) return 'missing';
+            if (button.disabled) return 'disabled';
+            button.click();
+            return 'clicked';
           })()`);
-          if (!clicked) throw new Error(`页面上没有“${text}”这个按钮`);
+          if (result === 'missing') throw new Error(`页面上没有“${text}”这个按钮`);
+          // 按不动的按钮“点”下去什么都不会发生，测试会在后面莫名其妙地等超时：在这里就说清楚
+          if (result === 'disabled') throw new Error(`“${text}”这个按钮现在按不动（禁用着）`);
         },
         /** 滚轮：正数往下（缩小地图），负数往上（放大） */
         async wheel(x, y, deltaY) {

@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { launchChrome } from './chrome.mjs';
 import {
   assertNoErrors,
+  canPress,
   clickInDialog,
   closeDialog,
   dayOf,
@@ -119,7 +120,7 @@ try {
   await page.clickButton('菜单');
   await page.waitFor(hasButton('存档与回放'), { what: '回到主菜单' });
   await page.clickButton('存档与回放');
-  await page.waitFor(hasButton('存下这一局'), { what: '存档页' });
+  await page.waitFor(canPress('存下这一局'), { what: '存档页' });
   await page.clickButton('存下这一局');
   await page.waitFor(hasText('存好了'), { what: '存档成功' });
   await page.evaluate(`document.querySelector('dialog[open] [aria-label="读档接着打"]').click()`);
