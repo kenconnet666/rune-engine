@@ -139,6 +139,18 @@ export const zh = {
     language: '语言',
   },
 
+  setup: {
+    title: '新开一局',
+    pathogen: '病原体',
+    side: '你扮演',
+    level: '电脑对手的难度',
+    facts: '关于它的原型',
+    play: '在这局游戏里',
+    sources: '资料来源',
+    note: '游戏里的数值是照着原型的“性格”定的，不是这种病的真实参数。',
+    start: '开始',
+  },
+
   outcome: {
     title: (day: number) => `第 ${day} 天 · 对局结束`,
     won: '你赢了',

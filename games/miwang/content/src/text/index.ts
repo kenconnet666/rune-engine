@@ -8,4 +8,4 @@ export type Locale = 'zh' | 'en';
 
 export const CONTENT_TEXT: Readonly<Record<Locale, ContentText>> = { zh, en };
 
-export type { ContentText, Label } from './types.ts';
+export type { ContentText, Label, PathogenText } from './types.ts';

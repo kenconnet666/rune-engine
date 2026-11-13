@@ -93,9 +93,11 @@ describe('《迷惘》的模拟', () => {
     const before = outbreak.observe(replay(outbreak, recording, 10), DEFENDER);
     expect(before.pathogen.known).toBe(false);
     expect(before.pathogen.owned).toEqual([]);
+    expect(before.pathogen.id).toBeNull();
     expect(before.origin).toBe(-1);
     const after = outbreak.observe(replay(outbreak, recording, 50), DEFENDER);
     expect(after.pathogen.known).toBe(true);
+    expect(after.pathogen.id).toBe('test');
     expect(after.pathogen.owned).toEqual(['air1', 'stealth']);
     // 攻方总是知道自己的起源地
     expect(outbreak.observe(replay(outbreak, recording, 10), ATTACKER).origin).toBe(0);

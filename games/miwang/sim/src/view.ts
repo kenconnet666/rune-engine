@@ -70,6 +70,8 @@ export interface OutbreakView {
   readonly pathogen: {
     /** 这一方知不知道病原体的底细（攻方总是知道，守方要做完病原鉴定） */
     readonly known: boolean;
+    /** 是哪一种病原体（档案的 id）；不知道时是 null */
+    readonly id: string | null;
     /** 已有的性状；不知道时是空的 */
     readonly owned: readonly string[];
     readonly stats: PathogenStats | null;
@@ -166,6 +168,7 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
     resource: attacker ? state.points : state.budget,
     pathogen: {
       known,
+      id: known ? state.config.pathogen.id : null,
       owned: known ? traits.filter((_, index) => state.traits[index] === 1).map((t) => t.id) : [],
       stats: known ? pathogenStats(state) : null,
       offers: attacker

@@ -8,7 +8,7 @@ import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { Biohazard, Dna } from 'lucide';
 import { useContent, useUi } from '../i18n.ts';
-import { traitIcon } from '../icons.ts';
+import { pathogenIcon, traitIcon } from '../icons.ts';
 
 /** 三条读数各自“满格”是多少：严重度到 10、致死性到 30%、隐匿到 5 就算顶了 */
 const FULL = { severity: 10, lethality: 0.3, stealth: 5 };
@@ -22,7 +22,7 @@ export const PathogenPanel = _component(
     () => {
       const ui = useUi().pathogen;
       const content = useContent();
-      const { known, owned, stats, offers } = view.pathogen;
+      const { known, id, owned, stats, offers } = view.pathogen;
       if (!known || !stats) {
         return (
           <Frame icon={Biohazard} title={ui.title}>
@@ -32,7 +32,11 @@ export const PathogenPanel = _component(
       }
       const affordable = offers.filter((offer) => offer.cost <= view.resource).length;
       return (
-        <Frame icon={Biohazard} title={ui.title} aside={ui.traits(owned.length)}>
+        <Frame
+          icon={id ? pathogenIcon(id) : Biohazard}
+          title={(id && content.pathogens[id]?.name) || ui.title}
+          aside={ui.traits(owned.length)}
+        >
           <Meter
             label={content.effects.severity}
             value={stats.severity / FULL.severity}

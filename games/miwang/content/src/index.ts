@@ -7,8 +7,14 @@
  */
 export { createConfig, type ConfigOptions } from './config.ts';
 export { EVENTS } from './tables/events.ts';
-export { DEFAULT_PATHOGEN, PATHOGENS } from './tables/pathogens.ts';
+export { DEFAULT_PATHOGEN, PATHOGENS, SOURCES, type Source } from './tables/pathogens.ts';
 export { TECHS } from './tables/techs.ts';
 export { TRAITS } from './tables/traits.ts';
-export { CONTENT_TEXT, type ContentText, type Label, type Locale } from './text/index.ts';
+export {
+  CONTENT_TEXT,
+  type ContentText,
+  type Label,
+  type Locale,
+  type PathogenText,
+} from './text/index.ts';
 export { bounds, populations, regionName, regions, type WorldRegion } from './world.ts';

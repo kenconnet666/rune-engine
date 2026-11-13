@@ -27,7 +27,15 @@ const SPEEDS = [
 ];
 
 export const ControlBar = _component(
-  ({ game, map }: { game: GameSession; map: MapController | null }) =>
+  ({
+    game,
+    map,
+    onNewGame,
+  }: {
+    game: GameSession;
+    map: MapController | null;
+    onNewGame: () => void;
+  }) =>
     () => {
       const ui = useUi().controls;
       const host = game.role === 'host';
@@ -107,7 +115,7 @@ export const ControlBar = _component(
             onChange={(value) => (i18n.locale.value = value as Locale)}
           />
           {host && (
-            <ActionButton icon={RotateCcw} onPress={() => game.restart()}>
+            <ActionButton icon={RotateCcw} onPress={onNewGame}>
               {ui.restart}
             </ActionButton>
           )}

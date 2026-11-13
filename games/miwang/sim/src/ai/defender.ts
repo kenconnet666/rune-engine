@@ -22,9 +22,9 @@ import type { AiLevel } from './shared.ts';
 
 /** 各难度：隔几天做一次决定、封锁的线（上报病例占人口的比例）、一次最多下几条命令、留多少预算、会不会针对传播途径 */
 const LEVELS = [
-  { every: 7, lockAt: 6e-3, commands: 4, reserve: 20, targeted: false },
-  { every: 4, lockAt: 2.5e-3, commands: 10, reserve: 10, targeted: true },
-  { every: 2, lockAt: 1e-3, commands: 24, reserve: 6, targeted: true },
+  { every: 7, lockAt: 3e-3, commands: 4, reserve: 20, targeted: false },
+  { every: 4, lockAt: 8e-4, commands: 10, reserve: 10, targeted: true },
+  { every: 2, lockAt: 3e-4, commands: 24, reserve: 6, targeted: true },
 ] as const;
 
 /** 维持费最多到收入的这个倍数；手头宽裕（超过 RICH）时可以暂时超支 */

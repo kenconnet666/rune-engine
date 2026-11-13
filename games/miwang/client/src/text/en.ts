@@ -138,6 +138,18 @@ export const en: ClientText = {
     language: 'Language',
   },
 
+  setup: {
+    title: 'New game',
+    pathogen: 'Pathogen',
+    side: 'You play',
+    level: 'Computer difficulty',
+    facts: 'About the real disease',
+    play: 'In this game',
+    sources: 'Sources',
+    note: "The game's numbers follow the character of the real disease; they are not its real parameters.",
+    start: 'Start',
+  },
+
   outcome: {
     title: (day) => `Day ${day} · game over`,
     won: 'You won',

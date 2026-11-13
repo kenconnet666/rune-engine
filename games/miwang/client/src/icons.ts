@@ -14,6 +14,7 @@ import {
   BatteryLow,
   BedSingle,
   Beef,
+  Biohazard,
   Brain,
   Bug,
   CircleDotDashed,
@@ -176,6 +177,20 @@ const NEWS: Readonly<Record<NewsKind, IconData>> = {
   outcome: Trophy,
 };
 
+const PATHOGENS: Readonly<Record<string, IconData>> = {
+  novel: Biohazard,
+  influenza: Wind,
+  measles: CircleDotDashed,
+  cholera: GlassWater,
+  dengue: Mosquito,
+  malaria: Bug,
+  tuberculosis: Lungs,
+  norovirus: Utensils,
+  ebola: Droplets,
+  pertussis: Volume2,
+};
+
+export const pathogenIcon = (id: string): IconData => PATHOGENS[id] ?? Biohazard;
 export const traitIcon = (id: string): IconData => TRAITS[id] ?? Dna;
 export const techIcon = (id: string): IconData => TECHS[id] ?? FlaskConical;
 export const newsIcon = (kind: NewsKind, subject: string): IconData =>

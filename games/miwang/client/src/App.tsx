@@ -20,6 +20,7 @@ import { OutcomePanel } from './panels/OutcomePanel.tsx';
 import { PathogenPanel } from './panels/PathogenPanel.tsx';
 import { RegionPanel } from './panels/RegionPanel.tsx';
 import { ResearchPanel } from './panels/ResearchPanel.tsx';
+import { SetupDialog } from './panels/SetupDialog.tsx';
 import { StatusPanel } from './panels/StatusPanel.tsx';
 import { Workbench } from './panels/Workbench.tsx';
 import { createGameSession, type GameSession } from './session.ts';
@@ -77,6 +78,8 @@ export const App = _component(() => {
   let map = _state.raw<MapController | null>(null);
   /** 工作台（进化或研究，看这一方是谁）开着没有 */
   let working = _state(false);
+  /** 开局设置开着没有 */
+  let settingUp = _state(false);
   onMounted(() => {
     if (!canvas) return;
     game = createGameSession(canvas);
@@ -142,7 +145,7 @@ export const App = _component(() => {
           )}
 
           <div {...css.attrs(styles.bottom)}>
-            {game && <ControlBar game={game} map={map} />}
+            {game && <ControlBar game={game} map={map} onNewGame={() => (settingUp = true)} />}
             {game && (
               <Note tone={game.renderError.value != null ? 'danger' : 'muted'} sx={styles.note}>
                 {note(game)}
@@ -168,10 +171,22 @@ export const App = _component(() => {
             onClose={() => (working = false)}
           />
         )}
-        {view?.outcome && (
+        {game && settingUp && (
+          <SetupDialog
+            game={game}
+            onStart={(setup) => {
+              settingUp = false;
+              working = false;
+              map?.select(-1);
+              game?.restart(setup);
+            }}
+            onClose={() => (settingUp = false)}
+          />
+        )}
+        {view?.outcome && !settingUp && (
           <OutcomePanel
             view={view}
-            onRestart={game?.role === 'host' ? () => game?.restart() : undefined}
+            onRestart={game?.role === 'host' ? () => (settingUp = true) : undefined}
           />
         )}
       </div>

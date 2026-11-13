@@ -6,7 +6,7 @@
  *
  * 主人的对局记录暂存在 sessionStorage：开发时改了模拟的代码、页面刷新后，照着记录重放到刚才那一步接着走。
  */
-import { createConfig, regions } from '@miwang/content';
+import { createConfig, DEFAULT_PATHOGEN, PATHOGENS, regions } from '@miwang/content';
 import meshUrl from '@miwang/content/generated/world-mesh.bin?url';
 import { ATTACKER, DEFENDER, type AiLevel, type Command, type OutbreakView } from '@miwang/sim';
 import type { PlayerId } from '@rune-engine/core';
@@ -65,9 +65,17 @@ export interface GameSession {
   setAiLevel(level: AiLevel): void;
   /** 开一个房间，返回另一位玩家打开就能加入的地址 */
   openRoom(): string;
-  /** 丢掉当前这局，换个种子重新开始（只有主人可以） */
-  restart(): void;
+  /** 丢掉当前这局，换个种子重新开始（只有主人可以）；可以顺便换病原体、换扮演的一方、换电脑的难度 */
+  restart(setup?: GameSetup): void;
   dispose(): void;
+}
+
+/** 开一局时可以选的东西；没写的沿用现在的 */
+export interface GameSetup {
+  /** 病原体档案的 id */
+  readonly pathogen?: string;
+  readonly player?: PlayerId;
+  readonly level?: AiLevel;
 }
 
 export interface RenderLink {
@@ -82,7 +90,13 @@ const store = sessionStore<GameRecording>('miwang:recording');
  * 判断办法是拿记录里的种子和日期按现在的数据再生成一份配置，看是不是一模一样。
  */
 const matchesWorld = ({ config }: GameRecording) =>
-  JSON.stringify(createConfig(config.seed, config.startDate)) === JSON.stringify(config);
+  JSON.stringify(
+    createConfig(config.seed, config.startDate, {
+      pathogen: profileOf(config.pathogen.id),
+      origin: config.origin,
+    }),
+  ) === JSON.stringify(config);
+const profileOf = (id: string) => PATHOGENS.find((pathogen) => pathogen.id === id);
 const other = (player: PlayerId) => (player === ATTACKER ? DEFENDER : ATTACKER);
 const shortId = () => Math.random().toString(36).slice(2, 8);
 
@@ -238,12 +252,12 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
     }
   }
 
-  function start(recording: GameRecording | null) {
+  function start(recording: GameRecording | null, pathogen = DEFAULT_PATHOGEN) {
     const today = new Date().toISOString().slice(0, 10);
     const seed = Math.floor(Math.random() * 0x7fffffff);
     toHost({
       type: 'start',
-      start: recording ? { recording } : { config: createConfig(seed, today) },
+      start: recording ? { recording } : { config: createConfig(seed, today, { pathogen }) },
       stepMs: STEP_MS,
     });
     connect();
@@ -272,10 +286,13 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
       url.search = `?join=${room.value}&as=${other(player.value)}`;
       return url.href;
     },
-    restart() {
+    restart(setup = {}) {
       store.clear();
       view.value = null;
-      start(null);
+      // 换边、换难度要在开局之前定下来：开局时就按它们把电脑接到另一方
+      if (setup.level !== undefined) aiLevel.value = setup.level;
+      if (setup.player !== undefined && opponent.value === 'ai') player.value = setup.player;
+      start(null, (setup.pathogen && profileOf(setup.pathogen)) || DEFAULT_PATHOGEN);
     },
   };
 }
