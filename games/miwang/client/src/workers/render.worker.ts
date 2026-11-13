@@ -53,6 +53,21 @@ let selected = -1;
 
 const report = (message: RenderReport) => self.postMessage(message);
 
+/** 最近这些帧各花了多久（毫秒）、各是什么时候画的：开发时量性能用 */
+const FRAMES_KEPT = 240;
+const frameCosts: number[] = [];
+const frameTimes: number[] = [];
+
+function frameStats(): Extract<RenderReport, { type: 'stats' }> {
+  const span = (frameTimes.at(-1) ?? 0) - (frameTimes[0] ?? 0);
+  return {
+    type: 'stats',
+    fps: span > 0 ? ((frameTimes.length - 1) * 1000) / span : 0,
+    frameMs: frameCosts.reduce((sum, cost) => sum + cost, 0) / Math.max(1, frameCosts.length),
+    worstMs: Math.max(0, ...frameCosts),
+  };
+}
+
 const centerOf = (region: number) => regions[region]!.center as [number, number];
 
 /** 重新定一遍要画的弧线：最近的几跳，加上选中地区的航线和海运 */
@@ -113,10 +128,14 @@ function show(view: OutbreakView) {
   updateArcs();
 }
 
+async function loadMesh(url: string) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`地图网格加载失败：${response.status} ${url}`);
+  return decodeRegionMesh(await response.arrayBuffer());
+}
+
 async function init(data: Extract<RenderControl, { type: 'init' }>) {
-  const response = await fetch(data.meshUrl);
-  if (!response.ok) throw new Error(`地图网格加载失败：${response.status} ${data.meshUrl}`);
-  const mesh = decodeRegionMesh(await response.arrayBuffer());
+  const mesh = await loadMesh(data.meshUrl);
   bounds = mesh.bounds;
   regionAt = createRegionPicker(mesh);
   // 主线程可能已经发过相机：没发过才用“整张地图居中”
@@ -134,11 +153,20 @@ async function init(data: Extract<RenderControl, { type: 'init' }>) {
   updateArcs();
   if (pendingView) show(pendingView);
   const frame = (now: number) => {
+    const started = performance.now();
     renderer?.render(now);
+    frameCosts.push(performance.now() - started);
+    frameTimes.push(now);
+    if (frameCosts.length > FRAMES_KEPT) {
+      frameCosts.shift();
+      frameTimes.shift();
+    }
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
   report({ type: 'ready' });
+  // 画面已经出来了，再去拿细的那份；拿不到也不要紧，放大以后还是粗的
+  renderer.setDetail(await loadMesh(data.detailUrl));
 }
 
 self.onmessage = ({ data }: MessageEvent<RenderControl>) => {
@@ -175,6 +203,9 @@ self.onmessage = ({ data }: MessageEvent<RenderControl>) => {
       break;
     case 'lose-device':
       renderer?.loseDevice();
+      break;
+    case 'stats':
+      report(frameStats());
       break;
     case 'connect':
     case 'connect-channel':

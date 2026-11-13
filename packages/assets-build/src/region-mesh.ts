@@ -62,6 +62,75 @@ function unwrap(ring: readonly Position[]): readonly Position[] {
   return crosses ? ring.map(([lon, lat]) => [lon! < 0 ? lon! + 360 : lon!, lat!]) : ring;
 }
 
+/** 一个环投影前后的点：算面积、中心要用 */
+interface Ring {
+  readonly lonLat: readonly Position[];
+  readonly points: readonly (readonly [number, number])[];
+}
+
+/** 把一个个多边形投影、切成三角形攒成网格；两种网格（带地区信息的、只有形状的）共用 */
+function createTessellator(project: Projection) {
+  const vertices: number[] = [];
+  const indices: number[] = [];
+  const lines: number[] = [];
+  const bounds: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
+  return {
+    /** 加进一个多边形（第一个环是外圈，其余是洞），归到 region 这个地区；返回它的各个环 */
+    add(polygon: readonly Position[][], region: number): Ring[] {
+      const flat: number[] = [];
+      const holes: number[] = [];
+      const rings: Ring[] = [];
+      const base = vertices.length / 3;
+      polygon.forEach((ring, ringIndex) => {
+        // GeoJSON 的环首尾是同一个点：去掉重复的那个
+        const lonLat = unwrap(ring.slice(0, -1));
+        const points = lonLat.map(([lon, lat]) => project(lon!, lat!));
+        // 外圈退化了（不到三个点）就整个不要；洞退化了只是少一个洞
+        if (points.length < 3) {
+          if (ringIndex === 0) rings.length = 0;
+          return;
+        }
+        if (ringIndex > 0 && rings.length === 0) return;
+        if (ringIndex > 0) holes.push(flat.length / 2);
+        const start = base + flat.length / 2;
+        points.forEach(([x, y], index) => {
+          flat.push(x, y);
+          lines.push(start + index, start + ((index + 1) % points.length));
+          bounds[0] = Math.min(bounds[0], x);
+          bounds[1] = Math.min(bounds[1], y);
+          bounds[2] = Math.max(bounds[2], x);
+          bounds[3] = Math.max(bounds[3], y);
+        });
+        rings.push({ lonLat, points });
+      });
+      for (let i = 0; i < flat.length; i += 2) vertices.push(flat[i]!, flat[i + 1]!, region);
+      for (const index of earcut(flat, holes, 2)) indices.push(base + index);
+      return rings;
+    },
+    finish: (): RegionMeshData => ({
+      vertices: Float32Array.from(vertices),
+      indices: Uint32Array.from(indices),
+      lines: Uint32Array.from(lines),
+      bounds,
+    }),
+  };
+}
+
+/** 一个要素里的各个多边形 */
+function polygonsOf(geometry: Polygon | MultiPolygon | null): Position[][][] {
+  if (geometry?.type === 'Polygon') return [geometry.coordinates];
+  if (geometry?.type === 'MultiPolygon') return geometry.coordinates;
+  return [];
+}
+
+function collectionOf(topology: Topology, objectName: string) {
+  const collection = topology.objects[objectName] as GeometryCollection<{ name?: string }>;
+  if (collection?.type !== 'GeometryCollection') {
+    throw new Error(`TopoJSON 里没有名为 ${objectName} 的图层`);
+  }
+  return collection;
+}
+
 export interface RegionMeshOptions {
   /** 画图用的投影，默认 Equal Earth */
   project?: Projection;
@@ -74,10 +143,7 @@ export function buildRegionMesh(
   objectName: string,
   { project = equalEarth, skip = () => false }: RegionMeshOptions = {},
 ): RegionMesh {
-  const collection = topology.objects[objectName] as GeometryCollection<{ name?: string }>;
-  if (collection?.type !== 'GeometryCollection') {
-    throw new Error(`TopoJSON 里没有名为 ${objectName} 的图层`);
-  }
+  const collection = collectionOf(topology, objectName);
   const all = feature(topology, collection).features;
   const adjacency = neighbors(collection.geometries);
   // 数据源没给编号的地区记成 “#下标”：直接拿下标当编号会和真编号撞上
@@ -96,61 +162,32 @@ export function buildRegionMesh(
     for (const arc of new Set(arcsOf(index))) arcUses.set(arc, (arcUses.get(arc) ?? 0) + 1);
   }
 
-  const vertices: number[] = [];
-  const indices: number[] = [];
-  const lines: number[] = [];
+  const mesh = createTessellator(project);
   const regions: RegionInfo[] = [];
-  const bounds: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
 
   all.forEach((item, source) => {
     const region = remap[source]!;
     if (region < 0) return;
-    const geometry = item.geometry as Polygon | MultiPolygon | null;
-    const polygons: Position[][][] =
-      geometry?.type === 'Polygon'
-        ? [geometry.coordinates]
-        : geometry?.type === 'MultiPolygon'
-          ? geometry.coordinates
-          : [];
     let area = 0;
     let largest = 0;
     let center: readonly [number, number] = [0, 0];
     let lonLatCenter: readonly [number, number] = [0, 0];
 
-    for (const polygon of polygons) {
-      const flat: number[] = [];
-      const holes: number[] = [];
-      const base = vertices.length / 3;
-      polygon.forEach((ring, ringIndex) => {
-        // GeoJSON 的环首尾是同一个点：去掉重复的那个
-        const lonLat = unwrap(ring.slice(0, -1));
-        const points = lonLat.map(([lon, lat]) => project(lon!, lat!));
-        if (points.length < 3) return;
-        if (ringIndex > 0) holes.push(flat.length / 2);
-        const start = base + flat.length / 2;
-        points.forEach(([x, y], index) => {
-          flat.push(x, y);
-          lines.push(start + index, start + ((index + 1) % points.length));
-          bounds[0] = Math.min(bounds[0], x);
-          bounds[1] = Math.min(bounds[1], y);
-          bounds[2] = Math.max(bounds[2], x);
-          bounds[3] = Math.max(bounds[3], y);
-        });
+    for (const polygon of polygonsOf(item.geometry as Polygon | MultiPolygon | null)) {
+      mesh.add(polygon, region).forEach(({ lonLat, points }, ringIndex) => {
         // 面积按等面积投影量（画图的投影可能把高纬度放大）；中心取画出来的那个形状的
         const size = ringShape(lonLat.map(([lon, lat]) => equalEarth(lon!, lat!))).area;
-        if (ringIndex === 0) {
-          area += size;
-          if (size > largest) {
-            largest = size;
-            center = ringShape(points).center;
-            lonLatCenter = ringShape(lonLat.map(([lon, lat]) => [lon!, lat!])).center;
-          }
-        } else {
+        if (ringIndex > 0) {
           area -= size;
+          return;
+        }
+        area += size;
+        if (size > largest) {
+          largest = size;
+          center = ringShape(points).center;
+          lonLatCenter = ringShape(lonLat.map(([lon, lat]) => [lon!, lat!])).center;
         }
       });
-      for (let i = 0; i < flat.length; i += 2) vertices.push(flat[i]!, flat[i + 1]!, region);
-      for (const index of earcut(flat, holes, 2)) indices.push(base + index);
     }
 
     regions.push({
@@ -167,11 +204,38 @@ export function buildRegionMesh(
     });
   });
 
-  return {
-    regions,
-    vertices: Float32Array.from(vertices),
-    indices: Uint32Array.from(indices),
-    lines: Uint32Array.from(lines),
-    bounds,
-  };
+  return { regions, ...mesh.finish() };
+}
+
+export interface DetailMeshOptions {
+  project?: Projection;
+  /**
+   * 数据里的一个要素归到哪个地区（下标）；不要的返回 -1。
+   * 更细的数据里要素更多（小岛、海外领地各算一个）：只留已有的地区，下标和原来的网格对上
+   */
+  regionOf: (id: string | undefined, name: string | undefined) => number;
+}
+
+/**
+ * 同一批地区的另一份网格，只有形状（顶点、三角形、边界线），用更细的边界数据画放大以后的样子。
+ * 地区的下标由 regionOf 对到原来的网格上，这样两份网格可以共用同一张数据纹理。
+ */
+export function buildDetailMesh(
+  topology: Topology,
+  objectName: string,
+  { project = equalEarth, regionOf }: DetailMeshOptions,
+): RegionMeshData {
+  const collection = collectionOf(topology, objectName);
+  const mesh = createTessellator(project);
+  for (const item of feature(topology, collection).features) {
+    const region = regionOf(
+      item.id === undefined ? undefined : String(item.id),
+      item.properties?.name,
+    );
+    if (region < 0) continue;
+    for (const polygon of polygonsOf(item.geometry as Polygon | MultiPolygon | null)) {
+      mesh.add(polygon, region);
+    }
+  }
+  return mesh.finish();
 }

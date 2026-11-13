@@ -60,14 +60,17 @@ export const Setup = _component(
     onStart: (setup: GameSetup) => void;
     onClose: () => void;
   }) => {
-    // 默认选现在这一局的：再来一局同样的不用重新挑
-    let pathogen = _state(game.view.value?.pathogen.id ?? PATHOGENS[0]!.id);
-    let player = _state(game.player.value);
-    let level = _state<AiLevel>(game.aiLevel.value);
+    // 还没动过的那几项是 null：按现在这一局的来（再来一局同样的不用重新挑）
+    let pickedPathogen = _state<string | null>(null);
+    let pickedPlayer = _state<number | null>(null);
+    let pickedLevel = _state<AiLevel | null>(null);
 
     return () => {
       const ui = useUi();
       const content = useContent();
+      const pathogen = pickedPathogen ?? game.view.value?.pathogen.id ?? PATHOGENS[0]!.id;
+      const player = pickedPlayer ?? game.player.value;
+      const level = pickedLevel ?? game.aiLevel.value;
       // 对面是另一位玩家时，哪一方、什么难度都不是这里能定的
       const solo = game.opponent.value === 'ai';
       return (
@@ -85,7 +88,7 @@ export const Setup = _component(
                       tip={content.pathogens[id]?.summary}
                       state={id === pathogen ? 'owned' : 'available'}
                       aria-pressed={id === pathogen}
-                      onPress={() => (pathogen = id)}
+                      onPress={() => (pickedPathogen = id)}
                     />
                   ))}
                 </div>
@@ -122,7 +125,7 @@ export const Setup = _component(
                       ),
                     },
                   ]}
-                  onChange={(value) => (player = Number(value))}
+                  onChange={(value) => (pickedPlayer = Number(value))}
                 />
               </Stack>
             )}
@@ -133,7 +136,7 @@ export const Setup = _component(
                   label={ui.setup.level}
                   value={level}
                   options={ui.opponent.levels.map((label, value) => ({ value, label }))}
-                  onChange={(value) => (level = Number(value) as AiLevel)}
+                  onChange={(value) => (pickedLevel = Number(value) as AiLevel)}
                 />
               </Stack>
             )}

@@ -1,6 +1,7 @@
 /**
  * 生成世界地图的素材（pnpm --filter @miwang/content build:map）：
- *   generated/world-mesh.bin   地区网格，渲染器直接加载
+ *   generated/world-mesh.bin          地区网格，渲染器直接加载
+ *   generated/world-mesh-detail.bin   同一批地区更细的网格（1:5000 万的边界），放大以后换上它
  *   generated/world.json       各地区的名字、人口、气候、路线……模拟的配置从它来
  *
  * 数据来源：
@@ -15,12 +16,13 @@
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { buildRegionMesh, miller } from '@rune-engine/assets-build';
+import { buildDetailMesh, buildRegionMesh, miller } from '@rune-engine/assets-build';
 import { encodeRegionMesh } from '@rune-engine/render/mesh-format';
 import countries from 'i18n-iso-countries';
 import zh from 'i18n-iso-countries/langs/zh.json' with { type: 'json' };
 import type { Topology } from 'topojson-specification';
 import atlas from 'world-atlas/countries-110m.json' with { type: 'json' };
+import detailAtlas from 'world-atlas/countries-50m.json' with { type: 'json' };
 import naturalEarth from '../data/natural-earth.json' with { type: 'json' };
 import { airLinks, seaLinks, type Place } from './routes.ts';
 
@@ -85,6 +87,17 @@ const air = airLinks(places);
 const sea = seaLinks(places);
 
 writeFileSync(join(out, 'world-mesh.bin'), encodeRegionMesh(mesh));
+
+// 更细的那份：数据里要素更多（小岛、海外领地各算一个），只留对得上现有地区的，下标用现有的。
+// 有 ISO 代码的按代码对，没有代码的那几个（科索沃、北塞浦路斯、索马里兰）按英文名对
+const indexById = new Map(mesh.regions.map((region, index) => [region.id, index]));
+const indexByName = new Map(mesh.regions.map((region, index) => [region.name, index]));
+const detail = buildDetailMesh(detailAtlas as unknown as Topology, 'countries', {
+  project: miller,
+  regionOf: (id, name) =>
+    (id === undefined ? indexByName.get(name ?? '') : indexById.get(id)) ?? -1,
+});
+writeFileSync(join(out, 'world-mesh-detail.bin'), encodeRegionMesh(detail));
 writeFileSync(
   join(out, 'world.json'),
   JSON.stringify({
@@ -118,5 +131,6 @@ writeFileSync(
   }),
 );
 console.log(
-  `世界地图：${mesh.regions.length} 个地区，${mesh.vertices.length / 3} 个顶点，${mesh.indices.length / 3} 个三角形`,
+  `世界地图：${mesh.regions.length} 个地区，${mesh.vertices.length / 3} 个顶点，${mesh.indices.length / 3} 个三角形；` +
+    `细节网格 ${detail.vertices.length / 3} 个顶点，${detail.indices.length / 3} 个三角形`,
 );

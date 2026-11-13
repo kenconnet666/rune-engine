@@ -7,6 +7,7 @@
  * 主人的对局记录暂存在 sessionStorage：开发时改了模拟的代码、页面刷新后，照着记录重放到刚才那一步接着走。
  */
 import { createConfig, DEFAULT_PATHOGEN, PATHOGENS, regions } from '@miwang/content';
+import detailUrl from '@miwang/content/generated/world-mesh-detail.bin?url';
 import meshUrl from '@miwang/content/generated/world-mesh.bin?url';
 import { ATTACKER, DEFENDER, type AiLevel, type Command, type OutbreakView } from '@miwang/sim';
 import type { PlayerId } from '@rune-engine/core';
@@ -125,15 +126,21 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
     else if (data.type === 'lost') renderError.value = data.message;
     else if (data.type === 'ready') renderError.value = null;
     else if (data.type === 'region') renderLink.onRegion?.(data.region, data.picked);
+    else if (data.type === 'stats') console.info('渲染线程', data);
   };
-  // 开发时在控制台里试“显卡设备丢了能不能自己恢复”：__miwang.loseDevice()
+  // 开发时在控制台里用：__miwang.loseDevice() 试显卡设备丢了能不能自己恢复，__miwang.stats() 看渲染线程画得多快
   if (import.meta.env.DEV) {
     Object.assign(globalThis, {
-      __miwang: { loseDevice: () => toRender({ type: 'lose-device' }) },
+      __miwang: {
+        loseDevice: () => toRender({ type: 'lose-device' }),
+        stats: () => toRender({ type: 'stats' }),
+      },
     });
   }
   const offscreen = canvas.transferControlToOffscreen();
-  toRender({ type: 'init', canvas: offscreen, meshUrl, regionCount: regions.length }, [offscreen]);
+  toRender({ type: 'init', canvas: offscreen, meshUrl, detailUrl, regionCount: regions.length }, [
+    offscreen,
+  ]);
   const stopObserving = observeCanvasSize(canvas, (width, height) =>
     toRender({ type: 'resize', width, height }),
   );

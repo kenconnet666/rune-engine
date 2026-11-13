@@ -1,7 +1,7 @@
 import type { Topology } from 'topojson-specification';
 import { describe, expect, it } from 'vitest';
 import { equalEarth, miller } from './projection.ts';
-import { buildRegionMesh } from './region-mesh.ts';
+import { buildDetailMesh, buildRegionMesh } from './region-mesh.ts';
 
 /**
  * 三个并排的方块（经纬度各 1 度）：A | B | C，A 和 B、B 和 C 各共用一条边。
@@ -79,6 +79,22 @@ describe('地区网格', () => {
     // 画出来的形状跟着投影走：米勒投影下经度 3° 就是 x = 3π/180
     expect(flat.bounds[2]).toBeCloseTo((3 * Math.PI) / 180, 10);
     expect(flat.bounds).not.toEqual(curved.bounds);
+  });
+});
+
+describe('细节网格', () => {
+  it('只留对得上的地区，下标用给定的那套', () => {
+    // 把 C 归到 0 号、A 归到 1 号，没有编号的 B 不要
+    const mesh = buildDetailMesh(squares, 'areas', {
+      regionOf: (id) => (id === '8' ? 0 : id === '4' ? 1 : -1),
+    });
+    const owners = Array.from(
+      { length: mesh.vertices.length / 3 },
+      (_, i) => mesh.vertices[i * 3 + 2],
+    );
+    // 数据里 A 在前、C 在后；每个方块 4 个顶点、2 个三角形
+    expect(owners).toEqual([1, 1, 1, 1, 0, 0, 0, 0]);
+    expect(mesh.indices).toHaveLength(12);
   });
 });
 

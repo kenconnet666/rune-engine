@@ -51,6 +51,8 @@ export interface MapRenderer {
   setFlags(flags: Uint8Array): void;
   /** 指针停在哪个地区上、选中了哪个地区（下标，没有时给 -1）：停留的提亮，选中的描边 */
   setHighlight(hovered: number, selected: number): void;
+  /** 同一批地区更细的一份网格（地区的下标要和原来的对得上）：放大到一定程度之后用它画 */
+  setDetail(mesh: RegionMeshData): void;
   /** 要画的弧线，整批换掉 */
   setArcs(arcs: readonly MapArc[]): void;
   setCamera(camera: MapCamera): void;
@@ -68,15 +70,43 @@ const RETRY_MS = 1500;
 /** 弧线的缓冲一开始放得下多少条，不够了翻倍 */
 const ARC_CAPACITY = 64;
 const ROUTE_KIND = { land: 0, air: 1, sea: 2 } as const;
+/** 放大到这个倍数就换成细节网格 */
+const DETAIL_ZOOM = 2.2;
+
+/** 一份网格在显卡上的样子 */
+interface MeshBuffers {
+  readonly vertices: GPUBuffer;
+  readonly triangles: GPUBuffer;
+  readonly triangleCount: number;
+  readonly lines: GPUBuffer;
+  readonly lineCount: number;
+}
+
+function uploadMesh(device: GPUDevice, mesh: RegionMeshData): MeshBuffers {
+  const upload = (data: Float32Array | Uint32Array, usage: GPUBufferUsageFlags) => {
+    const buffer = device.createBuffer({ size: data.byteLength, usage, mappedAtCreation: true });
+    new Uint8Array(buffer.getMappedRange()).set(
+      new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+    );
+    buffer.unmap();
+    return buffer;
+  };
+  return {
+    vertices: upload(mesh.vertices, GPUBufferUsage.VERTEX),
+    triangles: upload(mesh.indices, GPUBufferUsage.INDEX),
+    triangleCount: mesh.indices.length,
+    lines: upload(mesh.lines, GPUBufferUsage.INDEX),
+    lineCount: mesh.lines.length,
+  };
+}
 
 /** 跟着设备走的那部分：设备丢了全部作废，要整套重建 */
 interface Gpu {
   readonly device: GPUDevice;
   readonly context: GPUCanvasContext;
   readonly format: GPUTextureFormat;
-  readonly vertexBuffer: GPUBuffer;
-  readonly indexBuffer: GPUBuffer;
-  readonly lineBuffer: GPUBuffer;
+  /** 开局就有的那份（粗的）网格 */
+  readonly coarse: MeshBuffers;
   readonly viewBuffer: GPUBuffer;
   readonly regionTexture: GPUTexture;
   /** 地区那一层用的（View 加数据纹理）、底图和弧线用的（只有 View） */
@@ -102,14 +132,6 @@ async function createGpu({ canvas, mesh, regionCount }: MapRendererOptions): Pro
   const format = navigator.gpu.getPreferredCanvasFormat();
   context.configure({ device, format, alphaMode: 'opaque' });
 
-  const upload = (data: Float32Array | Uint32Array, usage: GPUBufferUsageFlags) => {
-    const buffer = device.createBuffer({ size: data.byteLength, usage, mappedAtCreation: true });
-    new Uint8Array(buffer.getMappedRange()).set(
-      new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
-    );
-    buffer.unmap();
-    return buffer;
-  };
   const viewBuffer = device.createBuffer({
     size: VIEW_FLOATS * 4,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -183,9 +205,7 @@ async function createGpu({ canvas, mesh, regionCount }: MapRendererOptions): Pro
     device,
     context,
     format,
-    vertexBuffer: upload(mesh.vertices, GPUBufferUsage.VERTEX),
-    indexBuffer: upload(mesh.indices, GPUBufferUsage.INDEX),
-    lineBuffer: upload(mesh.lines, GPUBufferUsage.INDEX),
+    coarse: uploadMesh(device, mesh),
     viewBuffer,
     regionTexture,
     regionBindings: device.createBindGroup({
@@ -224,6 +244,9 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
   let gpu: Gpu | undefined;
   let multisampled: GPUTexture | undefined;
   let arcBuffer: GPUBuffer | undefined;
+  /** 细节网格：CPU 这头留一份（设备丢了重传），显卡上一份 */
+  let detailMesh: RegionMeshData | undefined;
+  let detail: MeshBuffers | undefined;
   let destroyed = false;
 
   const blendAt = (nowMs: number) => Math.min(1, (nowMs - blendStart) / BLEND_MS);
@@ -254,11 +277,13 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
     dirty = true;
     allocateTarget();
     allocateArcs();
+    detail = detailMesh && uploadMesh(next.device, detailMesh);
     void next.device.lost.then((info) => {
       if (destroyed || gpu !== next) return;
       gpu = undefined;
       multisampled = undefined;
       arcBuffer = undefined;
+      detail = undefined;
       onLost?.(info.message || info.reason);
       void restore();
     });
@@ -315,6 +340,10 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
       if (hovered >= 0 && hovered < regionCount) regionData[hovered * 4 + 3]! += 1;
       if (selected >= 0 && selected < regionCount) regionData[selected * 4 + 3]! += 2;
       dirty = true;
+    },
+    setDetail(next) {
+      detailMesh = next;
+      if (gpu) detail = uploadMesh(gpu.device, next);
     },
     setArcs(arcs) {
       if (arcs.length * ARC_FLOATS > arcData.length) {
@@ -390,14 +419,15 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
       pass.setPipeline(gpu.backdropPipeline);
       pass.draw(3);
       // 地区：先填色，再描边界
+      const shape = detail && camera.zoom >= DETAIL_ZOOM ? detail : gpu.coarse;
       pass.setBindGroup(0, gpu.regionBindings);
-      pass.setVertexBuffer(0, gpu.vertexBuffer);
+      pass.setVertexBuffer(0, shape.vertices);
       pass.setPipeline(gpu.fillPipeline);
-      pass.setIndexBuffer(gpu.indexBuffer, 'uint32');
-      pass.drawIndexed(mesh.indices.length);
+      pass.setIndexBuffer(shape.triangles, 'uint32');
+      pass.drawIndexed(shape.triangleCount);
       pass.setPipeline(gpu.outlinePipeline);
-      pass.setIndexBuffer(gpu.lineBuffer, 'uint32');
-      pass.drawIndexed(mesh.lines.length);
+      pass.setIndexBuffer(shape.lines, 'uint32');
+      pass.drawIndexed(shape.lineCount);
       // 弧线：每条是一个实例，一条带子
       if (arcBuffer && arcCount > 0) {
         pass.setBindGroup(0, gpu.viewBindings);
@@ -418,6 +448,7 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
       gpu = undefined;
       multisampled = undefined;
       arcBuffer = undefined;
+      detail = undefined;
     },
   };
 }

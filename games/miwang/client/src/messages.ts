@@ -40,6 +40,8 @@ export type RenderControl =
       readonly type: 'init';
       readonly canvas: OffscreenCanvas;
       readonly meshUrl: string;
+      /** 更细的那份网格：先用粗的把画面画出来，再在后台加载它 */
+      readonly detailUrl: string;
       readonly regionCount: number;
     }
   | { readonly type: 'resize'; readonly width: number; readonly height: number }
@@ -57,7 +59,9 @@ export type RenderControl =
   /** 选中的地区（下标），没有时是 -1 */
   | { readonly type: 'select'; readonly region: number }
   /** 开发时用：把显卡设备弄丢，看画面能不能自己恢复 */
-  | { readonly type: 'lose-device' };
+  | { readonly type: 'lose-device' }
+  /** 开发时用：问一下最近这段时间画得多快 */
+  | { readonly type: 'stats' };
 
 /** 渲染 Worker → 主线程 */
 export type RenderReport =
@@ -67,7 +71,14 @@ export type RenderReport =
   | { readonly type: 'lost'; readonly message: string }
   /** 指针停在哪个地区上（下标，海上是 -1）；picked 表示在那里点了一下 */
   | { readonly type: 'region'; readonly region: number; readonly picked: boolean }
-  | { readonly type: 'error'; readonly message: string };
+  | { readonly type: 'error'; readonly message: string }
+  /** 最近一段时间的帧率，和每帧在这个线程里花的时间（毫秒：平均、最长） */
+  | {
+      readonly type: 'stats';
+      readonly fps: number;
+      readonly frameMs: number;
+      readonly worstMs: number;
+    };
 
 /**
  * 房间里的招呼（广播通道 `miwang:<房间号>`）：客人报上自己的通道名和要扮演的一方，
