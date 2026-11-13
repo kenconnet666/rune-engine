@@ -12,6 +12,13 @@
         height: 100%;
         margin: 0;
       }
+      /*
+       * 界面的尺寸都用 rem：屏幕小的时候把根字号调小，整套界面就跟着缩。
+       * 1920×927 的桌面窗口是 16px，915×412 的手机横屏是 13px（按钮约 36px 高），中间按宽高连续变化。
+       */
+      html {
+        font-size: clamp(13px, 0.55vw + 0.9vh, 16px);
+      }
       body {
         overflow: hidden;
         background: #090d12;

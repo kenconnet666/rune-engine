@@ -29,6 +29,9 @@ import { TrendPanel } from './panels/TrendPanel.tsx';
 import { Workbench } from './panels/Workbench.tsx';
 import { createGameSession, type GameSession } from './session.ts';
 
+/** 小屏幕（手机横屏、很矮的窗口）：两边的面板只留最要紧的，把地图让出来 */
+const COMPACT = '@media (max-height: 560px), (max-width: 1000px)';
+
 const styles = css.create({
   root: { position: 'relative', width: '100%', height: '100%', overflow: 'hidden' },
   canvas: {
@@ -72,7 +75,9 @@ const styles = css.create({
     justifyContent: 'space-between',
     gap: space.md,
   },
-  note: { maxWidth: '26rem' },
+  // 趋势、新闻、底下那行小字是锦上添花的：小屏幕上收起来
+  extra: { display: { default: 'contents', [COMPACT]: 'none' } },
+  note: { maxWidth: '26rem', display: { default: 'block', [COMPACT]: 'none' } },
   calloutDetail: { fontFamily: fonts.numeric, color: colors.textMuted },
 });
 
@@ -126,8 +131,12 @@ export const App = _component(() => {
         <div {...css.attrs(styles.layer)}>
           <Scroll sx={[styles.column, styles.left]}>
             <StatusPanel view={view} />
-            {view && <TrendPanel view={view} />}
-            {view && <NewsPanel view={view} onLocate={(region) => map?.select(region, true)} />}
+            {view && (
+              <div {...css.attrs(styles.extra)}>
+                <TrendPanel view={view} />
+                <NewsPanel view={view} onLocate={(region) => map?.select(region, true)} />
+              </div>
+            )}
           </Scroll>
 
           {view && game && (
