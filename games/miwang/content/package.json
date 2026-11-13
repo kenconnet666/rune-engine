@@ -11,7 +11,7 @@
   },
   "scripts": {
     "build:map": "node scripts/build-map.ts",
-    "typecheck": "node scripts/build-map.ts && tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo && tsc -p scripts --incremental --tsBuildInfoFile node_modules/.cache/typecheck-scripts.tsbuildinfo"
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo && tsc -p scripts --incremental --tsBuildInfoFile node_modules/.cache/typecheck-scripts.tsbuildinfo"
   },
   "dependencies": {
     "@miwang/sim": "workspace:^"

@@ -2,7 +2,8 @@
  * 生成世界地图的素材（pnpm --filter @miwang/content build:map）：
  *   generated/world-mesh.bin   地区网格，渲染器直接加载
  *   generated/world.json       各地区的名字、面积、中心、相邻关系，模拟的配置从它来
- * 数据是 world-atlas 的 1:1.1 亿国家边界（Natural Earth，公有领域）。产物不进仓库，开发和类型检查之前自动生成。
+ * 数据是 world-atlas 的 1:1.1 亿国家边界（Natural Earth，公有领域）。产物不进仓库：开发服务器启动前（客户端的 predev）、
+ * 类型检查前（根目录的 typecheck 先跑它，再并行检查各包——客户端的检查要读这里的 world.json）自动生成。
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
