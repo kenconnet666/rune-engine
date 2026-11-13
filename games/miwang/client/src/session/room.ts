@@ -6,7 +6,7 @@
  *   客人这头：进房间、打招呼、等主人安排位置；之后它就是主机的一个普通客户端，只是隔着网络。
  * 脚下的连接（房间、直连、中转）在 transport 包里。对局怎么打不归这里管（见 host.ts、guest.ts）。
  *
- * 没配联机服务的时候（VITE_SIGNAL_URL 没设），房间退化成同一个浏览器里的标签页互连，其余完全一样。
+ * 没有服务端的时候（见 service.ts），房间退化成同一个浏览器里的标签页互连，其余完全一样。
  */
 import type { PlayerId } from '@rune-engine/core';
 import {
@@ -29,12 +29,11 @@ import {
   type RoomCloseReason,
 } from '@rune-engine/transport';
 import type { GuestDown, GuestUp } from '../messages.ts';
+import { API_URL, secureRandom } from '../service.ts';
 import type { FromHost, ToHost } from './core.ts';
 
-/** 房间服务的地址，构建时定（见 vite.config.ts）；没配就没有联机服务 */
-const SIGNAL_URL: string | undefined = import.meta.env.VITE_SIGNAL_URL || undefined;
 /** 有没有联机服务：没有的话房间只在同一个浏览器的标签页之间通 */
-export const ONLINE = SIGNAL_URL !== undefined;
+export const ONLINE = API_URL !== undefined;
 /**
  * 试不试直连。地址里带 ?relay 就不试，消息一直经房间中转——排查“直连是不是有问题”时用，
  * 测试也靠它单独测中转这条路（两头只要有一头带了就走中转）。
@@ -45,10 +44,7 @@ const DIRECT = ONLINE && !new URLSearchParams(location.search).has('relay');
 const VIEW_INTERVAL_MS = 120;
 
 const enterRoom = (code: string, seat: RoomSeat) =>
-  SIGNAL_URL ? connectRoom({ url: SIGNAL_URL, code, seat }) : localRoom(code, seat);
-
-/** 房间号、钥匙、客人的标识都用猜不到的随机数 */
-const random = () => (crypto.getRandomValues(new Uint32Array(1))[0] ?? 0) / 2 ** 32;
+  API_URL ? connectRoom({ url: `${API_URL}/rooms`, code, seat }) : localRoom(code, seat);
 
 /** 界面上要看的房间状态 */
 export interface RoomInfo {
@@ -77,13 +73,16 @@ export interface HostedRoom {
 }
 
 export const hostedRoom = jsonStore<HostedRoom>('miwang:room', 'tab');
-export const newRoom = (): HostedRoom => ({ code: roomCode(random), key: roomToken(random) });
+export const newRoom = (): HostedRoom => ({
+  code: roomCode(secureRandom),
+  key: roomToken(secureRandom),
+});
 
 function guestId(): string {
   const store = jsonStore<string>('miwang:guest', 'tab');
   const kept = store.load();
   if (typeof kept === 'string' && ROOM_TOKEN.test(kept)) return kept;
-  const id = roomToken(random);
+  const id = roomToken(secureRandom);
   store.save(id);
   return id;
 }

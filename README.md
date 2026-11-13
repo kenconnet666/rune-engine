@@ -18,9 +18,10 @@
 packages/            引擎，不知道任何具体游戏
   core               模拟内核：确定性的随机数与数学、时钟、命令与回放、状态哈希、Decimal 与日历日期
   net                主机与会话：主机持有唯一的真实状态，各方发命令、收自己能看到的部分；
-                     走网络时消息的编码，联机房间的约定
-  transport          浏览器里的联机连接：进房间，和对面直连（WebRTC），直连不通时经房间中转
-  edge               跑在 Cloudflare Workers 上的服务端：联机的房间（一个房间一个 Durable Object）
+                     走网络时消息的编码，联机房间和存档柜（云存档）的约定
+  transport          浏览器这头和服务端打交道的部分：联机的连接（进房间、WebRTC 直连、直连不通时经房间中转）、
+                     云存档的客户端
+  edge               跑在 Cloudflare Workers 上的服务端：联机的房间、云存档的存档柜（各是一个 Durable Object 类）
   render             WebGPU 2D 渲染（不碰 DOM）：地区地图、视野的坐标换算、点选
   input              手势：拖动、缩放、轻点、停留（鼠标、触屏、键盘同一套回调）
   runtime            把线程接起来：消息通道、画布尺寸、主机的计时循环、对局记录的暂存
@@ -31,7 +32,7 @@ games/miwang/        《迷惘》
   sim                规则，只依赖 core：浏览器、Worker、Node 里算出逐位相同的结果；电脑对手也在这里
   content            数据：世界地图的地区，性状、科技、事件各张表，界面文案；批量对局的调数值脚本
   client             浏览器客户端：主线程是界面，主机和渲染各在一个 Worker 里
-  server             部署到 Cloudflare 的那一个 Worker：现在只有联机的房间
+  server             部署到 Cloudflare 的那一个 Worker：联机的房间、云存档，部署时带上游戏的静态文件
 ```
 
 包之间只能从下往上依赖，`pnpm check:boundaries` 会检查；它还检查模拟相关的包里没有用
@@ -44,11 +45,14 @@ games/miwang/        《迷惘》
 ```bash
 pnpm install
 pnpm dev          # 《迷惘》的开发服务器：http://localhost:5180
-pnpm online       # 同上，再加本地的联机服务（wrangler 在本机模拟 Cloudflare，听 8787）
+pnpm online       # 同上，再加本地的服务端（联机、云存档；wrangler 在本机模拟 Cloudflare，听 8787）
 pnpm check        # 格式、lint、边界、类型、测试
 pnpm smoke        # 无界面的 Chrome 里把游戏从头点一遍（先把游戏起起来）
 pnpm smoke:online # 两个页面一主一客，把联机走一遍
+pnpm smoke:cloud  # 两台“设备”把云存档走一遍（要带服务端）
 ```
+
+部署到 Cloudflare 的步骤在 [docs/deploy.md](docs/deploy.md)。
 
 改代码时页面怎么反应：
 
@@ -72,7 +76,14 @@ pnpm smoke:online # 两个页面一主一客，把联机走一遍
 谁掉线了都能接回来：客人刷新页面会自己连回原来的位置；主人刷新页面会照着自动存档接上那一局，
 房间还是原来那个，客人自动重连。对方掉线时时间会停下，主人可以等，也可以让电脑先接手。
 
-联机要有房间服务（`games/miwang/server`，一个 Cloudflare Worker）。没有它的时候——`pnpm dev`、
-没配联机服务的构建——“房间”退化成同一个浏览器里的标签页互连，其余完全一样，开发和演示够用。
-客户端用哪一种在构建时定：`vite --mode online` 用和页面同一个来源的 `/api/rooms`，
-也可以用环境变量 `VITE_SIGNAL_URL` 指到别处。地址里加 `?relay` 可以不试直连、只走中转（排查问题用）。
+联机要有服务端（`games/miwang/server`，一个 Cloudflare Worker）。没有它的时候——`pnpm dev`、
+默认的构建——“房间”退化成同一个浏览器里的标签页互连，其余完全一样，开发和演示够用。
+客户端用哪一种在构建时定：`vite --mode online` 用和页面同一个来源的 `/api`，
+也可以用环境变量 `VITE_API_URL` 指到别处。地址里加 `?relay` 可以不试直连、只走中转（排查问题用）。
+
+## 存档
+
+正在打的这一局随时自动存在本机，关掉页面再打开可以接着打；另有八个存档位，记录能导出成文件、再导入、从头回放。
+
+有服务端的时候还有云存档（主菜单 → 存档与回放 → 云端）。不用注册账号：设备生成一个同步码，
+存档按这个码放在服务端；在另一台设备上填同一个码，看到的就是同一批存档。同步码就是钥匙，别发到公开的地方。

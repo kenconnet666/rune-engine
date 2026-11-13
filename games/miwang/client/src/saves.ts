@@ -3,6 +3,7 @@
  *   自动存档  正在打的这一局，随时存着，关掉页面再打开可以接着打
  *   存档位    玩家自己存的几份，可以读档接着打，也可以从头回放
  *   导出导入  把记录存成一个 JSON 文件，拿到别处（或者发给别人）再导入
+ *   云存档    同样的记录放到服务端，见 cloud.ts
  *
  * 记录只有在世界数据没变时才重放得出原来那一局：地图、人口、航线、病原体档案、规则的数值换过之后，
  * 照旧的配置算出来的已经对不上现在的界面了。所以读档、导入之前都先核对一遍（matchesWorld）。
@@ -50,9 +51,9 @@ export function matchesWorld({ config }: GameRecording): boolean {
 /** 存档位里的存档，新的在前 */
 export const listSaves = (): SaveMeta[] => index.load() ?? [];
 
-/** 把一局存进存档位；存不进去（浏览器的配额满了）返回 false */
-export function writeSave(recording: GameRecording, view: OutbreakView): boolean {
-  const meta: SaveMeta = {
+/** 给现在要存的这一局写一份说明（起个新名字） */
+export function describeSave(recording: GameRecording, view: OutbreakView): SaveMeta {
+  return {
     id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
     savedAt: Date.now(),
     day: view.tick,
@@ -60,6 +61,22 @@ export function writeSave(recording: GameRecording, view: OutbreakView): boolean
     player: view.player,
     winner: view.outcome ? view.outcome.winner : null,
   };
+}
+
+/** 核对一份外面来的说明（云端取回的）：样子对就原样给，不对是 null */
+export function readSaveMeta(value: unknown): SaveMeta | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const { id, savedAt, day, pathogen, player, winner } = value as Record<string, unknown>;
+  const isPlayer = (it: unknown): it is PlayerId => it === ATTACKER || it === DEFENDER;
+  if (typeof id !== 'string' || typeof savedAt !== 'number' || !Number.isInteger(day)) return null;
+  if (typeof pathogen !== 'string' || !isPlayer(player)) return null;
+  if (winner !== null && !isPlayer(winner)) return null;
+  return { id, savedAt, day: day as number, pathogen, player, winner };
+}
+
+/** 把一局存进存档位；存不进去（浏览器的配额满了）返回 false */
+export function writeSave(recording: GameRecording, view: OutbreakView): boolean {
+  const meta = describeSave(recording, view);
   if (!slot(meta.id).save(recording)) return false;
   const all = [meta, ...listSaves()];
   for (const dropped of all.splice(SAVE_LIMIT)) slot(dropped.id).clear();

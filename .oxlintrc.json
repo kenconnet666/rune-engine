@@ -12,7 +12,7 @@
   },
   "ignorePatterns": [
     "**/dist/**",
-    "**/dist-*/**",
+    "games/miwang/server/site/**",
     "**/.wrangler/**",
     "**/generated/**",
     "coverage/**"

@@ -2,7 +2,7 @@
   "name": "@rune-engine/edge",
   "version": "0.0.0",
   "private": true,
-  "description": "跑在 Cloudflare Workers 上的那一小块服务端：联机的房间（找到彼此、商量直连、直连不通时中转）",
+  "description": "跑在 Cloudflare Workers 上的那一小块服务端：联机的房间（找到彼此、商量直连、直连不通时中转）和云存档的存档柜",
   "type": "module",
   "license": "MIT",
   "exports": {

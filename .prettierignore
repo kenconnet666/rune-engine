@@ -1,6 +1,7 @@
 pnpm-lock.yaml
 **/dist/
-**/dist-*/
+# 部署时带上的游戏静态文件（pnpm --filter @miwang/server build:site 产出）
+games/miwang/server/site/
 **/generated/
 coverage/
 **/.wrangler/

@@ -208,6 +208,9 @@ export const en: ClientText = {
 
   saves: {
     title: 'Saves and replays',
+    where: 'Where saves are kept',
+    local: 'This device',
+    cloud: 'Cloud',
     saveCurrent: 'Save this game',
     exportCurrent: 'Export this game',
     importFile: 'Import a record file',
@@ -222,6 +225,35 @@ export const en: ClientText = {
     watch: 'Replay from the start',
     export: 'Export to a file',
     delete: 'Delete',
+  },
+
+  cloud: {
+    unavailable: 'This build has no cloud save service.',
+    intro:
+      'Cloud saves need no account: this device makes a sync code and saves are kept on the server under it; enter the same code on another device and it sees the same saves.',
+    enable: 'Turn on cloud saves',
+    haveKey: 'Already turned on elsewhere: enter the sync code from that device',
+    useKey: 'Use this code',
+    badKey: 'A sync code is 24–64 lowercase letters and digits.',
+    upload: 'Save this game to the cloud',
+    refresh: 'Refresh',
+    saved: 'Saved to the cloud.',
+    loading: 'Fetching cloud saves…',
+    slots: (count, limit) =>
+      `Cloud ${count} / ${limit} (the oldest is dropped when full; saves untouched for half a year are cleared)`,
+    empty: 'No cloud saves yet.',
+    key: 'Sync code',
+    keyHelp:
+      'The sync code is the key: whoever has it can read and write these saves, so do not post it publicly; if you lose it, it cannot be recovered.',
+    copy: 'Copy sync code',
+    copied: 'Copied',
+    forget: 'Stop using cloud saves on this device',
+    failures: {
+      unreachable: 'Cannot reach the cloud save service; try again in a moment.',
+      unauthorized: 'The sync code is not right.',
+      'too-large': 'This game record is too large for the cloud.',
+      failed: 'The cloud save service had a problem; try again in a moment.',
+    },
   },
 
   playback: {

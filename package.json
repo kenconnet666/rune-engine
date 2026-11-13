@@ -22,7 +22,8 @@
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check": "pnpm format:check && pnpm lint && pnpm check:boundaries && pnpm typecheck && pnpm test",
     "smoke": "node scripts/browser/smoke.mjs",
-    "smoke:online": "node scripts/browser/online.mjs"
+    "smoke:online": "node scripts/browser/online.mjs",
+    "smoke:cloud": "node scripts/browser/cloud.mjs"
   },
   "devDependencies": {
     "@prettier/plugin-oxc": "catalog:",

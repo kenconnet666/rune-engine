@@ -204,6 +204,9 @@ export const zh = {
 
   saves: {
     title: '存档与回放',
+    where: '存档放在哪',
+    local: '本机',
+    cloud: '云端',
     saveCurrent: '存下这一局',
     exportCurrent: '导出这一局',
     importFile: '导入记录文件',
@@ -217,6 +220,34 @@ export const zh = {
     watch: '从头回放',
     export: '导出成文件',
     delete: '删除',
+  },
+
+  cloud: {
+    unavailable: '这个版本没有接云存档服务。',
+    intro:
+      '云存档不用注册账号：这台设备生成一个同步码，存档按这个码放在服务器上；在另一台设备上填同一个码，看到的就是同一批存档。',
+    enable: '开启云存档',
+    haveKey: '已经在别的设备上开过：填那里的同步码',
+    useKey: '用这个码',
+    badKey: '同步码是 24–64 位小写字母和数字。',
+    upload: '把这一局存到云端',
+    refresh: '刷新',
+    saved: '已经存到云端。',
+    loading: '正在取云端的存档…',
+    slots: (count: number, limit: number) =>
+      `云端 ${count} / ${limit}（存满了会挤掉最旧的；半年没动过的会被清掉）`,
+    empty: '云端还没有存档。',
+    key: '同步码',
+    keyHelp: '同步码就是钥匙：拿到它的人能读写这些存档，别发到公开的地方；弄丢了也找不回来。',
+    copy: '复制同步码',
+    copied: '已复制',
+    forget: '这台设备不再用云存档',
+    failures: {
+      unreachable: '连不上云存档服务，过一会儿再试。',
+      unauthorized: '同步码不对。',
+      'too-large': '这一局的记录太大了，云端放不下。',
+      failed: '云存档服务出了点问题，过一会儿再试。',
+    },
   },
 
   playback: {

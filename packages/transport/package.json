@@ -2,7 +2,7 @@
   "name": "@rune-engine/transport",
   "version": "0.0.0",
   "private": true,
-  "description": "浏览器里的联机连接：进房间、和对面直连（WebRTC），直连不通时经房间中转",
+  "description": "浏览器这头和服务端打交道的部分：联机的连接（进房间、WebRTC 直连、直连不通时经房间中转）和云存档的客户端",
   "type": "module",
   "license": "MIT",
   "exports": {

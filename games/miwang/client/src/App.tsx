@@ -25,7 +25,7 @@ import { NewsPanel } from './panels/NewsPanel.tsx';
 import { PlaybackBar } from './panels/PlaybackBar.tsx';
 import { OpponentPanel } from './panels/OpponentPanel.tsx';
 import { Outcome } from './screens/Outcome.tsx';
-import { Saves } from './screens/Saves.tsx';
+import { Saves } from './screens/saves/Saves.tsx';
 import { PathogenPanel } from './panels/PathogenPanel.tsx';
 import { RegionPanel } from './panels/RegionPanel.tsx';
 import { ResearchPanel } from './panels/ResearchPanel.tsx';

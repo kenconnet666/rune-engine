@@ -10,6 +10,8 @@
     "dev": "vite --configLoader native",
     "prebuild": "pnpm --filter @miwang/content build:map",
     "build": "vite build --configLoader native",
+    "prebuild:site": "pnpm --filter @miwang/content build:map",
+    "build:site": "vite build --configLoader native --mode online --outDir ../server/site --emptyOutDir",
     "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo && tsc -p tsconfig.worker.json --incremental --tsBuildInfoFile node_modules/.cache/typecheck-worker.tsbuildinfo"
   },
   "dependencies": {

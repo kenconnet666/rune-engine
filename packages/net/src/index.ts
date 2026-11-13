@@ -21,4 +21,5 @@ export {
   type RoomRequest,
   type RoomSeat,
 } from './room.ts';
+export { VAULT_ITEM_ID, VAULT_KEY, VAULT_META_HEADER, vaultKey, type VaultItem } from './vault.ts';
 export { portOverWire, throttleLatest, type Wire } from './wire.ts';

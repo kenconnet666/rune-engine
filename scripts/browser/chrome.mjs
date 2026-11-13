@@ -110,10 +110,18 @@ export async function launchChrome({
      * 再开一个页面时，前一个会变成后台标签页（动画停掉、定时器降频）；要两个页面同时都在前台
      * （联机测试的两位玩家），给后开的那个 newWindow。
      * @param {string} url
-     * @param {{ init?: string, newWindow?: boolean }} [options]
+     * isolated：开在一个全新的浏览器环境里（没有别的页面的本地存储、缓存），当“另一台设备”用；它自带一个窗口。
+     * @param {{ init?: string, newWindow?: boolean, isolated?: boolean }} [options]
      */
-    async open(url, { init, newWindow = false } = {}) {
-      const { targetId } = await send('Target.createTarget', { url: 'about:blank', newWindow });
+    async open(url, { init, newWindow = false, isolated = false } = {}) {
+      const browserContextId = isolated
+        ? (await send('Target.createBrowserContext')).browserContextId
+        : undefined;
+      const { targetId } = await send('Target.createTarget', {
+        url: 'about:blank',
+        newWindow: newWindow || isolated,
+        browserContextId,
+      });
       const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
       const call = (method, params) => send(method, params, sessionId);
       /** 页面里报的错和控制台消息，测试结束时可以拿来看 */
