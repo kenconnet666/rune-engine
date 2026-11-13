@@ -8,7 +8,7 @@
  */
 import { createConfig, regions } from '@miwang/content';
 import meshUrl from '@miwang/content/generated/world-mesh.bin?url';
-import { ATTACKER, DEFENDER, type Command, type OutbreakView } from '@miwang/sim';
+import { ATTACKER, DEFENDER, type AiLevel, type Command, type OutbreakView } from '@miwang/sim';
 import type { PlayerId } from '@rune-engine/core';
 import {
   connectSession,
@@ -46,6 +46,8 @@ export interface GameSession {
   readonly player: ShallowRef<PlayerId>;
   /** 对面是电脑还是另一位玩家 */
   readonly opponent: ShallowRef<'ai' | 'human'>;
+  /** 电脑对手的难度（0 简单、1 普通、2 困难） */
+  readonly aiLevel: ShallowRef<AiLevel>;
   /** 房间号：主人开了房间、或者客人加入的那个 */
   readonly room: ShallowRef<string | null>;
   /** 渲染起不来时的原因（没有 WebGPU 等） */
@@ -59,6 +61,8 @@ export interface GameSession {
   setPaused(paused: boolean): void;
   /** 换一方来扮演（只有主人、对面是电脑时可以） */
   setPlayer(player: PlayerId): void;
+  /** 换电脑对手的难度（只有主人可以） */
+  setAiLevel(level: AiLevel): void;
   /** 开一个房间，返回另一位玩家打开就能加入的地址 */
   openRoom(): string;
   /** 丢掉当前这局，换个种子重新开始（只有主人可以） */
@@ -91,6 +95,7 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
   const paused = shallowRef(false);
   const player = shallowRef<PlayerId>(joining && params.get('as') === '1' ? DEFENDER : ATTACKER);
   const opponent = shallowRef<'ai' | 'human'>(joining ? 'human' : 'ai');
+  const aiLevel = shallowRef<AiLevel>(1);
   const room = shallowRef<string | null>(joining);
   const renderError = shallowRef<string | null>(null);
   const resumed = shallowRef<{ ticks: number; replayMs: number } | null>(null);
@@ -126,6 +131,8 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
     view(message: FromHost) {
       // 开发时看“改完代码到画面接上”要多久：performance.getEntriesByName('miwang:first-view')
       if (!view.value) performance.mark('miwang:first-view');
+      // 分出胜负的那一刻把时间停下：之后状态不会再变，没必要让主机空转
+      if (message.view.outcome && !view.value?.outcome) session?.setPaused(true);
       view.value = message.view;
       speed.value = message.speed;
       paused.value = message.paused;
@@ -138,6 +145,7 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
     paused,
     player,
     opponent,
+    aiLevel,
     room,
     renderError,
     renderLink,
@@ -184,6 +192,7 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
       ...base,
       role: 'guest',
       setPlayer() {},
+      setAiLevel() {},
       openRoom: () => location.href,
       restart() {},
     };
@@ -224,7 +233,9 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
       [picture.port1],
     );
     toRender({ type: 'connect', port: picture.port2 }, [picture.port2]);
-    if (opponent.value === 'ai') toHost({ type: 'ai', player: other(player.value) });
+    if (opponent.value === 'ai') {
+      toHost({ type: 'ai', player: other(player.value), level: aiLevel.value });
+    }
   }
 
   function start(recording: GameRecording | null) {
@@ -245,6 +256,10 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
   return {
     ...base,
     role: 'host',
+    setAiLevel(level) {
+      aiLevel.value = level;
+      if (opponent.value === 'ai') toHost({ type: 'ai', player: other(player.value), level });
+    },
     setPlayer(next) {
       if (opponent.value === 'human') return;
       player.value = next;

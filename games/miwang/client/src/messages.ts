@@ -1,5 +1,5 @@
 /** 主线程和两个 Worker 之间的控制消息（对局本身的消息走 net 的会话协议，见各自收到的 port） */
-import type { Command, OutbreakConfig } from '@miwang/sim';
+import type { AiLevel, Command, OutbreakConfig } from '@miwang/sim';
 import type { PlayerId, Recording } from '@rune-engine/core';
 import type { MapCamera } from '@rune-engine/render/map-view';
 
@@ -21,8 +21,8 @@ export type HostControl =
       readonly readonly: boolean;
       readonly port: MessagePort;
     }
-  /** 哪一方由电脑控制；null 是都不要（两边都是人） */
-  | { readonly type: 'ai'; readonly player: PlayerId | null }
+  /** 哪一方由电脑控制、多大难度；player 是 null 表示都不要（两边都是人） */
+  | { readonly type: 'ai'; readonly player: PlayerId | null; readonly level: AiLevel }
   /** 开一个房间：另一位玩家凭房间号接进来 */
   | { readonly type: 'open-room'; readonly room: string };
 

@@ -9,6 +9,7 @@ export { Callout, type CalloutProps } from './Callout.tsx';
 export { Fact, type FactProps } from './Fact.tsx';
 export { Frame, type FrameProps } from './Frame.tsx';
 export { Meter, type MeterProps } from './Meter.tsx';
+export { Note, type NoteProps } from './Note.tsx';
 export { mergeAttrs, type PartProps } from './props.ts';
 export { Readout, type ReadoutProps } from './Readout.tsx';
 export {
@@ -17,4 +18,5 @@ export {
   type SegmentedProps,
   type SegmentedValue,
 } from './Segmented.tsx';
+export { Stack, type StackProps } from './Stack.tsx';
 export { colors, durations, fonts, space } from './tokens.ts';

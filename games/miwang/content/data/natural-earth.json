@@ -1,891 +1,1251 @@
 {
-  "source": "Natural Earth v5.1.2，1:1.1 亿 Admin 0 – Countries，字段 POP_EST、POP_YEAR（公有领域）",
+  "source": "Natural Earth v5.1.2，1:1.1 亿 Admin 0 – Countries，字段 POP_EST、POP_YEAR、GDP_MD、INCOME_GRP（公有领域）",
   "url": "https://github.com/nvkelso/natural-earth-vector/blob/v5.1.2/geojson/ne_110m_admin_0_countries.geojson",
+  "fields": {
+    "population": "人口估计数",
+    "year": "人口是哪一年的",
+    "gdp": "国内生产总值，百万美元",
+    "wealth": "富裕程度：世界银行的收入分组折成 0（低收入）到 3（高收入）"
+  },
   "regions": {
     "100": {
       "name": "Bulgaria",
       "population": 6975761,
-      "year": 2019
+      "year": 2019,
+      "gdp": 68558,
+      "wealth": 2
     },
     "104": {
       "name": "Myanmar",
       "population": 54045420,
-      "year": 2019
+      "year": 2019,
+      "gdp": 76085,
+      "wealth": 0
     },
     "108": {
       "name": "Burundi",
       "population": 11530580,
-      "year": 2019
+      "year": 2019,
+      "gdp": 3012,
+      "wealth": 0
     },
     "112": {
       "name": "Belarus",
       "population": 9466856,
-      "year": 2019
+      "year": 2019,
+      "gdp": 63080,
+      "wealth": 2
     },
     "116": {
       "name": "Cambodia",
       "population": 16486542,
-      "year": 2019
+      "year": 2019,
+      "gdp": 27089,
+      "wealth": 0
     },
     "120": {
       "name": "Cameroon",
       "population": 25876380,
-      "year": 2019
+      "year": 2019,
+      "gdp": 39007,
+      "wealth": 1
     },
     "124": {
       "name": "Canada",
       "population": 37589262,
-      "year": 2019
+      "year": 2019,
+      "gdp": 1736425,
+      "wealth": 3
     },
     "140": {
       "name": "Central African Rep.",
       "population": 4745185,
-      "year": 2019
+      "year": 2019,
+      "gdp": 2220,
+      "wealth": 0
     },
     "144": {
       "name": "Sri Lanka",
       "population": 21803000,
-      "year": 2019
+      "year": 2019,
+      "gdp": 84008,
+      "wealth": 1
     },
     "148": {
       "name": "Chad",
       "population": 15946876,
-      "year": 2019
+      "year": 2019,
+      "gdp": 11314,
+      "wealth": 0
     },
     "152": {
       "name": "Chile",
       "population": 18952038,
-      "year": 2019
+      "year": 2019,
+      "gdp": 282318,
+      "wealth": 2
     },
     "156": {
       "name": "China",
       "population": 1397715000,
-      "year": 2019
+      "year": 2019,
+      "gdp": 14342903,
+      "wealth": 2
     },
     "158": {
       "name": "Taiwan",
       "population": 23568378,
-      "year": 2020
+      "year": 2020,
+      "gdp": 1127000,
+      "wealth": 3
     },
     "170": {
       "name": "Colombia",
       "population": 50339443,
-      "year": 2019
+      "year": 2019,
+      "gdp": 323615,
+      "wealth": 2
     },
     "178": {
       "name": "Congo",
       "population": 5380508,
-      "year": 2019
+      "year": 2019,
+      "gdp": 12267,
+      "wealth": 1
     },
     "180": {
       "name": "Dem. Rep. Congo",
       "population": 86790567,
-      "year": 2019
+      "year": 2019,
+      "gdp": 50400,
+      "wealth": 0
     },
     "188": {
       "name": "Costa Rica",
       "population": 5047561,
-      "year": 2019
+      "year": 2019,
+      "gdp": 61801,
+      "wealth": 2
     },
     "191": {
       "name": "Croatia",
       "population": 4067500,
-      "year": 2019
+      "year": 2019,
+      "gdp": 60752,
+      "wealth": 3
     },
     "192": {
       "name": "Cuba",
       "population": 11333483,
-      "year": 2019
+      "year": 2019,
+      "gdp": 100023,
+      "wealth": 2
     },
     "196": {
       "name": "Cyprus",
       "population": 1198575,
-      "year": 2019
+      "year": 2019,
+      "gdp": 24948,
+      "wealth": 3
     },
     "203": {
       "name": "Czechia",
       "population": 10669709,
-      "year": 2019
+      "year": 2019,
+      "gdp": 250680,
+      "wealth": 3
     },
     "204": {
       "name": "Benin",
       "population": 11801151,
-      "year": 2019
+      "year": 2019,
+      "gdp": 14390,
+      "wealth": 0
     },
     "208": {
       "name": "Denmark",
       "population": 5818553,
-      "year": 2019
+      "year": 2019,
+      "gdp": 350104,
+      "wealth": 3
     },
     "214": {
       "name": "Dominican Rep.",
       "population": 10738958,
-      "year": 2019
+      "year": 2019,
+      "gdp": 88941,
+      "wealth": 2
     },
     "218": {
       "name": "Ecuador",
       "population": 17373662,
-      "year": 2019
+      "year": 2019,
+      "gdp": 107435,
+      "wealth": 2
     },
     "222": {
       "name": "El Salvador",
       "population": 6453553,
-      "year": 2019
+      "year": 2019,
+      "gdp": 27022,
+      "wealth": 1
     },
     "226": {
       "name": "Eq. Guinea",
       "population": 1355986,
-      "year": 2019
+      "year": 2019,
+      "gdp": 11026,
+      "wealth": 3
     },
     "231": {
       "name": "Ethiopia",
       "population": 112078730,
-      "year": 2019
+      "year": 2019,
+      "gdp": 95912,
+      "wealth": 0
     },
     "232": {
       "name": "Eritrea",
       "population": 6081196,
-      "year": 2020
+      "year": 2020,
+      "gdp": 2065,
+      "wealth": 0
     },
     "233": {
       "name": "Estonia",
       "population": 1326590,
-      "year": 2019
+      "year": 2019,
+      "gdp": 31471,
+      "wealth": 3
     },
     "238": {
       "name": "Falkland Is.",
       "population": 3398,
-      "year": 2016
+      "year": 2016,
+      "gdp": 282,
+      "wealth": 3
     },
     "242": {
       "name": "Fiji",
       "population": 889953,
-      "year": 2019
+      "year": 2019,
+      "gdp": 5496,
+      "wealth": 1
     },
     "246": {
       "name": "Finland",
       "population": 5520314,
-      "year": 2019
+      "year": 2019,
+      "gdp": 269296,
+      "wealth": 3
     },
     "250": {
       "name": "France",
       "population": 67059887,
-      "year": 2019
+      "year": 2019,
+      "gdp": 2715518,
+      "wealth": 3
     },
     "260": {
       "name": "Fr. S. Antarctic Lands",
       "population": 140,
-      "year": 2017
+      "year": 2017,
+      "gdp": 16,
+      "wealth": 3
     },
     "262": {
       "name": "Djibouti",
       "population": 973560,
-      "year": 2019
+      "year": 2019,
+      "gdp": 3324,
+      "wealth": 1
     },
     "266": {
       "name": "Gabon",
       "population": 2172579,
-      "year": 2019
+      "year": 2019,
+      "gdp": 16874,
+      "wealth": 2
     },
     "268": {
       "name": "Georgia",
       "population": 3720382,
-      "year": 2019
+      "year": 2019,
+      "gdp": 17477,
+      "wealth": 1
     },
     "270": {
       "name": "Gambia",
       "population": 2347706,
-      "year": 2019
+      "year": 2019,
+      "gdp": 1826,
+      "wealth": 0
     },
     "275": {
       "name": "Palestine",
       "population": 4685306,
-      "year": 2019
+      "year": 2019,
+      "gdp": 16276,
+      "wealth": 1
     },
     "276": {
       "name": "Germany",
       "population": 83132799,
-      "year": 2019
+      "year": 2019,
+      "gdp": 3861123,
+      "wealth": 3
     },
     "288": {
       "name": "Ghana",
       "population": 30417856,
-      "year": 2019
+      "year": 2019,
+      "gdp": 66983,
+      "wealth": 1
     },
     "300": {
       "name": "Greece",
       "population": 10716322,
-      "year": 2019
+      "year": 2019,
+      "gdp": 209852,
+      "wealth": 3
     },
     "304": {
       "name": "Greenland",
       "population": 56225,
-      "year": 2019
+      "year": 2019,
+      "gdp": 3051,
+      "wealth": 3
     },
     "320": {
       "name": "Guatemala",
       "population": 16604026,
-      "year": 2019
+      "year": 2019,
+      "gdp": 76710,
+      "wealth": 1
     },
     "324": {
       "name": "Guinea",
       "population": 12771246,
-      "year": 2019
+      "year": 2019,
+      "gdp": 12296,
+      "wealth": 0
     },
     "328": {
       "name": "Guyana",
       "population": 782766,
-      "year": 2019
+      "year": 2019,
+      "gdp": 5173,
+      "wealth": 1
     },
     "332": {
       "name": "Haiti",
       "population": 11263077,
-      "year": 2019
+      "year": 2019,
+      "gdp": 14332,
+      "wealth": 0
     },
     "340": {
       "name": "Honduras",
       "population": 9746117,
-      "year": 2019
+      "year": 2019,
+      "gdp": 25095,
+      "wealth": 1
     },
     "348": {
       "name": "Hungary",
       "population": 9769949,
-      "year": 2019
+      "year": 2019,
+      "gdp": 163469,
+      "wealth": 3
     },
     "352": {
       "name": "Iceland",
       "population": 361313,
-      "year": 2019
+      "year": 2019,
+      "gdp": 24188,
+      "wealth": 3
     },
     "356": {
       "name": "India",
       "population": 1366417754,
-      "year": 2019
+      "year": 2019,
+      "gdp": 2868929,
+      "wealth": 1
     },
     "360": {
       "name": "Indonesia",
       "population": 270625568,
-      "year": 2019
+      "year": 2019,
+      "gdp": 1119190,
+      "wealth": 1
     },
     "364": {
       "name": "Iran",
       "population": 82913906,
-      "year": 2019
+      "year": 2019,
+      "gdp": 453996,
+      "wealth": 2
     },
     "368": {
       "name": "Iraq",
       "population": 39309783,
-      "year": 2019
+      "year": 2019,
+      "gdp": 234094,
+      "wealth": 1
     },
     "372": {
       "name": "Ireland",
       "population": 4941444,
-      "year": 2019
+      "year": 2019,
+      "gdp": 388698,
+      "wealth": 3
     },
     "376": {
       "name": "Israel",
       "population": 9053300,
-      "year": 2019
+      "year": 2019,
+      "gdp": 394652,
+      "wealth": 3
     },
     "380": {
       "name": "Italy",
       "population": 60297396,
-      "year": 2019
+      "year": 2019,
+      "gdp": 2003576,
+      "wealth": 3
     },
     "384": {
       "name": "Côte d'Ivoire",
       "population": 25716544,
-      "year": 2019
+      "year": 2019,
+      "gdp": 58539,
+      "wealth": 1
     },
     "388": {
       "name": "Jamaica",
       "population": 2948279,
-      "year": 2019
+      "year": 2019,
+      "gdp": 16458,
+      "wealth": 2
     },
     "392": {
       "name": "Japan",
       "population": 126264931,
-      "year": 2019
+      "year": 2019,
+      "gdp": 5081769,
+      "wealth": 3
     },
     "398": {
       "name": "Kazakhstan",
       "population": 18513930,
-      "year": 2019
+      "year": 2019,
+      "gdp": 181665,
+      "wealth": 2
     },
     "400": {
       "name": "Jordan",
       "population": 10101694,
-      "year": 2019
+      "year": 2019,
+      "gdp": 44502,
+      "wealth": 2
     },
     "404": {
       "name": "Kenya",
       "population": 52573973,
-      "year": 2019
+      "year": 2019,
+      "gdp": 95503,
+      "wealth": 0
     },
     "408": {
       "name": "North Korea",
       "population": 25666161,
-      "year": 2019
+      "year": 2019,
+      "gdp": 40000,
+      "wealth": 0
     },
     "410": {
       "name": "South Korea",
       "population": 51709098,
-      "year": 2019
+      "year": 2019,
+      "gdp": 1646739,
+      "wealth": 3
     },
     "414": {
       "name": "Kuwait",
       "population": 4207083,
-      "year": 2019
+      "year": 2019,
+      "gdp": 134628,
+      "wealth": 3
     },
     "417": {
       "name": "Kyrgyzstan",
       "population": 6456900,
-      "year": 2019
+      "year": 2019,
+      "gdp": 8454,
+      "wealth": 0
     },
     "418": {
       "name": "Laos",
       "population": 7169455,
-      "year": 2019
+      "year": 2019,
+      "gdp": 18173,
+      "wealth": 1
     },
     "422": {
       "name": "Lebanon",
       "population": 6855713,
-      "year": 2019
+      "year": 2019,
+      "gdp": 51991,
+      "wealth": 2
     },
     "426": {
       "name": "Lesotho",
       "population": 2125268,
-      "year": 2019
+      "year": 2019,
+      "gdp": 2376,
+      "wealth": 1
     },
     "428": {
       "name": "Latvia",
       "population": 1912789,
-      "year": 2019
+      "year": 2019,
+      "gdp": 34102,
+      "wealth": 2
     },
     "430": {
       "name": "Liberia",
       "population": 4937374,
-      "year": 2019
+      "year": 2019,
+      "gdp": 3070,
+      "wealth": 0
     },
     "434": {
       "name": "Libya",
       "population": 6777452,
-      "year": 2019
+      "year": 2019,
+      "gdp": 52091,
+      "wealth": 2
     },
     "440": {
       "name": "Lithuania",
       "population": 2786844,
-      "year": 2019
+      "year": 2019,
+      "gdp": 54627,
+      "wealth": 2
     },
     "442": {
       "name": "Luxembourg",
       "population": 619896,
-      "year": 2019
+      "year": 2019,
+      "gdp": 71104,
+      "wealth": 3
     },
     "450": {
       "name": "Madagascar",
       "population": 26969307,
-      "year": 2019
+      "year": 2019,
+      "gdp": 14114,
+      "wealth": 0
     },
     "454": {
       "name": "Malawi",
       "population": 18628747,
-      "year": 2019
+      "year": 2019,
+      "gdp": 7666,
+      "wealth": 0
     },
     "458": {
       "name": "Malaysia",
       "population": 31949777,
-      "year": 2019
+      "year": 2019,
+      "gdp": 364681,
+      "wealth": 2
     },
     "466": {
       "name": "Mali",
       "population": 19658031,
-      "year": 2019
+      "year": 2019,
+      "gdp": 17279,
+      "wealth": 0
     },
     "478": {
       "name": "Mauritania",
       "population": 4525696,
-      "year": 2019
+      "year": 2019,
+      "gdp": 7600,
+      "wealth": 0
     },
     "484": {
       "name": "Mexico",
       "population": 127575529,
-      "year": 2019
+      "year": 2019,
+      "gdp": 1268870,
+      "wealth": 2
     },
     "496": {
       "name": "Mongolia",
       "population": 3225167,
-      "year": 2019
+      "year": 2019,
+      "gdp": 13996,
+      "wealth": 1
     },
     "498": {
       "name": "Moldova",
       "population": 2657637,
-      "year": 2019
+      "year": 2019,
+      "gdp": 11968,
+      "wealth": 1
     },
     "499": {
       "name": "Montenegro",
       "population": 622137,
-      "year": 2019
+      "year": 2019,
+      "gdp": 5542,
+      "wealth": 2
     },
     "504": {
       "name": "Morocco",
       "population": 36471769,
-      "year": 2019
+      "year": 2019,
+      "gdp": 119700,
+      "wealth": 1
     },
     "508": {
       "name": "Mozambique",
       "population": 30366036,
-      "year": 2019
+      "year": 2019,
+      "gdp": 15291,
+      "wealth": 0
     },
     "512": {
       "name": "Oman",
       "population": 4974986,
-      "year": 2019
+      "year": 2019,
+      "gdp": 76331,
+      "wealth": 3
     },
     "516": {
       "name": "Namibia",
       "population": 2494530,
-      "year": 2019
+      "year": 2019,
+      "gdp": 12366,
+      "wealth": 2
     },
     "524": {
       "name": "Nepal",
       "population": 28608710,
-      "year": 2019
+      "year": 2019,
+      "gdp": 30641,
+      "wealth": 0
     },
     "528": {
       "name": "Netherlands",
       "population": 17332850,
-      "year": 2019
+      "year": 2019,
+      "gdp": 907050,
+      "wealth": 3
     },
     "540": {
       "name": "New Caledonia",
       "population": 287800,
-      "year": 2019
+      "year": 2019,
+      "gdp": 10770,
+      "wealth": 3
     },
     "548": {
       "name": "Vanuatu",
       "population": 299882,
-      "year": 2019
+      "year": 2019,
+      "gdp": 934,
+      "wealth": 1
     },
     "554": {
       "name": "New Zealand",
       "population": 4917000,
-      "year": 2019
+      "year": 2019,
+      "gdp": 206928,
+      "wealth": 3
     },
     "558": {
       "name": "Nicaragua",
       "population": 6545502,
-      "year": 2019
+      "year": 2019,
+      "gdp": 12520,
+      "wealth": 1
     },
     "562": {
       "name": "Niger",
       "population": 23310715,
-      "year": 2019
+      "year": 2019,
+      "gdp": 12911,
+      "wealth": 0
     },
     "566": {
       "name": "Nigeria",
       "population": 200963599,
-      "year": 2019
+      "year": 2019,
+      "gdp": 448120,
+      "wealth": 1
     },
     "578": {
       "name": "Norway",
       "population": 5347896,
-      "year": 2019
+      "year": 2019,
+      "gdp": 403336,
+      "wealth": 3
     },
     "586": {
       "name": "Pakistan",
       "population": 216565318,
-      "year": 2019
+      "year": 2019,
+      "gdp": 278221,
+      "wealth": 1
     },
     "591": {
       "name": "Panama",
       "population": 4246439,
-      "year": 2019
+      "year": 2019,
+      "gdp": 66800,
+      "wealth": 2
     },
     "598": {
       "name": "Papua New Guinea",
       "population": 8776109,
-      "year": 2019
+      "year": 2019,
+      "gdp": 24829,
+      "wealth": 1
     },
     "600": {
       "name": "Paraguay",
       "population": 7044636,
-      "year": 2019
+      "year": 2019,
+      "gdp": 38145,
+      "wealth": 1
     },
     "604": {
       "name": "Peru",
       "population": 32510453,
-      "year": 2019
+      "year": 2019,
+      "gdp": 226848,
+      "wealth": 2
     },
     "608": {
       "name": "Philippines",
       "population": 108116615,
-      "year": 2019
+      "year": 2019,
+      "gdp": 376795,
+      "wealth": 1
     },
     "616": {
       "name": "Poland",
       "population": 37970874,
-      "year": 2019
+      "year": 2019,
+      "gdp": 595858,
+      "wealth": 3
     },
     "620": {
       "name": "Portugal",
       "population": 10269417,
-      "year": 2019
+      "year": 2019,
+      "gdp": 238785,
+      "wealth": 3
     },
     "624": {
       "name": "Guinea-Bissau",
       "population": 1920922,
-      "year": 2019
+      "year": 2019,
+      "gdp": 1339,
+      "wealth": 0
     },
     "626": {
       "name": "Timor-Leste",
       "population": 1293119,
-      "year": 2019
+      "year": 2019,
+      "gdp": 2017,
+      "wealth": 1
     },
     "630": {
       "name": "Puerto Rico",
       "population": 3193694,
-      "year": 2019
+      "year": 2019,
+      "gdp": 104988,
+      "wealth": 3
     },
     "634": {
       "name": "Qatar",
       "population": 2832067,
-      "year": 2019
+      "year": 2019,
+      "gdp": 175837,
+      "wealth": 3
     },
     "642": {
       "name": "Romania",
       "population": 19356544,
-      "year": 2019
+      "year": 2019,
+      "gdp": 250077,
+      "wealth": 2
     },
     "643": {
       "name": "Russia",
       "population": 144373535,
-      "year": 2019
+      "year": 2019,
+      "gdp": 1699876,
+      "wealth": 2
     },
     "646": {
       "name": "Rwanda",
       "population": 12626950,
-      "year": 2019
+      "year": 2019,
+      "gdp": 10354,
+      "wealth": 0
     },
     "682": {
       "name": "Saudi Arabia",
       "population": 34268528,
-      "year": 2019
+      "year": 2019,
+      "gdp": 792966,
+      "wealth": 3
     },
     "686": {
       "name": "Senegal",
       "population": 16296364,
-      "year": 2019
+      "year": 2019,
+      "gdp": 23578,
+      "wealth": 1
     },
     "688": {
       "name": "Serbia",
       "population": 6944975,
-      "year": 2019
+      "year": 2019,
+      "gdp": 51475,
+      "wealth": 2
     },
     "694": {
       "name": "Sierra Leone",
       "population": 7813215,
-      "year": 2019
+      "year": 2019,
+      "gdp": 4121,
+      "wealth": 0
     },
     "703": {
       "name": "Slovakia",
       "population": 5454073,
-      "year": 2019
+      "year": 2019,
+      "gdp": 105079,
+      "wealth": 3
     },
     "704": {
       "name": "Vietnam",
       "population": 96462106,
-      "year": 2019
+      "year": 2019,
+      "gdp": 261921,
+      "wealth": 1
     },
     "705": {
       "name": "Slovenia",
       "population": 2087946,
-      "year": 2019
+      "year": 2019,
+      "gdp": 54174,
+      "wealth": 3
     },
     "706": {
       "name": "Somalia",
       "population": 10192317,
-      "year": 2019
+      "year": 2019,
+      "gdp": 4719,
+      "wealth": 0
     },
     "710": {
       "name": "South Africa",
       "population": 58558270,
-      "year": 2019
+      "year": 2019,
+      "gdp": 351431,
+      "wealth": 2
     },
     "716": {
       "name": "Zimbabwe",
       "population": 14645468,
-      "year": 2019
+      "year": 2019,
+      "gdp": 21440,
+      "wealth": 0
     },
     "724": {
       "name": "Spain",
       "population": 47076781,
-      "year": 2019
+      "year": 2019,
+      "gdp": 1393490,
+      "wealth": 3
     },
     "728": {
       "name": "S. Sudan",
       "population": 11062113,
-      "year": 2019
+      "year": 2019,
+      "gdp": 11998,
+      "wealth": 0
     },
     "729": {
       "name": "Sudan",
       "population": 42813238,
-      "year": 2019
+      "year": 2019,
+      "gdp": 30513,
+      "wealth": 1
     },
     "732": {
       "name": "W. Sahara",
       "population": 603253,
-      "year": 2017
+      "year": 2017,
+      "gdp": 907,
+      "wealth": 0
     },
     "740": {
       "name": "Suriname",
       "population": 581363,
-      "year": 2019
+      "year": 2019,
+      "gdp": 3697,
+      "wealth": 2
     },
     "748": {
       "name": "eSwatini",
       "population": 1148130,
-      "year": 2019
+      "year": 2019,
+      "gdp": 4471,
+      "wealth": 1
     },
     "752": {
       "name": "Sweden",
       "population": 10285453,
-      "year": 2019
+      "year": 2019,
+      "gdp": 530883,
+      "wealth": 3
     },
     "756": {
       "name": "Switzerland",
       "population": 8574832,
-      "year": 2019
+      "year": 2019,
+      "gdp": 703082,
+      "wealth": 3
     },
     "760": {
       "name": "Syria",
       "population": 17070135,
-      "year": 2019
+      "year": 2019,
+      "gdp": 98830,
+      "wealth": 1
     },
     "762": {
       "name": "Tajikistan",
       "population": 9321018,
-      "year": 2019
+      "year": 2019,
+      "gdp": 8116,
+      "wealth": 0
     },
     "764": {
       "name": "Thailand",
       "population": 69625582,
-      "year": 2019
+      "year": 2019,
+      "gdp": 543548,
+      "wealth": 2
     },
     "768": {
       "name": "Togo",
       "population": 8082366,
-      "year": 2019
+      "year": 2019,
+      "gdp": 5490,
+      "wealth": 0
     },
     "780": {
       "name": "Trinidad and Tobago",
       "population": 1394973,
-      "year": 2019
+      "year": 2019,
+      "gdp": 24269,
+      "wealth": 3
     },
     "784": {
       "name": "United Arab Emirates",
       "population": 9770529,
-      "year": 2019
+      "year": 2019,
+      "gdp": 421142,
+      "wealth": 3
     },
     "788": {
       "name": "Tunisia",
       "population": 11694719,
-      "year": 2019
+      "year": 2019,
+      "gdp": 38796,
+      "wealth": 2
     },
     "792": {
       "name": "Turkey",
       "population": 83429615,
-      "year": 2019
+      "year": 2019,
+      "gdp": 761425,
+      "wealth": 2
     },
     "795": {
       "name": "Turkmenistan",
       "population": 5942089,
-      "year": 2019
+      "year": 2019,
+      "gdp": 40761,
+      "wealth": 2
     },
     "800": {
       "name": "Uganda",
       "population": 44269594,
-      "year": 2019
+      "year": 2019,
+      "gdp": 35165,
+      "wealth": 0
     },
     "804": {
       "name": "Ukraine",
       "population": 44385155,
-      "year": 2019
+      "year": 2019,
+      "gdp": 153781,
+      "wealth": 1
     },
     "807": {
       "name": "North Macedonia",
       "population": 2083459,
-      "year": 2019
+      "year": 2019,
+      "gdp": 12547,
+      "wealth": 2
     },
     "818": {
       "name": "Egypt",
       "population": 100388073,
-      "year": 2019
+      "year": 2019,
+      "gdp": 303092,
+      "wealth": 1
     },
     "826": {
       "name": "United Kingdom",
       "population": 66834405,
-      "year": 2019
+      "year": 2019,
+      "gdp": 2829108,
+      "wealth": 3
     },
     "834": {
       "name": "Tanzania",
       "population": 58005463,
-      "year": 2019
+      "year": 2019,
+      "gdp": 63177,
+      "wealth": 0
     },
     "840": {
       "name": "United States of America",
       "population": 328239523,
-      "year": 2019
+      "year": 2019,
+      "gdp": 21433226,
+      "wealth": 3
     },
     "854": {
       "name": "Burkina Faso",
       "population": 20321378,
-      "year": 2019
+      "year": 2019,
+      "gdp": 15990,
+      "wealth": 0
     },
     "858": {
       "name": "Uruguay",
       "population": 3461734,
-      "year": 2019
+      "year": 2019,
+      "gdp": 56045,
+      "wealth": 2
     },
     "860": {
       "name": "Uzbekistan",
       "population": 33580650,
-      "year": 2019
+      "year": 2019,
+      "gdp": 57921,
+      "wealth": 1
     },
     "862": {
       "name": "Venezuela",
       "population": 28515829,
-      "year": 2019
+      "year": 2019,
+      "gdp": 482359,
+      "wealth": 2
     },
     "887": {
       "name": "Yemen",
       "population": 29161922,
-      "year": 2019
+      "year": 2019,
+      "gdp": 22581,
+      "wealth": 1
     },
     "894": {
       "name": "Zambia",
       "population": 17861030,
-      "year": 2019
+      "year": 2019,
+      "gdp": 23309,
+      "wealth": 1
     },
     "004": {
       "name": "Afghanistan",
       "population": 38041754,
-      "year": 2019
+      "year": 2019,
+      "gdp": 19291,
+      "wealth": 0
     },
     "008": {
       "name": "Albania",
       "population": 2854191,
-      "year": 2019
+      "year": 2019,
+      "gdp": 15279,
+      "wealth": 1
     },
     "012": {
       "name": "Algeria",
       "population": 43053054,
-      "year": 2019
+      "year": 2019,
+      "gdp": 171091,
+      "wealth": 2
     },
     "024": {
       "name": "Angola",
       "population": 31825295,
-      "year": 2019
+      "year": 2019,
+      "gdp": 88815,
+      "wealth": 2
     },
     "010": {
       "name": "Antarctica",
       "population": 4490,
-      "year": 2019
+      "year": 2019,
+      "gdp": 898,
+      "wealth": 3
     },
     "032": {
       "name": "Argentina",
       "population": 44938712,
-      "year": 2019
+      "year": 2019,
+      "gdp": 445445,
+      "wealth": 2
     },
     "051": {
       "name": "Armenia",
       "population": 2957731,
-      "year": 2019
+      "year": 2019,
+      "gdp": 13672,
+      "wealth": 1
     },
     "036": {
       "name": "Australia",
       "population": 25364307,
-      "year": 2019
+      "year": 2019,
+      "gdp": 1396567,
+      "wealth": 3
     },
     "040": {
       "name": "Austria",
       "population": 8877067,
-      "year": 2019
+      "year": 2019,
+      "gdp": 445075,
+      "wealth": 3
     },
     "031": {
       "name": "Azerbaijan",
       "population": 10023318,
-      "year": 2019
+      "year": 2019,
+      "gdp": 48047,
+      "wealth": 2
     },
     "044": {
       "name": "Bahamas",
       "population": 389482,
-      "year": 2019
+      "year": 2019,
+      "gdp": 13578,
+      "wealth": 3
     },
     "050": {
       "name": "Bangladesh",
       "population": 163046161,
-      "year": 2019
+      "year": 2019,
+      "gdp": 302571,
+      "wealth": 0
     },
     "056": {
       "name": "Belgium",
       "population": 11484055,
-      "year": 2019
+      "year": 2019,
+      "gdp": 533097,
+      "wealth": 3
     },
     "084": {
       "name": "Belize",
       "population": 390353,
-      "year": 2019
+      "year": 2019,
+      "gdp": 1879,
+      "wealth": 1
     },
     "064": {
       "name": "Bhutan",
       "population": 763092,
-      "year": 2019
+      "year": 2019,
+      "gdp": 2530,
+      "wealth": 1
     },
     "068": {
       "name": "Bolivia",
       "population": 11513100,
-      "year": 2019
+      "year": 2019,
+      "gdp": 40895,
+      "wealth": 1
     },
     "070": {
       "name": "Bosnia and Herz.",
       "population": 3301000,
-      "year": 2019
+      "year": 2019,
+      "gdp": 20164,
+      "wealth": 2
     },
     "072": {
       "name": "Botswana",
       "population": 2303697,
-      "year": 2019
+      "year": 2019,
+      "gdp": 18340,
+      "wealth": 2
     },
     "076": {
       "name": "Brazil",
       "population": 211049527,
-      "year": 2019
+      "year": 2019,
+      "gdp": 1839758,
+      "wealth": 2
     },
     "096": {
       "name": "Brunei",
       "population": 433285,
-      "year": 2019
+      "year": 2019,
+      "gdp": 13469,
+      "wealth": 3
     },
     "Kosovo": {
       "name": "Kosovo",
       "population": 1794248,
-      "year": 2019
+      "year": 2019,
+      "gdp": 7926,
+      "wealth": 1
     },
     "N. Cyprus": {
       "name": "N. Cyprus",
       "population": 326000,
-      "year": 2017
+      "year": 2017,
+      "gdp": 3600,
+      "wealth": 2
     },
     "090": {
       "name": "Solomon Is.",
       "population": 669823,
-      "year": 2019
+      "year": 2019,
+      "gdp": 1589,
+      "wealth": 1
     },
     "Somaliland": {
       "name": "Somaliland",
       "population": 5096159,
-      "year": 2014
+      "year": 2014,
+      "gdp": 17836,
+      "wealth": 1
     }
   }
 }

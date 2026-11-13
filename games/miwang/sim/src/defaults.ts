@@ -1,0 +1,92 @@
+import type { Rules } from './config.ts';
+
+/**
+ * 规则数值的默认值。它们是照着“曲线像那么回事、两边都有得打”调出来的，不对应任何一种真实疾病；
+ * 调的时候用 content 里的批量对局脚本看胜率和时长，不要凭感觉改。
+ */
+export const DEFAULT_RULES: Rules = {
+  seedCases: 12,
+  calamityShare: 0.015,
+  clearDays: 30,
+  maxDays: 1460,
+
+  densityAir: [0.8, 1, 1.25],
+  densityContact: [0.75, 1, 1.35],
+  waterByWealth: [1, 0.7, 0.35, 0.12],
+  vectorByClimate: [1, 0.45, 0.08],
+  bloodByWealth: [1, 0.8, 0.6, 0.45],
+  seasonAir: 0.22,
+  waningRate: 0.004,
+  spilloverRate: 0.01,
+  tracedSpillover: 0.25,
+
+  careByWealth: [0.12, 0.25, 0.42, 0.6],
+  careCapacity: 0.02,
+  overloadLoss: 0.7,
+  detectByWealth: [0.06, 0.12, 0.22, 0.32],
+  detectPerSeverity: 0.05,
+  detectPerStealth: 0.06,
+  detectMin: 0.01,
+  detectMax: 0.97,
+  deathDetectBonus: 0.35,
+
+  testingDetect: 0.3,
+  isolationEffect: 0.5,
+  masksAir: 0.35,
+  lockdownAir: 0.7,
+  lockdownContact: 0.6,
+  lockdownOther: 0.2,
+  lockdownTravel: 0.9,
+  bordersEffect: 0.95,
+  airportsEffect: 0.97,
+  portsEffect: 0.95,
+  sanitationWater: 0.7,
+  vectorControlEffect: 0.65,
+  screeningEffect: 0.5,
+
+  landRate: 0.0004,
+  airRate: 0.0016,
+  seaRate: 0.0006,
+  severityImmobility: 0.25,
+
+  eventChance: 0.035,
+  gatheringBoost: 1.6,
+  disasterCare: 0.35,
+  disasterWater: 1.6,
+
+  startPoints: 6,
+  pointsPerInfectionRoot: 0.03,
+  pointsPerDeathRoot: 0.02,
+  pointsPerRegion: 0.8,
+  costGrowth: 0.07,
+
+  startBudget: 20,
+  budgetPerDay: 4,
+  upkeep: {
+    testing: 0.05,
+    isolation: 0.06,
+    masks: 0.03,
+    lockdown: 0.22,
+    borders: 0.07,
+    airports: 0.09,
+    ports: 0.07,
+    sanitation: 0.1,
+    vectorControl: 0.09,
+    screening: 0.04,
+  },
+  setupDays: 3,
+  economyLoss: { lockdown: 0.6, airports: 0.1, ports: 0.08, borders: 0.05 },
+  labs: 2,
+  vaccineStages: 3,
+  driftVaccineDelay: 0.5,
+  rolloutByWealth: [0.003, 0.005, 0.008, 0.012],
+
+  startTrust: 0.8,
+  trustBaseline: 0.8,
+  trustRecovery: 0.01,
+  trustLockdown: 0.012,
+  trustMasks: 0.002,
+  trustDeathScale: 0.00001,
+  trustDeaths: 0.004,
+  complianceFloor: 0.35,
+};

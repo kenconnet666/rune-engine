@@ -2,7 +2,14 @@
  * 主机 Worker：对局唯一的真实状态在这里。主线程的界面、渲染 Worker、电脑对手、另一位玩家都是连上来的客户端，
  * 走的是同一套会话协议——单人和双人的差别只是“另一方是谁在发命令”。
  */
-import { decide, outbreak, type Command, type OutbreakView } from '@miwang/sim';
+import {
+  decide,
+  outbreak,
+  type AiLevel,
+  type Command,
+  type OutbreakConfig,
+  type OutbreakView,
+} from '@miwang/sim';
 import type { PlayerId } from '@rune-engine/core';
 import {
   connectSession,
@@ -32,8 +39,11 @@ let stopLoop: (() => void) | undefined;
 const disconnect = new Map<string, () => void>();
 /** 上次把记录交给主线程时的步数与命令数：有新命令立刻交，否则每 20 步交一次 */
 let reported = { ticks: -1, commands: -1 };
-/** 电脑控制的一方（没有时两边都是人），以及它那条连接 */
+/** 这一局的配置：电脑对手要查性状表、科技表 */
+let config: OutbreakConfig | undefined;
+/** 电脑控制的一方（没有时两边都是人）和难度，以及它那条连接 */
 let aiPlayer: PlayerId | null = null;
+let aiLevel: AiLevel = 1;
 let stopAi: (() => void) | undefined;
 let room: BroadcastChannel | undefined;
 
@@ -49,21 +59,22 @@ function report() {
   tell({ type: 'recording', recording });
 }
 
-/** 电脑对手：同一个线程里的一条连接，每 3 天看一次自己这一方的状态、决定要不要出手 */
-function playAi(player: PlayerId | null) {
+/** 电脑对手：同一个线程里的一条连接，每天看一次自己这一方的状态（隔几天出一次手由它自己定） */
+function playAi(player: PlayerId | null, level: AiLevel) {
   stopAi?.();
   stopAi = undefined;
   aiPlayer = player;
-  if (player === null || !host) return;
+  aiLevel = level;
+  const rules = config;
+  if (player === null || !host || !rules) return;
   const [hostSide, aiSide] = createPortPair<ToHost, FromHost>();
   const leave = host.connect(hostSide, player);
   let decidedAt = -1;
   const session = connectSession<Command, OutbreakView>(aiSide, {
     view({ view }) {
-      if (view.tick === decidedAt || view.tick % 3 !== 0) return;
+      if (view.tick === decidedAt) return;
       decidedAt = view.tick;
-      const command = decide(view);
-      if (command) session.send(command);
+      for (const command of decide(view, rules, level)) session.send(command);
     },
   });
   stopAi = () => {
@@ -88,7 +99,7 @@ function openRoom(name: string) {
       channel.close();
     });
     if (!data.readonly) {
-      if (aiPlayer === data.player) playAi(null);
+      if (aiPlayer === data.player) playAi(null, aiLevel);
       tell({ type: 'joined', player: data.player });
     }
     room?.postMessage({ type: 'welcome', client: data.client } satisfies RoomMessage);
@@ -103,19 +114,20 @@ self.onmessage = ({ data }: MessageEvent<HostControl>) => {
       for (const close of disconnect.values()) close();
       disconnect.clear();
       const began = performance.now();
+      config = 'config' in data.start ? data.start.config : data.start.recording.config;
       host = createHost({
         sim: outbreak,
         start: data.start,
         stepMs: data.stepMs,
-        // 这两个数组每次都是新建的：直接转移给对面，不拷贝（广播通道不支持转移，会忽略它）
-        transfer: (view) => [
-          view.intensity.buffer as ArrayBuffer,
-          view.measures.buffer as ArrayBuffer,
-        ],
+        // 这些数组每次都是新建的：直接转移给对面，不拷贝（广播通道不支持转移，会忽略它）
+        transfer: (view) =>
+          [view.intensity, view.measures, view.cases, view.deaths, view.immune, view.happening].map(
+            (array) => array.buffer as ArrayBuffer,
+          ),
       });
       tell({ type: 'started', replayedTicks: host.tick, replayMs: performance.now() - began });
       reported = { ticks: -1, commands: -1 };
-      playAi(aiPlayer);
+      playAi(aiPlayer, aiLevel);
       stopLoop = startHostLoop(host, 50, report);
       break;
     }
@@ -130,7 +142,7 @@ self.onmessage = ({ data }: MessageEvent<HostControl>) => {
       );
       break;
     case 'ai':
-      playAi(data.player);
+      playAi(data.player, data.level);
       break;
     case 'open-room':
       openRoom(data.room);

@@ -5,7 +5,7 @@
  * 点选也在这里做：主线程只报指针在画布上的位置，落在哪个地区由这里算（网格在这里），
  * 停留的高亮当场画上，再把结果告诉主线程去显示名字、打开详情。
  */
-import type { Command, OutbreakView } from '@miwang/sim';
+import { MEASURE_BITS, type Command, type OutbreakView } from '@miwang/sim';
 import {
   connectSession,
   type ClientMessage,
@@ -49,7 +49,10 @@ function show(view: OutbreakView) {
     return;
   }
   renderer.setValues(view.intensity, performance.now());
-  renderer.setFlags(view.measures);
+  // 地图上现在只画封锁（斜纹）；别的措施在地区面板里看
+  renderer.setFlags(
+    Uint8Array.from(view.measures, (bits) => ((bits & MEASURE_BITS.lockdown) !== 0 ? 1 : 0)),
+  );
 }
 
 async function init(data: Extract<RenderControl, { type: 'init' }>) {

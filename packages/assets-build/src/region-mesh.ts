@@ -13,10 +13,14 @@ export interface RegionInfo {
   /** 数据源里的编号（world-atlas 是 ISO 3166-1 的数字代码）；数据源没给的是 “#” 加它在数据源里的下标 */
   readonly id: string;
   readonly name: string;
-  /** 面积，正比于真实面积（按等面积投影量的，和画图用哪种投影无关；整个地球约 13.6） */
+  /** 面积，正比于真实面积（按等面积投影量的，和画图用哪种投影无关；整个地球是 4π ≈ 12.57） */
   readonly area: number;
   /** 最大的那块陆地的中心：放标签、连航线用 */
   readonly center: readonly [x: number, y: number];
+  /** 同一个中心的经纬度（度）：按纬度分气候、算两地的距离用 */
+  readonly lonLat: readonly [longitude: number, latitude: number];
+  /** 有没有海岸线：边界里有不和别的地区共用的一段就算（内陆湖、里海的湖岸也会被算进来） */
+  readonly coastal: boolean;
   /** 陆路相邻的地区（下标） */
   readonly neighbors: readonly number[];
 }
@@ -82,6 +86,15 @@ export function buildRegionMesh(
   // 去掉不要的地区之后下标会变：原下标 → 新下标（不要的是 -1），相邻关系里的下标跟着换
   let count = 0;
   const remap = ids.map((id) => (skip(id) ? -1 : count++));
+  // 每段边界被几个地区用到：只被一个地区用到的就是海岸线
+  const arcUses = new Map<number, number>();
+  const arcsOf = (index: number) =>
+    ((collection.geometries[index] as { arcs?: unknown }).arcs as number[][] | number[][][])
+      .flat(2)
+      .map((arc) => (arc < 0 ? ~arc : arc));
+  for (let index = 0; index < all.length; index++) {
+    for (const arc of new Set(arcsOf(index))) arcUses.set(arc, (arcUses.get(arc) ?? 0) + 1);
+  }
 
   const vertices: number[] = [];
   const indices: number[] = [];
@@ -102,6 +115,7 @@ export function buildRegionMesh(
     let area = 0;
     let largest = 0;
     let center: readonly [number, number] = [0, 0];
+    let lonLatCenter: readonly [number, number] = [0, 0];
 
     for (const polygon of polygons) {
       const flat: number[] = [];
@@ -129,6 +143,7 @@ export function buildRegionMesh(
           if (size > largest) {
             largest = size;
             center = ringShape(points).center;
+            lonLatCenter = ringShape(lonLat.map(([lon, lat]) => [lon!, lat!])).center;
           }
         } else {
           area -= size;
@@ -143,6 +158,9 @@ export function buildRegionMesh(
       name: item.properties?.name ?? ids[source]!,
       area,
       center,
+      // 跨日期变更线的地区经度被展开到了 180° 以外：折回来
+      lonLat: [lonLatCenter[0] > 180 ? lonLatCenter[0] - 360 : lonLatCenter[0], lonLatCenter[1]],
+      coastal: arcsOf(source).some((arc) => arcUses.get(arc) === 1),
       neighbors: (adjacency[source] ?? []).flatMap((index) =>
         remap[index]! >= 0 ? [remap[index]!] : [],
       ),
