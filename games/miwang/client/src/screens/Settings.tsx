@@ -21,7 +21,7 @@ const styles = css.create({
   },
 });
 
-export const SettingsDialog = _component(({ onClose }: { onClose: () => void }) => () => {
+export const Settings = _component(({ onClose }: { onClose: () => void }) => () => {
   const ui = useUi().settings;
   return (
     <Dialog title={ui.title} onClose={onClose} sx={styles.root}>

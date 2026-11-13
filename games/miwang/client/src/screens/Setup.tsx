@@ -50,7 +50,7 @@ const styles = css.create({
   start: { marginInlineStart: 'auto', minWidth: '9rem' },
 });
 
-export const SetupDialog = _component(
+export const Setup = _component(
   ({
     game,
     onStart,

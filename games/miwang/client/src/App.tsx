@@ -4,6 +4,8 @@
  *
  * 布局：左边一列是态势和新闻，右边一列是选中的地区和双方的概况，底下一排是时间和地图的控制。
  * 进化、研究这两件要细看的事在盖住画面的工作台里做（从右边的概况打开）。
+ *
+ * 目录：panels/ 是对局里一直在的那几块面板，screens/ 是盖住画面的那几层（主菜单、开局设置、工作台、百科、设置、结算）。
  * 地图和界面互相配合：指针停在一个地区上，旁边出现它的名字；点一下选中，右侧出现它的详情；
  * 点一条和地区有关的新闻，地图飞过去并选中它。
  */
@@ -14,19 +16,19 @@ import { onBeforeUnmount, onMounted } from 'vue';
 import { placeName, useFormats, useUi } from './i18n.ts';
 import { createMapController, type MapController } from './map.ts';
 import { ControlBar } from './panels/ControlBar.tsx';
-import { Encyclopedia } from './panels/Encyclopedia.tsx';
-import { MainMenu } from './panels/MainMenu.tsx';
+import { Encyclopedia } from './screens/Encyclopedia.tsx';
+import { MainMenu } from './screens/MainMenu.tsx';
 import { NewsPanel } from './panels/NewsPanel.tsx';
 import { OpponentPanel } from './panels/OpponentPanel.tsx';
-import { OutcomePanel } from './panels/OutcomePanel.tsx';
+import { Outcome } from './screens/Outcome.tsx';
 import { PathogenPanel } from './panels/PathogenPanel.tsx';
 import { RegionPanel } from './panels/RegionPanel.tsx';
 import { ResearchPanel } from './panels/ResearchPanel.tsx';
-import { SettingsDialog } from './panels/SettingsDialog.tsx';
-import { SetupDialog } from './panels/SetupDialog.tsx';
+import { Settings } from './screens/Settings.tsx';
+import { Setup } from './screens/Setup.tsx';
 import { StatusPanel } from './panels/StatusPanel.tsx';
 import { TrendPanel } from './panels/TrendPanel.tsx';
-import { Workbench } from './panels/Workbench.tsx';
+import { Workbench } from './screens/Workbench.tsx';
 import { createGameSession, type GameSession } from './session.ts';
 
 /** 小屏幕（手机横屏、很矮的窗口）：两边的面板只留最要紧的，把地图让出来 */
@@ -195,7 +197,7 @@ export const App = _component(() => {
           />
         )}
         {view?.outcome && overlay === null && (
-          <OutcomePanel
+          <Outcome
             view={view}
             onRestart={game?.role === 'host' ? () => (overlay = 'setup') : undefined}
           />
@@ -213,7 +215,7 @@ export const App = _component(() => {
           />
         )}
         {game && overlay === 'setup' && (
-          <SetupDialog
+          <Setup
             game={game}
             onStart={(setup) => {
               overlay = null;
@@ -225,7 +227,7 @@ export const App = _component(() => {
           />
         )}
         {overlay === 'encyclopedia' && <Encyclopedia onClose={() => (overlay = 'menu')} />}
-        {overlay === 'settings' && <SettingsDialog onClose={() => (overlay = 'menu')} />}
+        {overlay === 'settings' && <Settings onClose={() => (overlay = 'menu')} />}
       </div>
     );
   };

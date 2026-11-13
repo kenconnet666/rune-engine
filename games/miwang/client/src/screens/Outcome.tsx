@@ -38,7 +38,7 @@ const styles = css.create({
   lost: { color: colors.danger },
 });
 
-export const OutcomePanel = _component(
+export const Outcome = _component(
   ({ view, onRestart }: { view: OutbreakView; onRestart?: () => void }) =>
     () => {
       const { outcome } = view;
