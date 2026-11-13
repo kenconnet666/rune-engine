@@ -14,12 +14,15 @@ import { onBeforeUnmount, onMounted } from 'vue';
 import { placeName, useFormats, useUi } from './i18n.ts';
 import { createMapController, type MapController } from './map.ts';
 import { ControlBar } from './panels/ControlBar.tsx';
+import { Encyclopedia } from './panels/Encyclopedia.tsx';
+import { MainMenu } from './panels/MainMenu.tsx';
 import { NewsPanel } from './panels/NewsPanel.tsx';
 import { OpponentPanel } from './panels/OpponentPanel.tsx';
 import { OutcomePanel } from './panels/OutcomePanel.tsx';
 import { PathogenPanel } from './panels/PathogenPanel.tsx';
 import { RegionPanel } from './panels/RegionPanel.tsx';
 import { ResearchPanel } from './panels/ResearchPanel.tsx';
+import { SettingsDialog } from './panels/SettingsDialog.tsx';
 import { SetupDialog } from './panels/SetupDialog.tsx';
 import { StatusPanel } from './panels/StatusPanel.tsx';
 import { TrendPanel } from './panels/TrendPanel.tsx';
@@ -77,15 +80,24 @@ export const App = _component(() => {
   let canvas = _state.raw<HTMLCanvasElement | null>(null);
   let game = _state.raw<GameSession | null>(null);
   let map = _state.raw<MapController | null>(null);
-  /** 工作台（进化或研究，看这一方是谁）开着没有 */
-  let working = _state(false);
-  /** 开局设置开着没有 */
-  let settingUp = _state(false);
+  /**
+   * 盖在游戏上面的那一层现在是什么：主菜单、开局设置、百科、设置、工作台（进化或研究，看这一方是谁），或者没有。
+   * 同一时间只有一个；百科和设置是从主菜单进去的，关掉回到主菜单。
+   */
+  let overlay = _state<'menu' | 'setup' | 'encyclopedia' | 'settings' | 'workbench' | null>(null);
   onMounted(() => {
     if (!canvas) return;
     game = createGameSession(canvas);
     map = createMapController(canvas, game.renderLink);
+    // 自己开的局先到主菜单，时间停着；加入别人房间的直接进对局
+    if (game.role === 'host') openMenu();
   });
+  /** 回到主菜单：对局暂停 */
+  const openMenu = () => {
+    overlay = 'menu';
+    game?.setPaused(true);
+  };
+
   onBeforeUnmount(() => {
     map?.dispose();
     game?.dispose();
@@ -133,12 +145,12 @@ export const App = _component(() => {
               {/* 自己能动手的那块排在前面 */}
               {view.attacker ? (
                 <>
-                  <PathogenPanel view={view} onOpen={() => (working = true)} />
+                  <PathogenPanel view={view} onOpen={() => (overlay = 'workbench')} />
                   <ResearchPanel view={view} onOpen={() => {}} />
                 </>
               ) : (
                 <>
-                  <ResearchPanel view={view} onOpen={() => (working = true)} />
+                  <ResearchPanel view={view} onOpen={() => (overlay = 'workbench')} />
                   <PathogenPanel view={view} onOpen={() => {}} />
                 </>
               )}
@@ -147,7 +159,7 @@ export const App = _component(() => {
           )}
 
           <div {...css.attrs(styles.bottom)}>
-            {game && <ControlBar game={game} map={map} onNewGame={() => (settingUp = true)} />}
+            {game && <ControlBar game={game} map={map} onMenu={openMenu} />}
             {game && (
               <Note tone={game.renderError.value != null ? 'danger' : 'muted'} sx={styles.note}>
                 {note(game)}
@@ -165,32 +177,46 @@ export const App = _component(() => {
             </Callout>
           )}
         </div>
-        {view && working && !view.outcome && (
+        {view && overlay === 'workbench' && !view.outcome && (
           <Workbench
             view={view}
             onEvolve={(trait) => game?.send({ type: 'evolve', trait })}
             onResearch={(tech) => game?.send({ type: 'research', tech })}
-            onClose={() => (working = false)}
+            onClose={() => (overlay = null)}
           />
         )}
-        {game && settingUp && (
+        {view?.outcome && overlay === null && (
+          <OutcomePanel
+            view={view}
+            onRestart={game?.role === 'host' ? () => (overlay = 'setup') : undefined}
+          />
+        )}
+        {game && overlay === 'menu' && (
+          <MainMenu
+            canResume={view != null && !view.outcome}
+            onResume={() => {
+              overlay = null;
+              game?.setPaused(false);
+            }}
+            onNewGame={() => (overlay = 'setup')}
+            onEncyclopedia={() => (overlay = 'encyclopedia')}
+            onSettings={() => (overlay = 'settings')}
+          />
+        )}
+        {game && overlay === 'setup' && (
           <SetupDialog
             game={game}
             onStart={(setup) => {
-              settingUp = false;
-              working = false;
+              overlay = null;
               map?.select(-1);
               game?.restart(setup);
             }}
-            onClose={() => (settingUp = false)}
+            // 没开始就关掉：有一局在打就回主菜单，已经分出胜负的回到结算
+            onClose={() => (overlay = view?.outcome ? null : 'menu')}
           />
         )}
-        {view?.outcome && !settingUp && (
-          <OutcomePanel
-            view={view}
-            onRestart={game?.role === 'host' ? () => (settingUp = true) : undefined}
-          />
-        )}
+        {overlay === 'encyclopedia' && <Encyclopedia onClose={() => (overlay = 'menu')} />}
+        {overlay === 'settings' && <SettingsDialog onClose={() => (overlay = 'menu')} />}
       </div>
     );
   };

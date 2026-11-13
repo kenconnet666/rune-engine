@@ -145,6 +145,44 @@ export const zh = {
     language: '语言',
   },
 
+  menu: {
+    name: '迷惘',
+    poem: '不盈一握之迷惘，由此孕育出邪念，爬过旷野，翻越山丘，播撒灾厄于长空。',
+    about: '一个关于传染病怎样传播、又怎样被拦住的策略游戏。',
+    resume: '继续这一局',
+    newGame: '新开一局',
+    encyclopedia: '百科',
+    settings: '设置',
+    open: '菜单',
+  },
+
+  encyclopedia: {
+    title: '百科',
+    pathogens: '病原体',
+    traits: '性状',
+    measures: '地区措施',
+    techs: '研究',
+    cost: '代价',
+    requires: '前置',
+    none: '无',
+    upkeep: (cost: string) => `人口 5000 万的地区每天 ${cost}，按人口折算`,
+    research: (cost: number, days: number) => `预算 ${cost} · ${days} 天`,
+  },
+
+  settings: {
+    title: '设置',
+    language: '语言',
+    credits: '数据与素材',
+    creditLines: [
+      '国家边界、人口、经济：Natural Earth（公有领域），边界经 world-atlas 整理',
+      '中文地名：i18n-iso-countries（MIT）',
+      '图标：lucide（ISC），另有几个是这个项目自己画的',
+      '传染病资料：世界卫生组织与美国疾控中心的公开页面，出处列在各病原体的介绍里',
+      '航线与海运是按人口、经济、距离估算的模型，不是真实的航班与航运数据',
+    ],
+    license: '这个游戏是开源的个人学习项目（MIT 协议），不用于商业发行。',
+  },
+
   setup: {
     title: '新开一局',
     pathogen: '病原体',

@@ -1,5 +1,4 @@
-/** 底部的一排控制：时间快慢、地图缩放、扮演哪一方、语言、新开一局 */
-import type { Locale } from '@miwang/content';
+/** 底部的一排控制：菜单、时间快慢、地图缩放、扮演哪一方 */
 import { ATTACKER, DEFENDER } from '@miwang/sim';
 import { ActionButton, Icon, Segmented, Stack } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
@@ -8,14 +7,14 @@ import {
   ChevronsRight,
   FastForward,
   Maximize,
+  Menu,
   Minus,
   Pause,
   Play,
   Plus,
-  RotateCcw,
   ShieldCheck,
 } from 'lucide';
-import { i18n, LOCALE_NAMES, useUi } from '../i18n.ts';
+import { useUi } from '../i18n.ts';
 import type { MapController } from '../map.ts';
 import type { GameSession } from '../session.ts';
 
@@ -27,21 +26,17 @@ const SPEEDS = [
 ];
 
 export const ControlBar = _component(
-  ({
-    game,
-    map,
-    onNewGame,
-  }: {
-    game: GameSession;
-    map: MapController | null;
-    onNewGame: () => void;
-  }) =>
+  ({ game, map, onMenu }: { game: GameSession; map: MapController | null; onMenu: () => void }) =>
     () => {
-      const ui = useUi().controls;
+      const all = useUi();
+      const ui = all.controls;
       const host = game.role === 'host';
       const human = game.opponent.value === 'human';
       return (
         <Stack row gap="md" wrap>
+          <ActionButton icon={Menu} onPress={onMenu}>
+            {all.menu.open}
+          </ActionButton>
           <Segmented
             label={ui.time}
             value={game.paused.value ? 0 : game.speed.value}
@@ -107,17 +102,6 @@ export const ControlBar = _component(
               ]}
               onChange={(value) => game.setPlayer(Number(value))}
             />
-          )}
-          <Segmented
-            label={ui.language}
-            value={i18n.locale.value}
-            options={i18n.locales.map((locale) => ({ value: locale, label: LOCALE_NAMES[locale] }))}
-            onChange={(value) => (i18n.locale.value = value as Locale)}
-          />
-          {host && (
-            <ActionButton icon={RotateCcw} onPress={onNewGame}>
-              {ui.restart}
-            </ActionButton>
           )}
         </Stack>
       );

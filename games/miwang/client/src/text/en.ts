@@ -144,6 +144,45 @@ export const en: ClientText = {
     language: 'Language',
   },
 
+  menu: {
+    name: 'Bewilderment',
+    poem: 'A bewilderment too slight to fill a hand; from it an evil thought is born, crawls across the wilds, climbs over the hills, and sows calamity across the sky.',
+    about: 'A strategy game about how infectious diseases spread, and how they are stopped.',
+    resume: 'Continue this game',
+    newGame: 'New game',
+    encyclopedia: 'Encyclopedia',
+    settings: 'Settings',
+    open: 'Menu',
+  },
+
+  encyclopedia: {
+    title: 'Encyclopedia',
+    pathogens: 'Pathogens',
+    traits: 'Traits',
+    measures: 'Regional measures',
+    techs: 'Research',
+    cost: 'Cost',
+    requires: 'Requires',
+    none: 'nothing',
+    upkeep: (cost) => `${cost} per day in a region of 50 million, scaled by population`,
+    research: (cost, days) => `Budget ${cost} · ${days} days`,
+  },
+
+  settings: {
+    title: 'Settings',
+    language: 'Language',
+    credits: 'Data and assets',
+    creditLines: [
+      'Borders, population, economy: Natural Earth (public domain), borders prepared by world-atlas',
+      'Chinese place names: i18n-iso-countries (MIT)',
+      'Icons: lucide (ISC), plus a few drawn for this project',
+      'Disease facts: public pages of the World Health Organization and the US CDC, cited in each pathogen entry',
+      'Air and sea routes are a model based on population, economy and distance, not real flight or shipping data',
+    ],
+    license:
+      'This game is an open-source personal learning project (MIT licence), not for commercial release.',
+  },
+
   setup: {
     title: 'New game',
     pathogen: 'Pathogen',
