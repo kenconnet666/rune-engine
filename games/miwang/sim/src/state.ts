@@ -39,6 +39,14 @@ export interface NewsItem {
   readonly audience: number;
 }
 
+/** 疾病跳到一个新地区的那一下：从哪里来、走的哪种路线（地图上画成一道弧线） */
+export interface Hop {
+  readonly tick: number;
+  readonly from: number;
+  readonly to: number;
+  readonly route: 'land' | 'air' | 'sea';
+}
+
 /** 胜负：calamity 死亡越过灾厄线（攻方赢）、eradicated 病原体被清除、timeout 守到了期限（后两种守方赢） */
 export interface Outcome {
   readonly winner: PlayerId;
@@ -98,6 +106,8 @@ export interface OutbreakState {
   clearStreak: number;
 
   news: NewsItem[];
+  /** 疾病每一次跳到新地区的记录，按先后排 */
+  hops: Hop[];
   /** 态势随时间的记录：真实的一份、上报的一份 */
   history: History;
   reportedHistory: History;
@@ -157,6 +167,7 @@ export function createState(config: OutbreakConfig): OutbreakState {
     infectedTotal: 0,
     clearStreak: 0,
     news: [],
+    hops: [],
     history: emptyHistory(),
     reportedHistory: emptyHistory(),
     outcome: null,

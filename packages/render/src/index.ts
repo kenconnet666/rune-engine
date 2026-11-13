@@ -1,5 +1,10 @@
-/** WebGPU 2D 渲染。现在只有地区地图这一层；之后的精灵、线条、文字、后期都加在这里 */
-export { createMapRenderer, type MapRenderer, type MapRendererOptions } from './map-renderer.ts';
+/** WebGPU 2D 渲染：地区地图（底图、地区、弧线三层）、视野的坐标换算、点选 */
+export {
+  createMapRenderer,
+  type MapArc,
+  type MapRenderer,
+  type MapRendererOptions,
+} from './map-renderer.ts';
 export {
   clampCamera,
   fitCamera,

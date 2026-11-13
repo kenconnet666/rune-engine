@@ -4,7 +4,10 @@
  *
  * 点选也在这里做：主线程只报指针在画布上的位置，落在哪个地区由这里算（网格在这里），
  * 停留的高亮当场画上，再把结果告诉主线程去显示名字、打开详情。
+ *
+ * 地图上的弧线也在这里定：选中的地区画出它的航线和海运；疾病跳到新地区的那一下画一道走动的光（只有攻方看得到）。
  */
+import { regions } from '@miwang/content';
 import { MEASURE_BITS, type Command, type OutbreakView } from '@miwang/sim';
 import {
   connectSession,
@@ -18,6 +21,7 @@ import {
   decodeRegionMesh,
   fitCamera,
   screenToMap,
+  type MapArc,
   type MapBounds,
   type MapCamera,
   type MapRenderer,
@@ -33,6 +37,12 @@ let session: Session<Command> | undefined;
 let channel: BroadcastChannel | undefined;
 /** 渲染器还没建好时先到的东西：建好后补上 */
 let pendingView: OutbreakView | undefined;
+/** 最近一份状态里“跳到新地区”的记录，和各自第一次看到它的时刻（光从那时开始走） */
+let hops: OutbreakView['hops'] = [];
+let today = 0;
+const hopSeenAt = new Map<string, number>();
+/** 一跳过了这么多天就从地图上淡掉 */
+const HOP_FADE_DAYS = 30;
 
 let size = { width: 1, height: 1 };
 let bounds: MapBounds = [0, 0, 1, 1];
@@ -42,6 +52,51 @@ let hovered = -1;
 let selected = -1;
 
 const report = (message: RenderReport) => self.postMessage(message);
+
+const centerOf = (region: number) => regions[region]!.center as [number, number];
+
+/** 重新定一遍要画的弧线：最近的几跳，加上选中地区的航线和海运 */
+function updateArcs() {
+  if (!renderer) return;
+  const arcs: MapArc[] = [];
+  const now = performance.now();
+  const current = new Set<string>();
+  for (const hop of hops) {
+    const key = `${hop.tick}:${hop.to}`;
+    current.add(key);
+    if (!hopSeenAt.has(key)) hopSeenAt.set(key, now);
+    arcs.push({
+      from: centerOf(hop.from),
+      to: centerOf(hop.to),
+      route: hop.route,
+      startMs: hopSeenAt.get(key)!,
+      // 越旧越淡
+      alpha: Math.max(0.15, 1 - (today - hop.tick) / HOP_FADE_DAYS),
+    });
+  }
+  // 状态里已经没有的那些跳（过期了、换了一局）不用再记着
+  for (const key of hopSeenAt.keys()) if (!current.has(key)) hopSeenAt.delete(key);
+
+  const region = regions[selected];
+  if (region) {
+    for (const [route, links] of [
+      ['air', region.air],
+      ['sea', region.sea],
+    ] as const) {
+      const strongest = Math.max(...links.weight, 1e-9);
+      links.to.forEach((to, index) => {
+        arcs.push({
+          from: centerOf(selected),
+          to: centerOf(to),
+          route,
+          // 往来越多的路线越实
+          alpha: 0.35 + 0.65 * (links.weight[index]! / strongest),
+        });
+      });
+    }
+  }
+  renderer.setArcs(arcs);
+}
 
 function show(view: OutbreakView) {
   if (!renderer) {
@@ -53,6 +108,9 @@ function show(view: OutbreakView) {
   renderer.setFlags(
     Uint8Array.from(view.measures, (bits) => ((bits & MEASURE_BITS.lockdown) !== 0 ? 1 : 0)),
   );
+  hops = view.hops;
+  today = view.tick;
+  updateArcs();
 }
 
 async function init(data: Extract<RenderControl, { type: 'init' }>) {
@@ -73,6 +131,7 @@ async function init(data: Extract<RenderControl, { type: 'init' }>) {
   renderer.resize(size.width, size.height);
   renderer.setCamera(camera);
   renderer.setHighlight(hovered, selected);
+  updateArcs();
   if (pendingView) show(pendingView);
   const frame = (now: number) => {
     renderer?.render(now);
@@ -112,6 +171,7 @@ self.onmessage = ({ data }: MessageEvent<RenderControl>) => {
     case 'select':
       selected = data.region;
       renderer?.setHighlight(hovered, selected);
+      updateArcs();
       break;
     case 'lose-device':
       renderer?.loseDevice();

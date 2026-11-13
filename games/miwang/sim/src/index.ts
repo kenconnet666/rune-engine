@@ -47,6 +47,7 @@ export type { History } from './rules/history.ts';
 export {
   ATTACKER,
   DEFENDER,
+  type Hop,
   type NewsItem,
   type NewsKind,
   type Outcome,

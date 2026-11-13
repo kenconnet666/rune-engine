@@ -1,7 +1,7 @@
 /** 出行：带病的人沿陆路、航线、海运把感染带到别的地区 */
 import { chance } from '@rune-engine/core';
 import type { Links, PathogenStats } from '../config.ts';
-import type { OutbreakState } from '../state.ts';
+import { REACHED, type Hop, type OutbreakState } from '../state.ts';
 import { expose, type DayTally } from './epidemic.ts';
 import { after, hasMeasure } from './regional.ts';
 
@@ -20,6 +20,9 @@ export function travel(
 ) {
   const { regions, rules } = state.config;
   const arrivals = new Float64Array(regions.length);
+  /** 各地区今天第一批输入的感染者是从哪里、沿哪种路线来的（没有时 from 是 -1） */
+  const firstFrom = new Int32Array(regions.length).fill(-1);
+  const firstRoute: Hop['route'][] = [];
   // 潜伏的人照常出行；发病的人病得越重越走不动
   const mobility = 1 / (1 + rules.severityImmobility * pathogen.severity);
 
@@ -32,7 +35,7 @@ export function travel(
   ) =>
     hasMeasure(state, from, measure) || hasMeasure(state, to, measure) ? 1 - effect * comply : 1;
 
-  const send = (to: number, expected: number) => {
+  const send = (from: number, to: number, route: Hop['route'], expected: number) => {
     // 目的地封锁、入境筛查都会拦下一部分
     const admitted =
       expected *
@@ -40,7 +43,13 @@ export function travel(
       after(state, to, 'screening', rules.screeningEffect, comply);
     if (admitted < NEGLIGIBLE || state.susceptible[to]! <= 0) return;
     const whole = Math.floor(admitted);
-    arrivals[to]! += whole + (chance(state.random, admitted - whole) ? 1 : 0);
+    const landed = whole + (chance(state.random, admitted - whole) ? 1 : 0);
+    if (landed <= 0) return;
+    arrivals[to]! += landed;
+    if (firstFrom[to]! < 0) {
+      firstFrom[to] = from;
+      firstRoute[to] = route;
+    }
   };
 
   const along = (
@@ -50,9 +59,10 @@ export function travel(
     measure: 'airports' | 'ports',
     effect: number,
   ) => {
+    const route = measure === 'airports' ? 'air' : 'sea';
     for (let i = 0; i < links.to.length; i++) {
       const to = links.to[i]!;
-      send(to, travelers * links.weight[i]! * gate(from, to, measure, effect));
+      send(from, to, route, travelers * links.weight[i]! * gate(from, to, measure, effect));
     }
   };
 
@@ -62,7 +72,12 @@ export function travel(
     const leaving = carriers * after(state, from, 'lockdown', rules.lockdownTravel, comply);
     const region = regions[from]!;
     for (const to of region.neighbors) {
-      send(to, leaving * rules.landRate * gate(from, to, 'borders', rules.bordersEffect));
+      send(
+        from,
+        to,
+        'land',
+        leaving * rules.landRate * gate(from, to, 'borders', rules.bordersEffect),
+      );
     }
     along(
       from,
@@ -81,6 +96,11 @@ export function travel(
   }
 
   for (let to = 0; to < regions.length; to++) {
-    if (arrivals[to]! > 0) expose(state, to, arrivals[to]!, tally);
+    if (arrivals[to]! <= 0) continue;
+    // 第一次到这个地区：记下这一跳
+    if ((state.reached[to]! & REACHED) === 0 && state.susceptible[to]! > 0) {
+      state.hops.push({ tick: state.tick, from: firstFrom[to]!, to, route: firstRoute[to]! });
+    }
+    expose(state, to, arrivals[to]!, tally);
   }
 }

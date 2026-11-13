@@ -179,6 +179,20 @@ describe('《迷惘》的模拟', () => {
     expect(state.outcome).toMatchObject({ winner: DEFENDER, reason: 'eradicated' });
   });
 
+  it('疾病每跳到一个新地区记一下来路，只有攻方看得到', () => {
+    const state = replay(outbreak, recording);
+    // 起源地不算跳过去的；其余到过的地区各有一条，来路是一个已经到过的地区
+    const reached = state.reached.filter((bits) => bits !== 0).length;
+    expect(state.hops).toHaveLength(reached - 1);
+    for (const hop of state.hops) {
+      expect(hop.from).not.toBe(hop.to);
+      expect(state.reached[hop.from]).not.toBe(0);
+    }
+    const early = replay(outbreak, recording, state.hops[0]!.tick + 2);
+    expect(outbreak.observe(early, ATTACKER).hops).toHaveLength(1);
+    expect(outbreak.observe(early, DEFENDER).hops).toEqual([]);
+  });
+
   it('每隔几天记一笔态势：攻方拿到真实的那份，守方拿到上报的那份', () => {
     const state = replay(outbreak, recording, 150);
     const attacker = outbreak.observe(state, ATTACKER).history;
@@ -202,4 +216,4 @@ describe('《迷惘》的模拟', () => {
 });
 
 // 跨机器核对用的定值：规则或默认数值改了之后在 x64 上重新算出来填进去
-const GOLDEN_OUTBREAK = 2509502097;
+const GOLDEN_OUTBREAK = 484618813;

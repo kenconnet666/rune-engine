@@ -68,6 +68,7 @@ function hash(state: OutbreakState): number {
     state.infectedTotal,
     state.clearStreak,
     state.news.length,
+    state.hops.length,
     state.history.cases.length,
     state.history.cases.at(-1) ?? 0,
     state.reportedHistory.deaths.at(-1) ?? 0,

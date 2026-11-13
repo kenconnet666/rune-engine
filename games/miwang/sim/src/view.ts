@@ -15,6 +15,7 @@ import {
   REPORTED,
   TECH_ACTIVE,
   TECH_DONE,
+  type Hop,
   type NewsItem,
   type Outcome,
   type OutbreakState,
@@ -98,6 +99,8 @@ export interface OutbreakView {
 
   /** 起源地：攻方总是知道，守方要做完溯源；不知道时是 -1 */
   readonly origin: number;
+  /** 疾病最近跳到新地区的那几下（只有攻方看得到：守方不知道它是从哪里来的） */
+  readonly hops: readonly Hop[];
   /** 态势随时间的记录（这一方看得到的那一份）：每 every 天一笔 */
   readonly history: History & { readonly every: number };
   /** 这一方看得到的新闻，旧的在前 */
@@ -105,6 +108,8 @@ export interface OutbreakView {
   readonly outcome: Outcome | null;
 }
 
+/** 多少天以内的“跳到新地区”算最近的 */
+const HOPS_SHOWN_DAYS = 30;
 /** 新闻一次最多给这么多条（最近的） */
 const NEWS_SHOWN = 30;
 
@@ -200,6 +205,7 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
       economyLost: state.economyLost,
     },
     origin: attacker || defense.trace >= 1 ? state.config.origin : -1,
+    hops: attacker ? state.hops.filter((hop) => state.tick - hop.tick <= HOPS_SHOWN_DAYS) : [],
     history: { every: HISTORY_EVERY, ...(attacker ? state.history : state.reportedHistory) },
     news: state.news.filter((item) => (item.audience & audience) !== 0).slice(-NEWS_SHOWN),
     outcome: state.outcome,

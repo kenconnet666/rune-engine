@@ -16,6 +16,7 @@ import { onBeforeUnmount, onMounted } from 'vue';
 import { placeName, useFormats, useUi } from './i18n.ts';
 import { createMapController, type MapController } from './map.ts';
 import { ControlBar } from './panels/ControlBar.tsx';
+import { MapOverlay } from './panels/MapOverlay.tsx';
 import { Encyclopedia } from './screens/Encyclopedia.tsx';
 import { MainMenu } from './screens/MainMenu.tsx';
 import { NewsPanel } from './panels/NewsPanel.tsx';
@@ -130,6 +131,8 @@ export const App = _component(() => {
     return (
       <div {...css.attrs(styles.root)}>
         <canvas ref={_toRef(canvas)} aria-label={ui.app.mapLabel} {...css.attrs(styles.canvas)} />
+        {/* 地名和标记压在地图上、界面的下面 */}
+        {view && map && canvas && <MapOverlay map={map} view={view} canvas={canvas} />}
         <div {...css.attrs(styles.layer)}>
           <Scroll sx={[styles.column, styles.left]}>
             <StatusPanel view={view} />
