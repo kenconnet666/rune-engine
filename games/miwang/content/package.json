@@ -2,7 +2,7 @@
   "name": "@miwang/content",
   "version": "0.0.0",
   "private": true,
-  "description": "《迷惘》的数据：世界地图的地区、开局配置；generated/ 里是构建脚本产出的地图网格",
+  "description": "《迷惘》的数据：世界地图的地区、开局配置；data/ 里是带出处的原始数据，generated/ 里是构建脚本产出的地图网格",
   "type": "module",
   "license": "MIT",
   "exports": {

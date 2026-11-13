@@ -144,7 +144,10 @@ const RegionPanel = _component(
             detail={percent.format(level)}
             tone={level > 0.5 ? 'danger' : 'signal'}
           />
-          <Fact label="人口（占位）" value={compact.format(populations[index] ?? 0)} />
+          <Fact
+            label={`人口（${region?.populationYear} 年）`}
+            value={compact.format(populations[index] ?? 0)}
+          />
           <Fact label="陆路相邻" value={`${region?.neighbors.length ?? 0} 个地区`} />
           {view.attacker ? (
             (bits & MEASURE_BITS.lockdown) !== 0 && <Fact label="守方措施" value="封锁中" />
@@ -194,7 +197,7 @@ export const App = _component(() => {
     if (resumed) {
       return `这一局是照着记录重放接上的：${resumed.ticks} 天，用了 ${resumed.replayMs.toFixed(0)} 毫秒。`;
     }
-    return '架构验证版：人口、航线、传播参数都是占位数，不是任何真实疾病。';
+    return '架构验证版：航线和传播参数都是占位数，不是任何真实疾病。';
   };
 
   return () => {
