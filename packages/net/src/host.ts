@@ -5,6 +5,7 @@
  * 主机自己不计时：宿主（Worker 里的定时器、测试）每隔一会儿调一次 advance，告诉它现实里过了多久。
  */
 import {
+  commandsAt,
   createStepClock,
   replay,
   type PlayerId,
@@ -17,8 +18,17 @@ import type { ClientMessage, HostMessage } from './protocol.ts';
 
 export interface HostOptions<Config, State, Command, View> {
   sim: Simulation<Config, State, Command, View>;
-  /** 新开一局的配置；或者一份记录，主机照着它重算到最后一步再接着走（读档、热重载） */
-  start: { config: Config } | { recording: Recording<Config, Command> };
+  /**
+   * 怎么开始：
+   *   config     新开一局
+   *   recording  照着一份记录重算到最后一步，再接着走（读档、热重载）
+   *   playback   回放一份记录：从第 from 步（默认 0）开始一步一步照着放，放到头自己停下；
+   *              回放时不接受新的命令，调速、暂停照常
+   */
+  start:
+    | { config: Config }
+    | { recording: Recording<Config, Command> }
+    | { playback: Recording<Config, Command>; from?: number };
   /** 一步对应现实里的多少毫秒（1 倍速时） */
   stepMs: number;
   /** 发给客户端的状态里哪些缓冲区可以直接转移（零拷贝） */
@@ -44,15 +54,32 @@ export interface Host<Config, Command, View> {
   readonly recording: Recording<Config, Command>;
 }
 
+/** 主机一开始手里的记录：新开的是空的，读档的是整份，回放的是开头那一段 */
+function startRecording<Config, Command>(
+  start: HostOptions<Config, unknown, Command, unknown>['start'],
+): Recording<Config, Command> {
+  if ('config' in start) return { config: start.config, commands: [], ticks: 0 };
+  if ('recording' in start) {
+    return { ...start.recording, commands: [...start.recording.commands] };
+  }
+  const ticks = Math.min(Math.max(0, Math.floor(start.from ?? 0)), start.playback.ticks);
+  return {
+    config: start.playback.config,
+    commands: start.playback.commands.filter((entry) => entry.tick < ticks),
+    ticks,
+  };
+}
+
 export function createHost<Config, State, Command, View>(
   options: HostOptions<Config, State, Command, View>,
 ): Host<Config, Command, View> {
   const { sim } = options;
-  const recording: Recording<Config, Command> =
-    'recording' in options.start
-      ? { ...options.start.recording, commands: [...options.start.recording.commands] }
-      : { config: options.start.config, commands: [], ticks: 0 };
+  /** 回放的那份记录；不是回放时是 null */
+  const playback = 'playback' in options.start ? options.start.playback : null;
+  const recording: Recording<Config, Command> = startRecording(options.start);
   const state = replay(sim, recording);
+  /** 回放时记录里的命令读到了哪里 */
+  let cursor = recording.commands.length;
   const clock = createStepClock(options.stepMs);
   const clients = new Set<{
     port: Port<ClientMessage<Command>, HostMessage<View>>;
@@ -62,6 +89,16 @@ export function createHost<Config, State, Command, View>(
   let pending: Stamped<Command>[] = [];
 
   function step() {
+    if (playback) {
+      // 放到头了：停在最后一步
+      if (recording.ticks >= playback.ticks) {
+        clock.paused = true;
+        return;
+      }
+      const { list, next } = commandsAt(playback.commands, recording.ticks, cursor);
+      cursor = next;
+      pending = list;
+    }
     recording.commands.push(...pending);
     sim.step(state, pending);
     pending = [];
@@ -94,7 +131,8 @@ export function createHost<Config, State, Command, View>(
         if (readonly) return;
         switch (data.type) {
           case 'command':
-            pending.push({ tick: recording.ticks, player, command: data.command });
+            // 回放时过去的事已经定了，不接受新的命令
+            if (!playback) pending.push({ tick: recording.ticks, player, command: data.command });
             break;
           case 'speed':
             clock.speed = data.speed;

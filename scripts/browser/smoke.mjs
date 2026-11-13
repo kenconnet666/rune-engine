@@ -18,7 +18,8 @@ if (shots) mkdirSync(shots, { recursive: true });
 const chrome = await launchChrome({ software });
 let step = 0;
 try {
-  const page = await chrome.open(url);
+  // 界面语言默认跟着浏览器走：这里固定成中文，下面按中文的字找按钮
+  const page = await chrome.open(url, { init: `localStorage.setItem('miwang:locale', 'zh')` });
   const hasText = (text) => `document.body.innerText.includes(${JSON.stringify(text)})`;
   const hasButton = (text) =>
     `[...document.querySelectorAll('button')].some((b) => b.textContent.trim().startsWith(${JSON.stringify(text)}) && b.checkVisibility())`;
@@ -101,13 +102,35 @@ try {
   await done('换到守方：研究的工作台打得开');
 
   // 点地图中间偏右（亚洲）选一个地区，守方应该看到措施
-  await page.click(1180, 330);
+  // 上一步关掉的对话框还有一小段离场动画，这时点下去会点在它上面：没选中就再点
+  for (let attempt = 0; attempt < 6; attempt++) {
+    await page.click(1180, 330);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    if (await page.evaluate(hasText('加强检测'))) break;
+  }
   await page.waitFor(hasText('加强检测'), { what: '选中地区之后的措施' });
   await done('地图：点选一个地区，出现它的措施');
 
   await page.clickButton('菜单');
   await page.waitFor(hasButton('继续这一局'), { what: '主菜单里的“继续”' });
   await done('菜单：回到主菜单，可以继续');
+
+  await page.clickButton('存档与回放');
+  await page.waitFor(hasButton('存下这一局'), { what: '存档页' });
+  await page.clickButton('存下这一局');
+  await page.waitFor(hasText('存好了'), { what: '存档成功' });
+  await page.evaluate(`document.querySelector('[aria-label="从头回放"]').click()`);
+  await page.waitFor(hasButton('退出回放'), { what: '回放的进度条' });
+  await page.waitFor(hasText(' 天 / 共 '), { what: '回放的进度' });
+  // 回放时不能操作：进化、研究的入口都不在
+  if (await page.evaluate(`${hasButton('进化')} || ${hasButton('安排研究')}`)) {
+    throw new Error('回放时还能看到进化或研究的入口');
+  }
+  await page.clickButton('退出回放');
+  await page.waitFor(`!${hasButton('退出回放')} && /第 [0-9]+ 天/.test(document.body.innerText)`, {
+    what: '退出回放，回到自己的那一局',
+  });
+  await done('存档与回放：存了一份，从头回放，再退出来');
 
   if (page.errors.length) {
     throw new Error(`页面报了 ${page.errors.length} 个错：\n${page.errors.slice(0, 8).join('\n')}`);

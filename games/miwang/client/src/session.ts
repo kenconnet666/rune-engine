@@ -4,7 +4,8 @@
  *   - 客人（地址里带 ?join=房间号）：不起主机，经房间的通道连到主人的主机上。
  * 渲染 Worker 两种身份都有：它也是主机的一个只读客户端，状态不经过主线程。
  *
- * 主人的对局记录暂存在 sessionStorage：开发时改了模拟的代码、页面刷新后，照着记录重放到刚才那一步接着走。
+ * 主人正在打的这一局随时自动存着（见 saves.ts）：关掉页面再打开、开发时改了代码页面刷新，都照着记录重算到刚才那一步接着走。
+ * 主人还可以回放一份记录：从头一天一天地放，能调速、暂停、跳到任意一天，但不能下命令。
  */
 import { createConfig, DEFAULT_PATHOGEN, PATHOGENS, regions } from '@miwang/content';
 import detailUrl from '@miwang/content/generated/world-mesh-detail.bin?url';
@@ -17,7 +18,7 @@ import {
   type HostMessage,
   type Session,
 } from '@rune-engine/net';
-import { asPort, observeCanvasSize, sessionStore } from '@rune-engine/runtime';
+import { asPort, observeCanvasSize } from '@rune-engine/runtime';
 import { shallowRef, type ShallowRef } from 'vue';
 import {
   clientChannel,
@@ -29,6 +30,7 @@ import {
   type RenderReport,
   type RoomMessage,
 } from './messages.ts';
+import { autosave, matchesWorld } from './saves.ts';
 
 /** 一步（一天）在 1 倍速下是现实里的多少毫秒 */
 const STEP_MS = 400;
@@ -57,6 +59,18 @@ export interface GameSession {
   readonly renderLink: RenderLink;
   /** 这一局是照着暂存的记录重放接上的：重放了几步、用了多久；新开的一局是 null */
   readonly resumed: ShallowRef<{ ticks: number; replayMs: number } | null>;
+  /** 正在回放的话，那份记录一共多少天；不是回放是 null */
+  readonly playback: ShallowRef<{ readonly length: number } | null>;
+  /** 到目前为止的对局记录（存档、导出用）；还没有时是 null。回放时是正在放的那份 */
+  recording(): GameRecording | null;
+  /** 读档：照着一份记录重算到最后一步，接着打（只有主人可以） */
+  load(recording: GameRecording): void;
+  /** 回放一份记录，从头放起（只有主人可以） */
+  watch(recording: GameRecording): void;
+  /** 回放时跳到第几天 */
+  seek(day: number): void;
+  /** 退出回放，回到自动存着的那一局（没有就新开一局） */
+  stopWatching(): void;
   send(command: Command): void;
   setSpeed(speed: number): void;
   setPaused(paused: boolean): void;
@@ -85,18 +99,6 @@ export interface RenderLink {
   onRegion: ((region: number, picked: boolean) => void) | null;
 }
 
-const store = sessionStore<GameRecording>('miwang:recording');
-/**
- * 存着的记录只在世界数据没变时才能接着用：地图、人口、航线换过之后，照旧的配置重放出来的已经不是眼前这张图了。
- * 判断办法是拿记录里的种子和日期按现在的数据再生成一份配置，看是不是一模一样。
- */
-const matchesWorld = ({ config }: GameRecording) =>
-  JSON.stringify(
-    createConfig(config.seed, config.startDate, {
-      pathogen: profileOf(config.pathogen.id),
-      origin: config.origin,
-    }),
-  ) === JSON.stringify(config);
 const profileOf = (id: string) => PATHOGENS.find((pathogen) => pathogen.id === id);
 const other = (player: PlayerId) => (player === ATTACKER ? DEFENDER : ATTACKER);
 const shortId = () => Math.random().toString(36).slice(2, 8);
@@ -114,6 +116,7 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
   const room = shallowRef<string | null>(joining);
   const renderError = shallowRef<string | null>(null);
   const resumed = shallowRef<{ ticks: number; replayMs: number } | null>(null);
+  const playback = shallowRef<{ readonly length: number } | null>(null);
 
   const render = new Worker(new URL('./workers/render.worker.ts', import.meta.url), {
     type: 'module',
@@ -171,6 +174,7 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
     renderError,
     renderLink,
     resumed,
+    playback,
     send: (command: Command) => session?.send(command),
     setSpeed: (next: number) => session?.setSpeed(next),
     setPaused: (next: boolean) => session?.setPaused(next),
@@ -216,6 +220,11 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
       setAiLevel() {},
       openRoom: () => location.href,
       restart() {},
+      recording: () => null,
+      load() {},
+      watch() {},
+      seek() {},
+      stopWatching() {},
     };
   }
 
@@ -225,10 +234,14 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
     host.postMessage(message, transfer);
   cleanups.push(() => host.terminate());
 
+  /** 主机最近报上来的对局记录；回放时是正在放的那份 */
+  let latest: GameRecording | null = null;
+
   host.onmessage = ({ data }: MessageEvent<HostReport>) => {
     switch (data.type) {
       case 'recording':
-        store.save(data.recording);
+        latest = data.recording;
+        autosave.save(data.recording);
         break;
       case 'started':
         resumed.value =
@@ -254,12 +267,14 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
       [picture.port1],
     );
     toRender({ type: 'connect', port: picture.port2 }, [picture.port2]);
-    if (opponent.value === 'ai') {
+    if (opponent.value === 'ai' && !playback.value) {
       toHost({ type: 'ai', player: other(player.value), level: aiLevel.value });
     }
   }
 
   function start(recording: GameRecording | null, pathogen = DEFAULT_PATHOGEN) {
+    playback.value = null;
+    latest = recording;
     const today = new Date().toISOString().slice(0, 10);
     const seed = Math.floor(Math.random() * 0x7fffffff);
     toHost({
@@ -271,7 +286,21 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
     if (room.value) toHost({ type: 'open-room', room: room.value });
   }
 
-  const saved = store.load();
+  /** 回放：从第 from 天放起。跳到某一天也是它——主机照着记录重算到那一天再接着放 */
+  function play(recording: GameRecording, from: number) {
+    const wasPaused = paused.value;
+    const wasSpeed = speed.value;
+    playback.value = { length: recording.ticks };
+    latest = recording;
+    view.value = null;
+    toHost({ type: 'start', start: { playback: recording, from }, stepMs: STEP_MS });
+    connect();
+    // 新起的主机是 1 倍速、没暂停的：跳转之后保持原来的快慢
+    session?.setSpeed(wasSpeed);
+    session?.setPaused(wasPaused);
+  }
+
+  const saved = autosave.load();
   start(saved && matchesWorld(saved) ? saved : null);
 
   return {
@@ -293,8 +322,26 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
       url.search = `?join=${room.value}&as=${other(player.value)}`;
       return url.href;
     },
+    recording: () => latest,
+    load(recording) {
+      view.value = null;
+      start(recording);
+    },
+    watch(recording) {
+      paused.value = false;
+      speed.value = 3;
+      play(recording, 0);
+    },
+    seek(day) {
+      if (playback.value && latest) play(latest, day);
+    },
+    stopWatching() {
+      const own = autosave.load();
+      view.value = null;
+      start(own && matchesWorld(own) ? own : null);
+    },
     restart(setup = {}) {
-      store.clear();
+      autosave.clear();
       view.value = null;
       // 换边、换难度要在开局之前定下来：开局时就按它们把电脑接到另一方
       if (setup.level !== undefined) aiLevel.value = setup.level;

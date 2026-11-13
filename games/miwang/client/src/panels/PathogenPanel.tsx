@@ -18,7 +18,16 @@ const styles = css.create({
 });
 
 export const PathogenPanel = _component(
-  ({ view, onOpen }: { view: OutbreakView; onOpen: () => void }) =>
+  ({
+    view,
+    onOpen,
+    readonly = false,
+  }: {
+    view: OutbreakView;
+    onOpen: () => void;
+    /** 只能看（回放时）：不给“进化”的入口 */
+    readonly?: boolean;
+  }) =>
     () => {
       const ui = useUi().pathogen;
       const content = useContent();
@@ -66,7 +75,7 @@ export const PathogenPanel = _component(
               ))}
             </div>
           )}
-          {view.attacker && (
+          {view.attacker && !readonly && (
             <ActionButton
               icon={Dna}
               active={affordable > 0}

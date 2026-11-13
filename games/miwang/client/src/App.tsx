@@ -20,8 +20,10 @@ import { MapOverlay } from './panels/MapOverlay.tsx';
 import { Encyclopedia } from './screens/Encyclopedia.tsx';
 import { MainMenu } from './screens/MainMenu.tsx';
 import { NewsPanel } from './panels/NewsPanel.tsx';
+import { PlaybackBar } from './panels/PlaybackBar.tsx';
 import { OpponentPanel } from './panels/OpponentPanel.tsx';
 import { Outcome } from './screens/Outcome.tsx';
+import { Saves } from './screens/Saves.tsx';
 import { PathogenPanel } from './panels/PathogenPanel.tsx';
 import { RegionPanel } from './panels/RegionPanel.tsx';
 import { ResearchPanel } from './panels/ResearchPanel.tsx';
@@ -92,9 +94,11 @@ export const App = _component(() => {
   let audio = _state.raw<GameAudio | null>(null);
   /**
    * 盖在游戏上面的那一层现在是什么：主菜单、开局设置、百科、设置、工作台（进化或研究，看这一方是谁），或者没有。
-   * 同一时间只有一个；百科和设置是从主菜单进去的，关掉回到主菜单。
+   * 同一时间只有一个；存档、百科和设置是从主菜单进去的，关掉回到主菜单。
    */
-  let overlay = _state<'menu' | 'setup' | 'encyclopedia' | 'settings' | 'workbench' | null>(null);
+  let overlay = _state<
+    'menu' | 'setup' | 'saves' | 'encyclopedia' | 'settings' | 'workbench' | null
+  >(null);
   onMounted(() => {
     if (!canvas) return;
     game = createGameSession(canvas);
@@ -127,6 +131,8 @@ export const App = _component(() => {
     const hovered = map?.hovered.value ?? -1;
     const selected = map?.selected.value ?? -1;
     const pointer = map?.pointer.value ?? null;
+    /** 正在回放：只能看，不能操作 */
+    const watching = game?.playback.value != null;
 
     /** 最下面那行小字：出错了说错误，否则说这一局的来历 */
     const note = (session: GameSession) => {
@@ -163,21 +169,30 @@ export const App = _component(() => {
                   onMeasure={(measure, on) =>
                     game?.send({ type: 'measure', region: selected, measure, on })
                   }
+                  readonly={watching}
                 />
               )}
               {/* 自己能动手的那块排在前面 */}
               {view.attacker ? (
                 <>
-                  <PathogenPanel view={view} onOpen={() => (overlay = 'workbench')} />
+                  <PathogenPanel
+                    view={view}
+                    onOpen={() => (overlay = 'workbench')}
+                    readonly={watching}
+                  />
                   <ResearchPanel view={view} onOpen={() => {}} />
                 </>
               ) : (
                 <>
-                  <ResearchPanel view={view} onOpen={() => (overlay = 'workbench')} />
+                  <ResearchPanel
+                    view={view}
+                    onOpen={() => (overlay = 'workbench')}
+                    readonly={watching}
+                  />
                   <PathogenPanel view={view} onOpen={() => {}} />
                 </>
               )}
-              <OpponentPanel game={game} />
+              {!watching && <OpponentPanel game={game} />}
             </Scroll>
           )}
 
@@ -200,7 +215,8 @@ export const App = _component(() => {
             </Callout>
           )}
         </div>
-        {view && overlay === 'workbench' && !view.outcome && (
+        {game && overlay === null && <PlaybackBar game={game} />}
+        {view && overlay === 'workbench' && !view.outcome && !watching && (
           <Workbench
             view={view}
             onEvolve={(trait) => game?.send({ type: 'evolve', trait })}
@@ -208,7 +224,7 @@ export const App = _component(() => {
             onClose={() => (overlay = null)}
           />
         )}
-        {view?.outcome && overlay === null && (
+        {view?.outcome && overlay === null && !watching && (
           <Outcome
             view={view}
             onRestart={game?.role === 'host' ? () => (overlay = 'setup') : undefined}
@@ -222,6 +238,7 @@ export const App = _component(() => {
               game?.setPaused(false);
             }}
             onNewGame={() => (overlay = 'setup')}
+            onSaves={() => (overlay = 'saves')}
             onEncyclopedia={() => (overlay = 'encyclopedia')}
             onSettings={() => (overlay = 'settings')}
           />
@@ -236,6 +253,23 @@ export const App = _component(() => {
             }}
             // 没开始就关掉：有一局在打就回主菜单，已经分出胜负的回到结算
             onClose={() => (overlay = view?.outcome ? null : 'menu')}
+          />
+        )}
+        {game && overlay === 'saves' && (
+          <Saves
+            view={watching ? null : view}
+            current={watching ? null : game.recording()}
+            onLoad={(recording) => {
+              overlay = null;
+              map?.select(-1);
+              game?.load(recording);
+            }}
+            onWatch={(recording) => {
+              overlay = null;
+              map?.select(-1);
+              game?.watch(recording);
+            }}
+            onClose={() => (overlay = 'menu')}
           />
         )}
         {overlay === 'encyclopedia' && <Encyclopedia onClose={() => (overlay = 'menu')} />}

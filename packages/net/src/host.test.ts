@@ -91,4 +91,59 @@ describe('主机与会话', () => {
     expect(copy.tick).toBe(host.tick);
     expect(copy.hash).toBe(host.hash);
   });
+
+  it('回放：照着记录一步一步放，放到头自己停；回放时不接受新的命令', async () => {
+    // 先打一局：第 2 步、第 5 步各加一次数
+    const original = createHost({ sim: counter, start: { config: { start: 0 } }, stepMs: 100 });
+    const player = join(original, 0);
+    await settle();
+    original.stepBy(2);
+    player.session.send({ add: 3 });
+    await settle();
+    original.stepBy(3);
+    player.session.send({ add: 4 });
+    await settle();
+    original.stepBy(3);
+    const recorded = original.recording;
+    expect(recorded.ticks).toBe(8);
+
+    const host = createHost({ sim: counter, start: { playback: recorded }, stepMs: 100 });
+    const viewer = join(host, 0);
+    await settle();
+    expect(viewer.views.at(-1)).toEqual({ tick: 0, value: 0 });
+    // 回放到第 3 步：第一条命令已经生效
+    host.stepBy(3);
+    await settle();
+    expect(viewer.views.at(-1)).toEqual({ tick: 3, value: 3 });
+    // 这时发命令没有用
+    viewer.session.send({ add: 100 });
+    await settle();
+    // 多走几步也只到记录的末尾，状态和原来那一局一模一样
+    host.stepBy(20);
+    await settle();
+    expect(host.tick).toBe(8);
+    expect(viewer.views.at(-1)).toEqual({ tick: 8, value: 7 });
+    expect(host.hash).toBe(original.hash);
+  });
+
+  it('回放可以从中间的某一步开始（跳到那一天）', async () => {
+    const original = createHost({ sim: counter, start: { config: { start: 1 } }, stepMs: 100 });
+    const player = join(original, 0);
+    await settle();
+    player.session.send({ add: 2 });
+    await settle();
+    original.stepBy(6);
+
+    const host = createHost({
+      sim: counter,
+      start: { playback: original.recording, from: 4 },
+      stepMs: 100,
+    });
+    const viewer = join(host, 0);
+    await settle();
+    expect(viewer.views.at(-1)).toEqual({ tick: 4, value: 3 });
+    host.stepBy(10);
+    expect(host.tick).toBe(6);
+    expect(host.hash).toBe(original.hash);
+  });
 });

@@ -1,11 +1,11 @@
 /**
- * 主菜单：游戏的名字、那句诗，和几个入口——继续、新开一局、百科、设置。
+ * 主菜单：游戏的名字、那句诗，和几个入口——继续、新开一局、存档与回放、百科、设置。
  * 盖在暂停的地图上：刚打开游戏时先到这里，对局中从底部的“菜单”回来。
  */
 import { ActionButton, colors, fonts, Frame, Note, space, Stack } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { BookOpen, Play, RotateCcw, Settings } from 'lucide';
+import { BookOpen, History, Play, RotateCcw, Settings } from 'lucide';
 import { useUi } from '../i18n.ts';
 
 const styles = css.create({
@@ -45,6 +45,7 @@ export const MainMenu = _component(
     canResume,
     onResume,
     onNewGame,
+    onSaves,
     onEncyclopedia,
     onSettings,
   }: {
@@ -52,6 +53,7 @@ export const MainMenu = _component(
     canResume: boolean;
     onResume: () => void;
     onNewGame: () => void;
+    onSaves: () => void;
     onEncyclopedia: () => void;
     onSettings: () => void;
   }) =>
@@ -70,6 +72,9 @@ export const MainMenu = _component(
               )}
               <ActionButton icon={RotateCcw} active={!canResume} onPress={onNewGame}>
                 {ui.newGame}
+              </ActionButton>
+              <ActionButton icon={History} onPress={onSaves}>
+                {ui.saves}
               </ActionButton>
               <ActionButton icon={BookOpen} onPress={onEncyclopedia}>
                 {ui.encyclopedia}

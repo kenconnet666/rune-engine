@@ -76,7 +76,7 @@ export const ControlBar = _component(
               onPress={() => map?.reset()}
             />
           </Stack>
-          {host && !human && (
+          {host && (!human || game.playback.value) && (
             <Segmented
               label={ui.role}
               value={game.player.value}

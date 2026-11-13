@@ -8,7 +8,8 @@ import { launchChrome } from './chrome.mjs';
 const [url = 'http://localhost:5180', shot] = process.argv.slice(2);
 const chrome = await launchChrome({ scale: 2 });
 try {
-  const page = await chrome.open(url);
+  // 界面语言默认跟着浏览器走：这里固定成中文，下面按中文的字找按钮
+  const page = await chrome.open(url, { init: `localStorage.setItem('miwang:locale', 'zh')` });
   await page.waitFor(`document.body.innerText.includes('新开一局')`, { what: '主菜单' });
   await page.clickButton('新开一局');
   await page.waitFor(

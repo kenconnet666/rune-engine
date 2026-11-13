@@ -105,8 +105,12 @@ export async function launchChrome({
     });
 
   return {
-    /** 开一个页面，等它加载完 */
-    async open(url) {
+    /**
+     * 开一个页面。init 是页面自己的脚本运行之前先跑的一段脚本（预置 localStorage 之类）
+     * @param {string} url
+     * @param {{ init?: string }} [options]
+     */
+    async open(url, { init } = {}) {
       const { targetId } = await send('Target.createTarget', { url: 'about:blank' });
       const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
       const call = (method, params) => send(method, params, sessionId);
@@ -126,6 +130,7 @@ export async function launchChrome({
       });
       await call('Runtime.enable');
       await call('Page.enable');
+      if (init) await call('Page.addScriptToEvaluateOnNewDocument', { source: init });
       await call('Page.navigate', { url });
 
       const page = {
@@ -159,18 +164,19 @@ export async function launchChrome({
             await call('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
           }
         },
-        /** 点文字是 text 的那个按钮；没有就报错 */
+        /**
+         * 点文字以 text 开头的那个按钮；没有就报错。
+         * 直接让按钮自己“被点一下”，不按坐标发鼠标事件：按钮正在动（对话框的进场动画）时按坐标点会偶尔点偏。
+         */
         async clickButton(text) {
-          const at = await page.evaluate(`(() => {
+          const clicked = await page.evaluate(`(() => {
             const button = [...document.querySelectorAll('button')].find(
               (candidate) => candidate.textContent.trim().startsWith(${JSON.stringify(text)}) && candidate.checkVisibility(),
             );
-            if (!button) return null;
-            const box = button.getBoundingClientRect();
-            return [box.x + box.width / 2, box.y + box.height / 2];
+            button?.click();
+            return Boolean(button);
           })()`);
-          if (!at) throw new Error(`页面上没有“${text}”这个按钮`);
-          await page.click(at[0], at[1]);
+          if (!clicked) throw new Error(`页面上没有“${text}”这个按钮`);
         },
         /** 滚轮：正数往下（缩小地图），负数往上（放大） */
         async wheel(x, y, deltaY) {

@@ -7,10 +7,13 @@ export type GameRecording = Recording<OutbreakConfig, Command>;
 
 /** 主线程 → 主机 Worker */
 export type HostControl =
-  /** 开一局，或者拿着记录接着走（刷新之后） */
+  /** 开一局；或者拿着记录接着走（读档、刷新之后）；或者回放一份记录（从第 from 天放起） */
   | {
       readonly type: 'start';
-      readonly start: { config: OutbreakConfig } | { recording: GameRecording };
+      readonly start:
+        | { config: OutbreakConfig }
+        | { recording: GameRecording }
+        | { playback: GameRecording; from?: number };
       readonly stepMs: number;
     }
   /** 接上一方；同一个 id 再接一次会先断开上一次的（换视角） */

@@ -150,9 +150,35 @@ export const en: ClientText = {
     about: 'A strategy game about how infectious diseases spread, and how they are stopped.',
     resume: 'Continue this game',
     newGame: 'New game',
+    saves: 'Saves and replays',
     encyclopedia: 'Encyclopedia',
     settings: 'Settings',
     open: 'Menu',
+  },
+
+  saves: {
+    title: 'Saves and replays',
+    saveCurrent: 'Save this game',
+    exportCurrent: 'Export this game',
+    importFile: 'Import a record file',
+    saved: 'Saved.',
+    full: 'Could not save: browser storage is full. Delete some older saves and try again.',
+    incompatible: 'This save was played on a different data version and can no longer be replayed.',
+    badFile:
+      'This file is not a usable game record (or it was played on a different data version).',
+    slots: (count, limit) => `Save slots ${count} / ${limit} (the oldest is dropped when full)`,
+    empty: 'No saves yet.',
+    load: 'Load and keep playing',
+    watch: 'Replay from the start',
+    export: 'Export to a file',
+    delete: 'Delete',
+  },
+
+  playback: {
+    title: 'Replay',
+    progress: (day, total) => `Day ${day} of ${total}`,
+    exit: 'Exit replay',
+    note: 'Replaying: you can watch but not act.',
   },
 
   encyclopedia: {

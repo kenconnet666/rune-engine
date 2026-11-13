@@ -29,11 +29,14 @@ export const RegionPanel = _component(
     view,
     onClose,
     onMeasure,
+    readonly = false,
   }: {
     index: number;
     view: OutbreakView;
     onClose: () => void;
     onMeasure: (measure: Measure, on: boolean) => void;
+    /** 只能看（回放时）：措施的图块点不动 */
+    readonly?: boolean;
   }) =>
     () => {
       const region = regions[index];
@@ -146,7 +149,7 @@ export const RegionPanel = _component(
                         format.amount(cost.daily),
                       )}
                       aria-pressed={on}
-                      disabled={!on && view.resource < cost.setup}
+                      disabled={readonly || (!on && view.resource < cost.setup)}
                       onPress={() => onMeasure(measure, !on)}
                     />
                   );

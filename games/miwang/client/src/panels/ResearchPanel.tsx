@@ -19,7 +19,16 @@ const styles = css.create({
 });
 
 export const ResearchPanel = _component(
-  ({ view, onOpen }: { view: OutbreakView; onOpen: () => void }) =>
+  ({
+    view,
+    onOpen,
+    readonly = false,
+  }: {
+    view: OutbreakView;
+    onOpen: () => void;
+    /** 只能看（回放时）：不给“安排研究”的入口 */
+    readonly?: boolean;
+  }) =>
     () => {
       const ui = useUi().research;
       const content = useContent();
@@ -52,7 +61,7 @@ export const ResearchPanel = _component(
               ))}
             </div>
           )}
-          {!view.attacker && (
+          {!view.attacker && !readonly && (
             <ActionButton
               icon={Microscope}
               // 有空着的实验室、又有能做的研究时亮起来提醒

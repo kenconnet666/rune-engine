@@ -46,11 +46,13 @@ let aiPlayer: PlayerId | null = null;
 let aiLevel: AiLevel = 1;
 let stopAi: (() => void) | undefined;
 let room: BroadcastChannel | undefined;
+/** 现在是不是在回放：回放时不往外报记录（不能盖掉正在打的那一局的自动存档），也没有电脑对手 */
+let playingBack = false;
 
 const tell = (message: HostReport) => self.postMessage(message);
 
 function report() {
-  if (!host) return;
+  if (!host || playingBack) return;
   const { recording } = host;
   const due =
     recording.commands.length !== reported.commands || recording.ticks - reported.ticks >= 20;
@@ -66,7 +68,7 @@ function playAi(player: PlayerId | null, level: AiLevel) {
   aiPlayer = player;
   aiLevel = level;
   const rules = config;
-  if (player === null || !host || !rules) return;
+  if (player === null || !host || !rules || playingBack) return;
   const [hostSide, aiSide] = createPortPair<ToHost, FromHost>();
   const leave = host.connect(hostSide, player);
   let decidedAt = -1;
@@ -114,7 +116,13 @@ self.onmessage = ({ data }: MessageEvent<HostControl>) => {
       for (const close of disconnect.values()) close();
       disconnect.clear();
       const began = performance.now();
-      config = 'config' in data.start ? data.start.config : data.start.recording.config;
+      playingBack = 'playback' in data.start;
+      config =
+        'config' in data.start
+          ? data.start.config
+          : 'recording' in data.start
+            ? data.start.recording.config
+            : data.start.playback.config;
       host = createHost({
         sim: outbreak,
         start: data.start,

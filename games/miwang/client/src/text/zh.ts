@@ -151,9 +151,34 @@ export const zh = {
     about: '一个关于传染病怎样传播、又怎样被拦住的策略游戏。',
     resume: '继续这一局',
     newGame: '新开一局',
+    saves: '存档与回放',
     encyclopedia: '百科',
     settings: '设置',
     open: '菜单',
+  },
+
+  saves: {
+    title: '存档与回放',
+    saveCurrent: '存下这一局',
+    exportCurrent: '导出这一局',
+    importFile: '导入记录文件',
+    saved: '存好了。',
+    full: '没存进去：浏览器给的存储空间满了，删掉几份旧的再试。',
+    incompatible: '这份存档是用另一版数据打的，现在重放不出原来那一局了。',
+    badFile: '这个文件不是能用的对局记录（或者是用另一版数据打的）。',
+    slots: (count: number, limit: number) => `存档位 ${count} / ${limit}（存满了会挤掉最旧的）`,
+    empty: '还没有存档。',
+    load: '读档接着打',
+    watch: '从头回放',
+    export: '导出成文件',
+    delete: '删除',
+  },
+
+  playback: {
+    title: '回放',
+    progress: (day: number, total: number) => `第 ${day} 天 / 共 ${total} 天`,
+    exit: '退出回放',
+    note: '正在回放：只能看，不能操作。',
   },
 
   encyclopedia: {
