@@ -21,7 +21,7 @@ import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { Biohazard, Play, ShieldCheck } from 'lucide';
 import { useContent, useUi } from '../i18n.ts';
 import { pathogenIcon } from '../icons.ts';
-import type { GameSession, GameSetup } from '../session.ts';
+import type { GameSession, GameSetup } from '../session/index.ts';
 import { PathogenDetail } from './PathogenDetail.tsx';
 
 const styles = css.create({

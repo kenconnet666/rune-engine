@@ -20,8 +20,7 @@ import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { Bot, Check, Copy, DoorClosed, DoorOpen, LogIn } from 'lucide';
 import { useUi } from '../i18n.ts';
-import { inviteUrl, normalizeCode } from '../room.ts';
-import type { GameSession } from '../session.ts';
+import { inviteUrl, normalizeCode, type GameSession } from '../session/index.ts';
 
 const styles = css.create({
   // 内容不多：高度跟着内容走，不撑满

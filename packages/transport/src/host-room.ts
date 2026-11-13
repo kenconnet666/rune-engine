@@ -4,16 +4,8 @@
  */
 import { ROOM_TOKEN, type Wire } from '@rune-engine/net';
 import { createDirect, parseDirectSignal, PUBLIC_STUN, type Direct } from './direct.ts';
+import { CONGESTED_BYTES, type RoomLinkOptions } from './link.ts';
 import type { RoomClient, RoomStatus } from './room-client.ts';
-
-/** 发送队列里压了这么多字节就算堵了：这时“只要最新一份”的消息先别发 */
-export const CONGESTED_BYTES = 512 * 1024;
-
-export interface RoomLinkOptions {
-  /** 要不要试直连（不经服务器的房间用不着）。默认试 */
-  readonly direct?: boolean;
-  readonly iceServers?: RTCIceServer[];
-}
 
 /** 主人眼里的一位客人 */
 export interface GuestLink {

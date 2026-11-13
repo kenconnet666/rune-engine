@@ -7,7 +7,7 @@ import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { LogOut, Users } from 'lucide';
 import { useUi } from '../i18n.ts';
-import type { RoomInfo } from '../room.ts';
+import type { RoomInfo } from '../session/index.ts';
 
 const styles = css.create({
   // 和主菜单一样：压暗后面的地图，又看得出它还在

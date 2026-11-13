@@ -97,7 +97,7 @@ self.onmessage = ({ data }: MessageEvent<HostControl>) => {
         sim: outbreak,
         start: data.start,
         stepMs: data.stepMs,
-        // 这些数组每次都是新建的：直接转移给对面，不拷贝（广播通道不支持转移，会忽略它）
+        // 这些数组每次都是新建的：直接转移给对面，不拷贝
         transfer: (view) =>
           [view.intensity, view.measures, view.cases, view.deaths, view.immune, view.happening].map(
             (array) => array.buffer as ArrayBuffer,

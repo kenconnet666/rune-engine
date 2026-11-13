@@ -4,7 +4,7 @@
  */
 import { roomToken, type Wire } from '@rune-engine/net';
 import { createDirect, parseDirectSignal, PUBLIC_STUN, type Direct } from './direct.ts';
-import { CONGESTED_BYTES, type RoomLinkOptions } from './host-room.ts';
+import { CONGESTED_BYTES, type RoomLinkOptions } from './link.ts';
 import type { RoomClient, RoomStatus } from './room-client.ts';
 
 export interface GuestRoom {

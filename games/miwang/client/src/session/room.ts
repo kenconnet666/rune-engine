@@ -4,11 +4,10 @@
  *   主人这头：开房间；客人进来就把它接到主机上（主机在 Worker 里，网络连接在主线程，这里是中间那座桥），
  *             告诉它扮演哪一方；
  *   客人这头：进房间、打招呼、等主人安排位置；之后它就是主机的一个普通客户端，只是隔着网络。
- * 脚下的连接（房间、直连、中转）在 transport 包里。对局怎么打不归这里管（见 session.ts）。
+ * 脚下的连接（房间、直连、中转）在 transport 包里。对局怎么打不归这里管（见 host.ts、guest.ts）。
  *
  * 没配联机服务的时候（VITE_SIGNAL_URL 没设），房间退化成同一个浏览器里的标签页互连，其余完全一样。
  */
-import type { Command, OutbreakView } from '@miwang/sim';
 import type { PlayerId } from '@rune-engine/core';
 import {
   portOverWire,
@@ -17,8 +16,6 @@ import {
   roomCode,
   roomToken,
   throttleLatest,
-  type ClientMessage,
-  type HostMessage,
   type Port,
   type RoomSeat,
 } from '@rune-engine/net';
@@ -31,10 +28,8 @@ import {
   type GuestLink,
   type RoomCloseReason,
 } from '@rune-engine/transport';
-import type { GuestDown, GuestUp } from './messages.ts';
-
-type FromHost = HostMessage<OutbreakView>;
-type ToHost = ClientMessage<Command>;
+import type { GuestDown, GuestUp } from '../messages.ts';
+import type { FromHost, ToHost } from './core.ts';
 
 /** 房间服务的地址，构建时定（见 vite.config.ts）；没配就没有联机服务 */
 const SIGNAL_URL: string | undefined = import.meta.env.VITE_SIGNAL_URL || undefined;

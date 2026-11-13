@@ -1,5 +1,6 @@
 /**
- * 一条双向的消息通道，按结构定义：Worker、MessagePort、之后的 WebRTC 数据通道与 WebSocket 包一层都满足它。
+ * 一条双向的消息通道，按结构定义：Worker、MessagePort 包一层就满足它；走网络的（WebRTC 数据通道、WebSocket）
+ * 先是一条收发字节的线，再包成它（见 wire.ts）。
  * 这个包不引用任何宿主环境的类型，所以在浏览器、Worker、Node 里都能用。
  */
 export interface Port<Incoming, Outgoing> {

@@ -7,7 +7,7 @@ import { ActionButton, Frame, Note, Segmented } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Bot, Users } from 'lucide';
 import { useUi } from '../i18n.ts';
-import type { GameSession } from '../session.ts';
+import type { GameSession } from '../session/index.ts';
 
 export const OpponentPanel = _component(
   ({ game, onOnline }: { game: GameSession; onOnline: () => void }) =>

@@ -4,7 +4,7 @@ import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { History, X } from 'lucide';
 import { useUi } from '../i18n.ts';
-import type { GameSession } from '../session.ts';
+import type { GameSession } from '../session/index.ts';
 
 const styles = css.create({
   root: {

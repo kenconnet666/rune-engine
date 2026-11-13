@@ -5,7 +5,8 @@
  */
 export { PUBLIC_STUN } from './direct.ts';
 export { guestRoom, type GuestRoom } from './guest-room.ts';
-export { hostRoom, type GuestLink, type HostRoom, type RoomLinkOptions } from './host-room.ts';
+export { hostRoom, type GuestLink, type HostRoom } from './host-room.ts';
+export type { RoomLinkOptions } from './link.ts';
 export { localRoom } from './local-room.ts';
 export {
   connectRoom,

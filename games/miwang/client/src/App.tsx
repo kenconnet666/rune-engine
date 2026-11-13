@@ -34,7 +34,7 @@ import { Setup } from './screens/Setup.tsx';
 import { StatusPanel } from './panels/StatusPanel.tsx';
 import { TrendPanel } from './panels/TrendPanel.tsx';
 import { Workbench } from './screens/Workbench.tsx';
-import { createGameSession, type GameSession } from './session.ts';
+import { createGameSession, type GameSession } from './session/index.ts';
 import { createGameAudio, type GameAudio } from './sound.ts';
 
 /** 小屏幕（手机横屏、很矮的窗口）：两边的面板只留最要紧的，把地图让出来 */

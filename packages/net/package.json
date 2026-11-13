@@ -2,7 +2,7 @@
   "name": "@rune-engine/net",
   "version": "0.0.0",
   "private": true,
-  "description": "对局的主机与会话：主机持有唯一的真实状态，各方经一条消息通道发命令、收自己能看到的部分",
+  "description": "对局的主机与会话：主机持有唯一的真实状态，各方经一条消息通道发命令、收自己能看到的部分；走网络时消息的编码与联机房间的约定",
   "type": "module",
   "license": "MIT",
   "exports": {

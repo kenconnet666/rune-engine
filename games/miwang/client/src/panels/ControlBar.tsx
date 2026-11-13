@@ -16,7 +16,7 @@ import {
 } from 'lucide';
 import { useUi } from '../i18n.ts';
 import type { MapController } from '../map.ts';
-import type { GameSession } from '../session.ts';
+import type { GameSession } from '../session/index.ts';
 
 /** 各档速度用什么图标 */
 const SPEEDS = [

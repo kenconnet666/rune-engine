@@ -17,7 +17,7 @@ import {
   type MapCamera,
 } from '@rune-engine/render/map-view';
 import { shallowRef, type ShallowRef } from 'vue';
-import type { RenderLink } from './session.ts';
+import type { RenderLink } from './session/index.ts';
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 14;
