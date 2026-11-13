@@ -1,0 +1,298 @@
+/**
+ * 工作台：攻方的进化、守方的研究，都是一棵树加右边一栏详情。
+ * 点树上的图块是看它（右边出现它是什么、改变什么、要多少），要不要它按右边的按钮。
+ *
+ * 命令要到下一天才生效（时间停着的时候更是要等）：按下之后先在这里记成“已下令”，免得看起来像没点上。
+ */
+import { TECHS, TRAITS } from '@miwang/content';
+import type { OutbreakView, TraitGroup } from '@miwang/sim';
+import {
+  ActionButton,
+  colors,
+  Dialog,
+  Fact,
+  fonts,
+  Icon,
+  Note,
+  Scroll,
+  space,
+  Stack,
+  Tabs,
+  TechTree,
+  type IconData,
+  type TreeNode,
+} from '@rune-engine/ui';
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import { Check, Coins, Dna, Lock } from 'lucide';
+import { useContent, useFormats, useUi } from '../i18n.ts';
+import { GROUP_ICONS, techIcon, traitIcon } from '../icons.ts';
+import { LABS } from '../rules.ts';
+import { techEffects, traitEffects, type EffectLine } from './effects.ts';
+
+const GROUPS: readonly TraitGroup[] = ['route', 'symptom', 'ability'];
+
+const styles = css.create({
+  body: { flexGrow: 1, minHeight: 0, display: 'flex' },
+  tree: { flexGrow: 1, minWidth: 0, padding: space.lg },
+  detail: {
+    flexShrink: 0,
+    width: '20rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: space.md,
+    padding: space.lg,
+    borderInlineStartWidth: '1px',
+    borderInlineStartStyle: 'solid',
+    borderInlineStartColor: colors.line,
+  },
+  name: { display: 'flex', alignItems: 'center', gap: space.md, fontSize: '1.125rem' },
+  text: { margin: 0, lineHeight: 1.6, color: colors.text },
+  resource: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: space.sm,
+    fontFamily: fonts.numeric,
+    fontSize: '1.125rem',
+    color: colors.calm,
+  },
+  tabs: { paddingInline: space.lg },
+});
+
+/** 右边一栏要显示的东西：两种模式各自算好，画法是同一套 */
+interface Detail {
+  icon: IconData;
+  name: string;
+  text: string;
+  status: { text: string; tone: 'muted' | 'signal' | 'danger' };
+  effects: EffectLine[];
+  cost: string;
+  /** 能不能按、按钮上写什么；不该有按钮（已经有了、还锁着）时是 null */
+  action: { label: string; disabled: boolean; press: () => void } | null;
+}
+
+export const Workbench = _component(
+  ({
+    view,
+    onEvolve,
+    onResearch,
+    onClose,
+  }: {
+    view: OutbreakView;
+    onEvolve: (trait: string) => void;
+    onResearch: (tech: string) => void;
+    onClose: () => void;
+  }) => {
+    let group = _state<TraitGroup>('route');
+    let current = _state<string | null>(null);
+    /** 已经下了令、还没在状态里看到结果的 */
+    let ordered = _state<readonly string[]>([]);
+
+    return () => {
+      const ui = useUi();
+      const content = useContent();
+      const format = useFormats();
+      const { attacker } = view;
+      const w = ui.workbench;
+
+      let nodes: TreeNode[];
+      let detail: Detail | null = null;
+
+      if (attacker) {
+        const owned = new Set(view.pathogen.owned);
+        const offers = new Map(view.pathogen.offers.map((offer) => [offer.id, offer.cost]));
+        const inGroup = TRAITS.filter((trait) => trait.group === group);
+        nodes = inGroup.map((trait) => {
+          const cost = offers.get(trait.id);
+          const state = owned.has(trait.id) ? 'owned' : cost !== undefined ? 'available' : 'locked';
+          return {
+            id: trait.id,
+            requires: trait.requires,
+            icon: traitIcon(trait.id),
+            label: content.traits[trait.id]?.name ?? trait.id,
+            detail:
+              state === 'owned' ? (
+                <Icon icon={Check} size="0.875rem" />
+              ) : state === 'locked' ? (
+                <Icon icon={Lock} size="0.875rem" />
+              ) : (
+                w.points(cost ?? 0)
+              ),
+            state,
+          };
+        });
+        const trait = TRAITS.find((candidate) => candidate.id === current);
+        if (trait) {
+          const cost = offers.get(trait.id);
+          const pending = ordered.includes(trait.id);
+          const has = owned.has(trait.id);
+          detail = {
+            icon: traitIcon(trait.id),
+            name: content.traits[trait.id]?.name ?? trait.id,
+            text: content.traits[trait.id]?.detail ?? '',
+            status: has
+              ? { text: w.owned, tone: 'signal' }
+              : cost === undefined
+                ? {
+                    text: w.requiresAny(
+                      ui.list(trait.requires.map((id) => content.traits[id]?.name ?? id)),
+                    ),
+                    tone: 'muted',
+                  }
+                : { text: '', tone: 'muted' },
+            effects: traitEffects(trait.effects, content, ui),
+            cost: cost === undefined ? '' : w.points(cost),
+            action:
+              has || cost === undefined
+                ? null
+                : {
+                    label: view.resource < cost ? w.cannotAfford : w.evolve,
+                    disabled: pending || view.resource < cost,
+                    press: () => {
+                      ordered = [...ordered, trait.id];
+                      onEvolve(trait.id);
+                    },
+                  },
+          };
+        }
+      } else {
+        const done = new Set(view.defense.done);
+        const active = new Map(view.defense.active.map((item) => [item.id, item.remaining]));
+        const offers = new Set(view.defense.offers.map((offer) => offer.id));
+        const busy = active.size >= LABS;
+        nodes = TECHS.map((tech) => {
+          const state = done.has(tech.id)
+            ? 'owned'
+            : active.has(tech.id) || offers.has(tech.id)
+              ? 'available'
+              : 'locked';
+          return {
+            id: tech.id,
+            requires: tech.requires,
+            icon: techIcon(tech.id),
+            label: content.techs[tech.id]?.name ?? tech.id,
+            detail:
+              state === 'owned' ? (
+                <Icon icon={Check} size="0.875rem" />
+              ) : active.has(tech.id) ? (
+                w.days(active.get(tech.id) ?? 0)
+              ) : state === 'locked' ? (
+                <Icon icon={Lock} size="0.875rem" />
+              ) : (
+                tech.cost
+              ),
+            state,
+          };
+        });
+        const tech = TECHS.find((candidate) => candidate.id === current);
+        if (tech) {
+          const running = active.get(tech.id);
+          const pending = ordered.includes(tech.id);
+          const open = offers.has(tech.id);
+          detail = {
+            icon: techIcon(tech.id),
+            name: content.techs[tech.id]?.name ?? tech.id,
+            text: content.techs[tech.id]?.detail ?? '',
+            status: done.has(tech.id)
+              ? { text: w.done, tone: 'signal' }
+              : running !== undefined
+                ? { text: w.inProgress(running), tone: 'signal' }
+                : !open
+                  ? {
+                      text: w.requiresAll(
+                        ui.list(tech.requires.map((id) => content.techs[id]?.name ?? id)),
+                      ),
+                      tone: 'muted',
+                    }
+                  : busy
+                    ? { text: w.labsBusy, tone: 'danger' }
+                    : { text: '', tone: 'muted' },
+            effects: techEffects(tech.effects, content, ui),
+            cost: w.budget(tech.cost, tech.days),
+            action:
+              open && running === undefined
+                ? {
+                    label: view.resource < tech.cost ? w.cannotAfford : w.research,
+                    disabled: pending || busy || view.resource < tech.cost,
+                    press: () => {
+                      ordered = [...ordered, tech.id];
+                      onResearch(tech.id);
+                    },
+                  }
+                : null,
+          };
+        }
+      }
+
+      return (
+        <Dialog
+          title={attacker ? w.evolveTitle : w.researchTitle}
+          aside={
+            <span {...css.attrs(styles.resource)}>
+              <Icon icon={attacker ? Dna : Coins} />
+              {format.whole(Math.floor(view.resource))}
+            </span>
+          }
+          onClose={onClose}
+        >
+          {attacker && (
+            <Tabs
+              label={ui.pathogen.title}
+              sx={styles.tabs}
+              value={group}
+              onChange={(value) => {
+                group = value as TraitGroup;
+                current = null;
+              }}
+              tabs={GROUPS.map((value) => ({
+                value,
+                label: content.groups[value],
+                icon: GROUP_ICONS[value],
+                badge: view.pathogen.offers.filter(
+                  (offer) =>
+                    offer.cost <= view.resource &&
+                    TRAITS.find((trait) => trait.id === offer.id)?.group === value,
+                ).length,
+              }))}
+            />
+          )}
+          <div {...css.attrs(styles.body)}>
+            <Scroll axis="both" sx={styles.tree}>
+              <TechTree nodes={nodes} selected={current} onSelect={(id) => (current = id)} />
+            </Scroll>
+            <Scroll sx={styles.detail}>
+              {detail ? (
+                <>
+                  <div {...css.attrs(styles.name)}>
+                    <Icon icon={detail.icon} size="2rem" weight={1.5} />
+                    <span>{detail.name}</span>
+                  </div>
+                  <p {...css.attrs(styles.text)}>{detail.text}</p>
+                  {detail.effects.length > 0 && (
+                    <Stack gap="xs">
+                      <Note>{w.effects}</Note>
+                      {detail.effects.map((line) => (
+                        <Fact key={line.name} label={line.name} value={line.amount} />
+                      ))}
+                    </Stack>
+                  )}
+                  {detail.cost && <Fact label={w.cost} value={detail.cost} />}
+                  {detail.status.text && (
+                    <Note tone={detail.status.tone}>{detail.status.text}</Note>
+                  )}
+                  {detail.action && (
+                    <ActionButton disabled={detail.action.disabled} onPress={detail.action.press}>
+                      {detail.action.label}
+                    </ActionButton>
+                  )}
+                </>
+              ) : (
+                <Note>{w.pick}</Note>
+              )}
+            </Scroll>
+          </div>
+        </Dialog>
+      );
+    };
+  },
+);

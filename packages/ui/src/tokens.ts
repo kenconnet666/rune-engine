@@ -16,6 +16,10 @@ export const colors = css.defineVars('rune-colors', {
   textMuted: '#8a9aab',
   /** 信号色：当前选中、最重要的那个数字 */
   signal: '#f2a33a',
+  /** 信号色的淡底：已经生效的图块 */
+  signalFaint: 'rgba(242, 163, 58, 0.12)',
+  /** 键盘聚焦时的那圈描边 */
+  focus: '#ffd08a',
   /** 信号色上的文字 */
   onSignal: '#1a1205',
   danger: '#ef5a5f',
@@ -44,4 +48,6 @@ export const durations = css.defineVars('rune-durations', {
   fast: { default: '120ms', [reduce]: '0ms' },
   /** 面板出现、数值条的伸缩 */
   normal: { default: '220ms', [reduce]: '0ms' },
+  /** 波纹的扩散 */
+  slow: { default: '420ms', [reduce]: '0ms' },
 });

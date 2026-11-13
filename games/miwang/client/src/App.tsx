@@ -2,18 +2,18 @@
  * 主界面：整屏的地图（画布在渲染 Worker 里画），上面压一层界面。
  * 界面层自己不接收指针，只有面板和按钮接收：拖得动、点得到下面的地图。
  *
- * 布局：左边一列是态势和新闻，右边一列是选中的地区和这一方能做的事，底下一排是时间和地图的控制。
+ * 布局：左边一列是态势和新闻，右边一列是选中的地区和双方的概况，底下一排是时间和地图的控制。
+ * 进化、研究这两件要细看的事在盖住画面的工作台里做（从右边的概况打开）。
  * 地图和界面互相配合：指针停在一个地区上，旁边出现它的名字；点一下选中，右侧出现它的详情；
  * 点一条和地区有关的新闻，地图飞过去并选中它。
  */
-import { regionName } from '@miwang/content';
-import { Callout, colors, fonts, Note, space } from '@rune-engine/ui';
+import { Callout, colors, fonts, Note, Scroll, space } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { onBeforeUnmount, onMounted } from 'vue';
+import { placeName, useFormats, useUi } from './i18n.ts';
 import { createMapController, type MapController } from './map.ts';
 import { ControlBar } from './panels/ControlBar.tsx';
-import { percent } from './panels/format.ts';
 import { NewsPanel } from './panels/NewsPanel.tsx';
 import { OpponentPanel } from './panels/OpponentPanel.tsx';
 import { OutcomePanel } from './panels/OutcomePanel.tsx';
@@ -21,6 +21,7 @@ import { PathogenPanel } from './panels/PathogenPanel.tsx';
 import { RegionPanel } from './panels/RegionPanel.tsx';
 import { ResearchPanel } from './panels/ResearchPanel.tsx';
 import { StatusPanel } from './panels/StatusPanel.tsx';
+import { Workbench } from './panels/Workbench.tsx';
 import { createGameSession, type GameSession } from './session.ts';
 
 const styles = css.create({
@@ -52,11 +53,11 @@ const styles = css.create({
     flexDirection: 'column',
     gap: space.md,
     minHeight: 0,
-    overflowY: 'auto',
-    scrollbarWidth: 'thin',
+    // 给滚动条留出位置，不压在面板的边上
+    paddingInlineEnd: space.xs,
   },
   left: { gridColumn: '1', gridRow: '1' },
-  right: { gridColumn: '3', gridRow: '1', width: '17rem' },
+  right: { gridColumn: '3', gridRow: '1', width: '19rem' },
   bottom: {
     gridColumn: '1 / span 3',
     gridRow: '2',
@@ -74,6 +75,8 @@ export const App = _component(() => {
   let canvas = _state.raw<HTMLCanvasElement | null>(null);
   let game = _state.raw<GameSession | null>(null);
   let map = _state.raw<MapController | null>(null);
+  /** 工作台（进化或研究，看这一方是谁）开着没有 */
+  let working = _state(false);
   onMounted(() => {
     if (!canvas) return;
     game = createGameSession(canvas);
@@ -84,37 +87,34 @@ export const App = _component(() => {
     game?.dispose();
   });
 
-  /** 最下面那行小字：出错了说错误，否则说这一局的来历 */
-  const note = (session: GameSession) => {
-    if (session.renderError.value) return session.renderError.value;
-    if (session.role === 'guest') return `已加入房间 ${session.room.value}，主机在另一位玩家那边。`;
-    const resumed = session.resumed.value;
-    if (resumed) {
-      return `这一局是照着记录重放接上的：${resumed.ticks} 天，用了 ${resumed.replayMs.toFixed(0)} 毫秒。`;
-    }
-    return '数值还在调：航线是模型估的，病原体不对应任何真实疾病。';
-  };
-
   return () => {
+    const ui = useUi();
+    const format = useFormats();
     const view = game?.view.value ?? null;
     const hovered = map?.hovered.value ?? -1;
     const selected = map?.selected.value ?? -1;
     const pointer = map?.pointer.value ?? null;
+
+    /** 最下面那行小字：出错了说错误，否则说这一局的来历 */
+    const note = (session: GameSession) => {
+      if (session.renderError.value) return ui.app.renderLost(session.renderError.value);
+      if (session.role === 'guest') return ui.app.guest(session.room.value ?? '');
+      const resumed = session.resumed.value;
+      if (resumed) return ui.app.resumed(resumed.ticks, resumed.replayMs.toFixed(0));
+      return ui.app.disclaimer;
+    };
+
     return (
       <div {...css.attrs(styles.root)}>
-        <canvas
-          ref={_toRef(canvas)}
-          aria-label="世界地图：拖动平移，滚轮或双指缩放，点一个地区看详情"
-          {...css.attrs(styles.canvas)}
-        />
+        <canvas ref={_toRef(canvas)} aria-label={ui.app.mapLabel} {...css.attrs(styles.canvas)} />
         <div {...css.attrs(styles.layer)}>
-          <div {...css.attrs(styles.column, styles.left)}>
+          <Scroll sx={[styles.column, styles.left]}>
             <StatusPanel view={view} />
             {view && <NewsPanel view={view} onLocate={(region) => map?.select(region, true)} />}
-          </div>
+          </Scroll>
 
           {view && game && (
-            <div {...css.attrs(styles.column, styles.right)}>
+            <Scroll sx={[styles.column, styles.right]}>
               {selected >= 0 && (
                 <RegionPanel
                   index={selected}
@@ -128,23 +128,17 @@ export const App = _component(() => {
               {/* 自己能动手的那块排在前面 */}
               {view.attacker ? (
                 <>
-                  <PathogenPanel
-                    view={view}
-                    onEvolve={(trait) => game?.send({ type: 'evolve', trait })}
-                  />
-                  <ResearchPanel view={view} onResearch={() => {}} />
+                  <PathogenPanel view={view} onOpen={() => (working = true)} />
+                  <ResearchPanel view={view} onOpen={() => {}} />
                 </>
               ) : (
                 <>
-                  <ResearchPanel
-                    view={view}
-                    onResearch={(tech) => game?.send({ type: 'research', tech })}
-                  />
-                  <PathogenPanel view={view} onEvolve={() => {}} />
+                  <ResearchPanel view={view} onOpen={() => (working = true)} />
+                  <PathogenPanel view={view} onOpen={() => {}} />
                 </>
               )}
               <OpponentPanel game={game} />
-            </div>
+            </Scroll>
           )}
 
           <div {...css.attrs(styles.bottom)}>
@@ -158,14 +152,22 @@ export const App = _component(() => {
 
           {view && pointer && hovered >= 0 && (
             <Callout x={pointer.x} y={pointer.y}>
-              <span>{regionName(hovered)}</span>
+              <span>{placeName(hovered)}</span>
               <span {...css.attrs(styles.calloutDetail)}>
-                {view.attacker ? '感染程度' : '上报程度'}{' '}
-                {percent.format(view.intensity[hovered] ?? 0)}
+                {view.attacker ? ui.app.infection : ui.app.reported}{' '}
+                {format.percent(view.intensity[hovered] ?? 0)}
               </span>
             </Callout>
           )}
         </div>
+        {view && working && !view.outcome && (
+          <Workbench
+            view={view}
+            onEvolve={(trait) => game?.send({ type: 'evolve', trait })}
+            onResearch={(tech) => game?.send({ type: 'research', tech })}
+            onClose={() => (working = false)}
+          />
+        )}
         {view?.outcome && (
           <OutcomePanel
             view={view}

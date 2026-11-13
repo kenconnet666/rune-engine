@@ -1,0 +1,22 @@
+{
+  "name": "@rune-engine/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "description": "多语言：当前语言、各语言的文案、跟着语言走的数字与日期写法；切换语言时界面自己重画",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"
+  },
+  "dependencies": {
+    "@internationalized/date": "catalog:",
+    "vue": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

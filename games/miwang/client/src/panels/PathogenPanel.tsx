@@ -1,59 +1,77 @@
 /**
- * 病原体：攻方在这里换性状（按传播途径、症状、能力分组，只列现在能换的）；
- * 守方做完病原鉴定之后，在这里看对手已经有了什么。
+ * 病原体的概况：严重度、致死性、隐匿三条读数，已有的性状排成一排图标。
+ * 攻方从这里打开进化的工作台；守方做完病原鉴定之后才看得到这些。
  */
-import { GROUP_TEXT, TRAIT_TEXT, TRAITS } from '@miwang/content';
-import type { OutbreakView, TraitGroup } from '@miwang/sim';
-import { ActionButton, Fact, Frame, Note, Stack } from '@rune-engine/ui';
+import type { OutbreakView } from '@miwang/sim';
+import { ActionButton, colors, Frame, Icon, Meter, Note, space } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { percent } from './format.ts';
+import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import { Biohazard, Dna } from 'lucide';
+import { useContent, useUi } from '../i18n.ts';
+import { traitIcon } from '../icons.ts';
 
-const GROUPS: readonly TraitGroup[] = ['route', 'symptom', 'ability'];
-const groupOf = new Map(TRAITS.map((trait) => [trait.id, trait.group]));
-const nameOf = (id: string) => TRAIT_TEXT[id]?.name ?? id;
+/** 三条读数各自“满格”是多少：严重度到 10、致死性到 30%、隐匿到 5 就算顶了 */
+const FULL = { severity: 10, lethality: 0.3, stealth: 5 };
+
+const styles = css.create({
+  owned: { display: 'flex', flexWrap: 'wrap', gap: space.sm, color: colors.signal },
+});
 
 export const PathogenPanel = _component(
-  ({ view, onEvolve }: { view: OutbreakView; onEvolve: (trait: string) => void }) =>
+  ({ view, onOpen }: { view: OutbreakView; onOpen: () => void }) =>
     () => {
+      const ui = useUi().pathogen;
+      const content = useContent();
       const { known, owned, stats, offers } = view.pathogen;
-      if (!known) {
+      if (!known || !stats) {
         return (
-          <Frame title="病原体">
-            <Note>还不知道对手的底细：做完“病原鉴定”才看得到它的传播途径和每一次变异。</Note>
+          <Frame icon={Biohazard} title={ui.title}>
+            <Note>{ui.unknown}</Note>
           </Frame>
         );
       }
+      const affordable = offers.filter((offer) => offer.cost <= view.resource).length;
       return (
-        <Frame title={`病原体 · ${owned.length} 个性状`}>
-          {stats && (
-            <Stack gap="xs">
-              <Fact label="严重度" value={stats.severity.toFixed(1)} />
-              <Fact label="致死性" value={percent.format(stats.lethality)} />
-              <Fact label="隐匿" value={stats.stealth.toFixed(1)} />
-            </Stack>
+        <Frame icon={Biohazard} title={ui.title} aside={ui.traits(owned.length)}>
+          <Meter
+            label={content.effects.severity}
+            value={stats.severity / FULL.severity}
+            detail={stats.severity.toFixed(1)}
+            tone="signal"
+          />
+          <Meter
+            label={content.effects.lethality}
+            value={stats.lethality / FULL.lethality}
+            detail={`${(stats.lethality * 100).toFixed(1)}%`}
+            tone="danger"
+          />
+          <Meter
+            label={content.effects.stealth}
+            value={stats.stealth / FULL.stealth}
+            detail={stats.stealth.toFixed(1)}
+            tone="calm"
+          />
+          {owned.length === 0 ? (
+            <Note>{ui.none}</Note>
+          ) : (
+            <div {...css.attrs(styles.owned)}>
+              {owned.map((id) => (
+                <span key={id} title={content.traits[id]?.name}>
+                  <Icon icon={traitIcon(id)} label={content.traits[id]?.name ?? id} />
+                </span>
+              ))}
+            </div>
           )}
-          {owned.length > 0 && <Note>已有：{owned.map(nameOf).join('、')}</Note>}
-          {view.attacker &&
-            GROUPS.map((group) => {
-              const available = offers.filter((offer) => groupOf.get(offer.id) === group);
-              if (available.length === 0) return null;
-              return (
-                <Stack key={group}>
-                  <Note>{GROUP_TEXT[group]}</Note>
-                  {available.map((offer) => (
-                    <ActionButton
-                      key={offer.id}
-                      title={TRAIT_TEXT[offer.id]?.detail}
-                      detail={`${offer.cost} 点`}
-                      disabled={view.resource < offer.cost}
-                      onPress={() => onEvolve(offer.id)}
-                    >
-                      {nameOf(offer.id)}
-                    </ActionButton>
-                  ))}
-                </Stack>
-              );
-            })}
+          {view.attacker && (
+            <ActionButton
+              icon={Dna}
+              active={affordable > 0}
+              detail={ui.affordable(affordable)}
+              onPress={onOpen}
+            >
+              {ui.evolve}
+            </ActionButton>
+          )}
         </Frame>
       );
     },

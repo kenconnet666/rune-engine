@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // 记住选的语言要用 localStorage
+    "lib": ["ES2024", "DOM"]
+  },
+  "include": ["src"]
+}

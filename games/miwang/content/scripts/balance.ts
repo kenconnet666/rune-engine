@@ -60,7 +60,7 @@ function play(seed: number): Result {
   attacker = outbreak.observe(state, ATTACKER);
   return {
     seed,
-    origin: regionName(config.origin),
+    origin: regionName(config.origin, 'zh'),
     winner: state.outcome.winner === ATTACKER ? '攻' : '守',
     reason: state.outcome.reason,
     days: state.outcome.tick,

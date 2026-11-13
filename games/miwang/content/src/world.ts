@@ -4,6 +4,7 @@
  */
 import type { Climate, Links } from '@miwang/sim';
 import world from '../generated/world.json' with { type: 'json' };
+import type { Locale } from './text/index.ts';
 
 export interface WorldRegion {
   /** ISO 3166-1 的数字代码；数据源没给代码的几个地区是 “#” 加它在数据源里的下标 */
@@ -42,6 +43,9 @@ export const bounds: readonly number[] = world.bounds;
 /** 各地区的人口，下标和 regions 对应 */
 export const populations: readonly number[] = regions.map((region) => region.population);
 
-/** 地区的名字：有中文名用中文名，没有的用英文名 */
-export const regionName = (index: number): string =>
-  regions[index]?.nameZh ?? regions[index]?.name ?? '';
+/** 地区的名字：中文没有的用英文名顶上 */
+export const regionName = (index: number, locale: Locale): string => {
+  const region = regions[index];
+  if (!region) return '';
+  return locale === 'zh' ? (region.nameZh ?? region.name) : region.name;
+};

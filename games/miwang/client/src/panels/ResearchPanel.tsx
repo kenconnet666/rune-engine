@@ -1,47 +1,67 @@
-/** 研究：进行中的、做完的；守方在这里开始新的研究，攻方只能看（研究进度是公开的） */
-import { TECH_TEXT, TECHS } from '@miwang/content';
+/**
+ * 研究的概况：进行中的各有一条进度，做完的排成一排图标。研究进度是公开的，攻方也看得到；
+ * 守方从这里打开研究的工作台。
+ */
+import { TECHS } from '@miwang/content';
 import type { OutbreakView } from '@miwang/sim';
-import { ActionButton, Frame, Meter, Note, Stack } from '@rune-engine/ui';
+import { ActionButton, colors, Frame, Icon, Meter, Note, space } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { LABS } from './format.ts';
+import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import { FlaskConical, Microscope, Syringe } from 'lucide';
+import { useContent, useUi } from '../i18n.ts';
+import { techIcon } from '../icons.ts';
+import { LABS } from '../rules.ts';
 
 const daysOf = new Map(TECHS.map((tech) => [tech.id, tech.days]));
-const nameOf = (id: string) => TECH_TEXT[id]?.name ?? id;
+
+const styles = css.create({
+  done: { display: 'flex', flexWrap: 'wrap', gap: space.sm, color: colors.calm },
+});
 
 export const ResearchPanel = _component(
-  ({ view, onResearch }: { view: OutbreakView; onResearch: (tech: string) => void }) =>
+  ({ view, onOpen }: { view: OutbreakView; onOpen: () => void }) =>
     () => {
+      const ui = useUi().research;
+      const content = useContent();
       const { active, done, offers, vaccinating } = view.defense;
-      const busy = active.length >= LABS;
+      const free = LABS - active.length;
+      const nameOf = (id: string) => content.techs[id]?.name ?? id;
       return (
-        <Frame title={`研究 · 完成 ${done.length} / ${TECHS.length}`}>
-          {vaccinating && <Note tone="signal">疫苗已经量产，各地正在接种。</Note>}
+        <Frame icon={FlaskConical} title={ui.title} aside={ui.progress(done.length, TECHS.length)}>
+          {vaccinating && (
+            <Note icon={Syringe} tone="signal">
+              {ui.vaccinating}
+            </Note>
+          )}
           {active.map(({ id, remaining }) => (
             <Meter
               key={id}
               label={nameOf(id)}
               value={1 - remaining / (daysOf.get(id) ?? remaining)}
-              detail={`还要 ${remaining} 天`}
+              detail={ui.remaining(remaining)}
               tone="calm"
             />
           ))}
-          {active.length === 0 && done.length === 0 && <Note>还没有开始任何研究。</Note>}
-          {done.length > 0 && <Note>已完成：{done.map(nameOf).join('、')}</Note>}
-          {!view.attacker && (
-            <Stack>
-              {busy && offers.length > 0 && <Note>实验室都占着：等一项做完再开新的。</Note>}
-              {offers.map((offer) => (
-                <ActionButton
-                  key={offer.id}
-                  title={TECH_TEXT[offer.id]?.detail}
-                  detail={`${offer.cost} · ${daysOf.get(offer.id)} 天`}
-                  disabled={busy || view.resource < offer.cost}
-                  onPress={() => onResearch(offer.id)}
-                >
-                  {nameOf(offer.id)}
-                </ActionButton>
+          {active.length === 0 && done.length === 0 && <Note>{ui.none}</Note>}
+          {done.length > 0 && (
+            <div {...css.attrs(styles.done)}>
+              {done.map((id) => (
+                <span key={id} title={nameOf(id)}>
+                  <Icon icon={techIcon(id)} label={nameOf(id)} />
+                </span>
               ))}
-            </Stack>
+            </div>
+          )}
+          {!view.attacker && (
+            <ActionButton
+              icon={Microscope}
+              // 有空着的实验室、又有能做的研究时亮起来提醒
+              active={free > 0 && offers.length > 0}
+              detail={free > 0 ? ui.free(free) : ui.busy}
+              onPress={onOpen}
+            >
+              {ui.open}
+            </ActionButton>
           )}
         </Frame>
       );

@@ -1,25 +1,49 @@
-/** 底部的一排控制：时间快慢、地图缩放、扮演哪一方、新开一局 */
+/** 底部的一排控制：时间快慢、地图缩放、扮演哪一方、语言、新开一局 */
+import type { Locale } from '@miwang/content';
 import { ATTACKER, DEFENDER } from '@miwang/sim';
-import { ActionButton, Segmented, Stack } from '@rune-engine/ui';
+import { ActionButton, Icon, Segmented, Stack } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import {
+  Biohazard,
+  ChevronsRight,
+  FastForward,
+  Maximize,
+  Minus,
+  Pause,
+  Play,
+  Plus,
+  RotateCcw,
+  ShieldCheck,
+} from 'lucide';
+import { i18n, LOCALE_NAMES, useUi } from '../i18n.ts';
 import type { MapController } from '../map.ts';
 import type { GameSession } from '../session.ts';
+
+/** 各档速度用什么图标 */
+const SPEEDS = [
+  { times: 1, icon: Play },
+  { times: 3, icon: FastForward },
+  { times: 10, icon: ChevronsRight },
+];
 
 export const ControlBar = _component(
   ({ game, map }: { game: GameSession; map: MapController | null }) =>
     () => {
+      const ui = useUi().controls;
       const host = game.role === 'host';
       const human = game.opponent.value === 'human';
       return (
         <Stack row gap="md" wrap>
           <Segmented
-            label="时间"
+            label={ui.time}
             value={game.paused.value ? 0 : game.speed.value}
             options={[
-              { value: 0, label: '暂停' },
-              { value: 1, label: '1×' },
-              { value: 3, label: '3×' },
-              { value: 10, label: '10×' },
+              { value: 0, label: <Icon icon={Pause} />, name: ui.pause },
+              ...SPEEDS.map(({ times, icon }) => ({
+                value: times,
+                label: <Icon icon={icon} />,
+                name: ui.speed(times),
+              })),
             ]}
             onChange={(value) => {
               game.setPaused(value === 0);
@@ -27,28 +51,66 @@ export const ControlBar = _component(
             }}
           />
           <Stack row gap="xs">
-            <ActionButton compact aria-label="放大" onPress={() => map?.zoomBy(1.6)}>
-              ＋
-            </ActionButton>
-            <ActionButton compact aria-label="缩小" onPress={() => map?.zoomBy(1 / 1.6)}>
-              －
-            </ActionButton>
-            <ActionButton aria-label="回到整张地图" onPress={() => map?.reset()}>
-              全图
-            </ActionButton>
+            <ActionButton
+              compact
+              icon={Plus}
+              aria-label={ui.zoomIn}
+              title={ui.zoomIn}
+              onPress={() => map?.zoomBy(1.6)}
+            />
+            <ActionButton
+              compact
+              icon={Minus}
+              aria-label={ui.zoomOut}
+              title={ui.zoomOut}
+              onPress={() => map?.zoomBy(1 / 1.6)}
+            />
+            <ActionButton
+              compact
+              icon={Maximize}
+              aria-label={ui.fit}
+              title={ui.fit}
+              onPress={() => map?.reset()}
+            />
           </Stack>
           {host && !human && (
             <Segmented
-              label="扮演"
+              label={ui.role}
               value={game.player.value}
               options={[
-                { value: ATTACKER, label: '攻方' },
-                { value: DEFENDER, label: '守方' },
+                {
+                  value: ATTACKER,
+                  label: (
+                    <Stack row gap="xs">
+                      <Icon icon={Biohazard} />
+                      {ui.attacker}
+                    </Stack>
+                  ),
+                },
+                {
+                  value: DEFENDER,
+                  label: (
+                    <Stack row gap="xs">
+                      <Icon icon={ShieldCheck} />
+                      {ui.defender}
+                    </Stack>
+                  ),
+                },
               ]}
               onChange={(value) => game.setPlayer(Number(value))}
             />
           )}
-          {host && <ActionButton onPress={() => game.restart()}>新开一局</ActionButton>}
+          <Segmented
+            label={ui.language}
+            value={i18n.locale.value}
+            options={i18n.locales.map((locale) => ({ value: locale, label: LOCALE_NAMES[locale] }))}
+            onChange={(value) => (i18n.locale.value = value as Locale)}
+          />
+          {host && (
+            <ActionButton icon={RotateCcw} onPress={() => game.restart()}>
+              {ui.restart}
+            </ActionButton>
+          )}
         </Stack>
       );
     },

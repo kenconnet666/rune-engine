@@ -3,16 +3,21 @@
  * compact 是只放一个符号的方按钮（缩放的 ＋ －）。没声明的属性落到按钮上。
  *
  *   <ActionButton detail="12 点" disabled={points < 12} onPress={evolve}>强化传播</ActionButton>
- *   <ActionButton compact aria-label="放大" onPress={zoomIn}>＋</ActionButton>
+ *   <ActionButton compact icon={Plus} aria-label="放大" onPress={zoomIn} />
  */
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import type { VNodeChild } from 'vue';
+import { Icon, type IconData } from './Icon.tsx';
 import { mergeAttrs, type PartProps } from './props.ts';
-import { colors, durations, fonts, space } from './tokens.ts';
+import { ripple, rippleHost } from './ripple.ts';
+import { focusRing, pressable } from './styles.ts';
+import { colors, fonts, space } from './tokens.ts';
 
 export interface ActionButtonProps extends PartProps<'button', 'type' | 'aria-pressed'> {
   children?: VNodeChild;
+  /** 文字前面的图标；compact 的按钮只放图标时不用写 children */
+  icon?: IconData;
   /** 靠右的小字：代价、等级 */
   detail?: VNodeChild;
   /** 已经生效的状态（开关类的操作） */
@@ -39,14 +44,14 @@ const styles = css.create({
     backgroundColor: { default: colors.inset, ':hover:not(:disabled)': colors.insetHover },
     borderWidth: '1px',
     borderStyle: 'solid',
-    borderColor: { default: colors.line, ':focus-visible': colors.signal },
-    outline: 'none',
-    cursor: { default: 'pointer', ':disabled': 'not-allowed' },
-    opacity: { default: 1, ':disabled': 0.55 },
-    transition: `background-color ${durations.fast}, border-color ${durations.fast}`,
+    borderColor: { default: colors.line, ':hover:not(:disabled)': colors.lineStrong },
     pointerEvents: 'auto',
   },
-  active: { borderColor: colors.signal, color: colors.signal },
+  active: {
+    color: colors.signal,
+    borderColor: { default: colors.signal, ':hover:not(:disabled)': colors.signal },
+    backgroundColor: { default: colors.signalFaint, ':hover:not(:disabled)': colors.signalFaint },
+  },
   compact: {
     justifyContent: 'center',
     width: '2.75rem',
@@ -55,20 +60,45 @@ const styles = css.create({
     fontSize: '1.125rem',
     backgroundColor: { default: colors.panel, ':hover:not(:disabled)': colors.insetHover },
   },
+  // 文字占满中间：图标靠左、小字靠右
+  label: { flexGrow: 1, minWidth: 0 },
   detail: { fontFamily: fonts.numeric, fontSize: '0.8125rem', color: colors.textMuted },
 });
 
 export const ActionButton = _component(
-  ({ children, detail, active = false, compact = false, onPress, ...rest }: ActionButtonProps) =>
+  ({
+    children,
+    icon,
+    detail,
+    active = false,
+    compact = false,
+    onPress,
+    ...rest
+  }: ActionButtonProps) =>
     () => (
       <button
         {...mergeAttrs<'button'>(
-          { sx: [styles.root, compact && styles.compact, active && styles.active] },
+          {
+            sx: [
+              rippleHost.root,
+              focusRing.visible,
+              pressable.root,
+              styles.root,
+              compact && styles.compact,
+              active && styles.active,
+            ],
+          },
           rest,
-          { type: 'button', 'aria-pressed': active || undefined, onClick: () => onPress?.() },
+          {
+            type: 'button',
+            'aria-pressed': active || undefined,
+            onClick: () => onPress?.(),
+            ...ripple,
+          },
         )}
       >
-        <span>{children}</span>
+        {icon && <Icon icon={icon} />}
+        {children != null && <span {...css.attrs(styles.label)}>{children}</span>}
         {detail != null && <span {...css.attrs(styles.detail)}>{detail}</span>}
       </button>
     ),

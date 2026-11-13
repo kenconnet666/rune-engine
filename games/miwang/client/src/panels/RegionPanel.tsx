@@ -1,5 +1,5 @@
-/** 选中的地区：它的情况，以及守方能在这里开关的措施 */
-import { MEASURE_TEXT, regionName, regions } from '@miwang/content';
+/** 选中的地区：它的情况；守方在这里开关措施（一面图块，开着的亮起来），攻方看得到守方开了哪些 */
+import { regions } from '@miwang/content';
 import {
   HAS_DISASTER,
   HAS_GATHERING,
@@ -8,13 +8,20 @@ import {
   type Measure,
   type OutbreakView,
 } from '@miwang/sim';
-import { ActionButton, Fact, Frame, Meter, Note, Stack } from '@rune-engine/ui';
+import { colors, Fact, Frame, Icon, Meter, Note, space, Stack, Tile } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { amount, compact, measureCost, percent } from './format.ts';
+import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import { CloudRainWind, MapPin, PartyPopper } from 'lucide';
+import { placeName, useContent, useFormats, useUi } from '../i18n.ts';
+import { MEASURE_ICONS } from '../icons.ts';
+import { measureCost } from '../rules.ts';
 
-const CLIMATE = ['热带', '温带', '寒带'];
-const WEALTH = ['低收入', '中低收入', '中高收入', '高收入'];
-const DENSITY = ['人口稀疏', '人口一般', '人口稠密'];
+const styles = css.create({
+  measures: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: space.sm },
+  // 攻方看到的：守方开着的措施排成一排小图标
+  seen: { display: 'flex', flexWrap: 'wrap', gap: space.sm, color: colors.signal },
+  heading: { display: 'flex', justifyContent: 'space-between' },
+});
 
 export const RegionPanel = _component(
   ({
@@ -31,70 +38,120 @@ export const RegionPanel = _component(
     () => {
       const region = regions[index];
       if (!region) return null;
+      const ui = useUi();
+      const content = useContent();
+      const format = useFormats();
       const level = view.intensity[index] ?? 0;
       const bits = view.measures[index] ?? 0;
       const happening = view.happening[index] ?? 0;
       const active = MEASURES.filter((measure) => (bits & MEASURE_BITS[measure]) !== 0);
       return (
-        <Frame title={regionName(index)} onClose={onClose} closeLabel="取消选中">
+        <Frame
+          icon={MapPin}
+          title={placeName(index)}
+          onClose={onClose}
+          closeLabel={ui.region.deselect}
+        >
           <Meter
-            label={view.attacker ? '感染程度' : '上报程度'}
+            label={view.attacker ? ui.app.infection : ui.app.reported}
             value={level}
-            detail={percent.format(level)}
+            detail={format.percent(level)}
             tone={level > 0.5 ? 'danger' : 'signal'}
           />
           <Stack gap="xs">
             <Fact
-              label={`人口（${region.populationYear} 年）`}
-              value={compact.format(region.population)}
+              label={ui.region.population(region.populationYear)}
+              value={format.compact(region.population)}
             />
             <Fact
-              label={view.attacker ? '现有感染' : '现有病例（估）'}
-              value={compact.format(view.cases[index] ?? 0)}
+              label={view.attacker ? ui.status.infections : ui.status.cases}
+              value={format.compact(view.cases[index] ?? 0)}
             />
-            <Fact label="死亡" value={compact.format(view.deaths[index] ?? 0)} />
+            <Fact label={ui.status.deaths} value={format.compact(view.deaths[index] ?? 0)} />
             {(view.immune[index] ?? 0) > 0 && (
-              <Fact label="已接种" value={percent.format(view.immune[index] ?? 0)} />
+              <Fact label={ui.region.immune} value={format.percent(view.immune[index] ?? 0)} />
             )}
             <Fact
-              label="条件"
-              value={`${CLIMATE[region.climate]} · ${WEALTH[region.wealth]} · ${DENSITY[region.density]}`}
+              label={ui.region.conditions}
+              value={`${content.climates[region.climate]} · ${content.wealth[region.wealth]} · ${content.density[region.density]}`}
             />
             <Fact
-              label="路线"
-              value={`陆路 ${region.neighbors.length} · 航线 ${region.air.to.length} · 海运 ${region.sea.to.length}`}
+              label={ui.region.routes}
+              value={ui.region.routeCounts(
+                region.neighbors.length,
+                region.air.to.length,
+                region.sea.to.length,
+              )}
             />
           </Stack>
-          {(happening & HAS_GATHERING) !== 0 && <Note tone="signal">这里正有大型集会。</Note>}
-          {(happening & HAS_DISASTER) !== 0 && <Note tone="danger">这里正遭受自然灾害。</Note>}
-          {view.attacker ? (
-            <Note>
-              {active.length > 0
-                ? `守方在这里：${active.map((measure) => MEASURE_TEXT[measure].name).join('、')}`
-                : '守方还没有在这里采取措施。'}
+          {(happening & HAS_GATHERING) !== 0 && (
+            <Note icon={PartyPopper} tone="signal">
+              {ui.region.gathering}
             </Note>
+          )}
+          {(happening & HAS_DISASTER) !== 0 && (
+            <Note icon={CloudRainWind} tone="danger">
+              {ui.region.disaster}
+            </Note>
+          )}
+
+          {view.attacker ? (
+            active.length === 0 ? (
+              <Note>{ui.region.defenderNone}</Note>
+            ) : (
+              <Stack gap="xs">
+                <Note>
+                  {ui.region.defenderHere(
+                    ui.list(active.map((measure) => content.measures[measure].name)),
+                  )}
+                </Note>
+                <div {...css.attrs(styles.seen)}>
+                  {active.map((measure) => (
+                    <Icon
+                      key={measure}
+                      icon={MEASURE_ICONS[measure]}
+                      label={content.measures[measure].name}
+                    />
+                  ))}
+                </div>
+              </Stack>
+            )
           ) : (
             <Stack>
-              {MEASURES.map((measure) => {
-                const on = (bits & MEASURE_BITS[measure]) !== 0;
-                const cost = measureCost(index, measure);
-                return (
-                  <ActionButton
-                    key={measure}
-                    active={on}
-                    title={MEASURE_TEXT[measure].detail}
-                    detail={
-                      on
-                        ? `每天 ${amount.format(cost.daily)}`
-                        : `${amount.format(cost.setup)} + 每天 ${amount.format(cost.daily)}`
-                    }
-                    disabled={!on && view.resource < cost.setup}
-                    onPress={() => onMeasure(measure, !on)}
-                  >
-                    {MEASURE_TEXT[measure].name}
-                  </ActionButton>
-                );
-              })}
+              <Note sx={styles.heading}>
+                <span>{ui.region.measures}</span>
+                <span>{ui.region.measuresOn(active.length)}</span>
+              </Note>
+              <div {...css.attrs(styles.measures)}>
+                {MEASURES.map((measure) => {
+                  const on = (bits & MEASURE_BITS[measure]) !== 0;
+                  const cost = measureCost(index, measure);
+                  const { name, detail } = content.measures[measure];
+                  return (
+                    <Tile
+                      key={measure}
+                      icon={MEASURE_ICONS[measure]}
+                      label={name}
+                      // 开着的显示每天花多少，没开的显示开它要预付多少
+                      detail={
+                        on
+                          ? ui.region.daily(format.amount(cost.daily))
+                          : ui.region.setup(format.amount(cost.setup))
+                      }
+                      state={on ? 'owned' : 'available'}
+                      title={ui.region.measureHint(
+                        name,
+                        detail,
+                        format.amount(cost.setup),
+                        format.amount(cost.daily),
+                      )}
+                      aria-pressed={on}
+                      disabled={!on && view.resource < cost.setup}
+                      onPress={() => onMeasure(measure, !on)}
+                    />
+                  );
+                })}
+              </div>
             </Stack>
           )}
         </Frame>

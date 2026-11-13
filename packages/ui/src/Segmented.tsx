@@ -7,7 +7,9 @@ import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import type { VNodeChild } from 'vue';
 import { mergeAttrs, type PartProps } from './props.ts';
-import { colors, durations, fonts } from './tokens.ts';
+import { ripple, rippleHost } from './ripple.ts';
+import { focusRing, pressable } from './styles.ts';
+import { colors, fonts } from './tokens.ts';
 
 /** 选项的值 */
 export type SegmentedValue = string | number;
@@ -15,6 +17,8 @@ export type SegmentedValue = string | number;
 export interface SegmentedOption {
   value: SegmentedValue;
   label: VNodeChild;
+  /** 选项只放了图标时，给读屏和悬停提示用的名字 */
+  name?: string;
 }
 
 export interface SegmentedProps extends PartProps<'div', 'role' | 'aria-label' | 'onChange'> {
@@ -28,23 +32,28 @@ export interface SegmentedProps extends PartProps<'div', 'role' | 'aria-label' |
 const styles = css.create({
   root: { display: 'flex', pointerEvents: 'auto' },
   item: {
+    display: 'grid',
+    placeItems: 'center',
     minWidth: '2.75rem',
     minHeight: '2.75rem',
     paddingInline: '0.75rem',
     fontFamily: fonts.numeric,
     fontSize: '0.875rem',
-    color: colors.textMuted,
+    color: { default: colors.textMuted, ':hover': colors.text },
     backgroundColor: { default: colors.panel, ':hover': colors.insetHover },
     borderWidth: '1px',
     borderStyle: 'solid',
-    borderColor: { default: colors.line, ':focus-visible': colors.signal },
+    borderColor: colors.line,
     // 相邻的两项共用一条边
     marginInlineStart: '-1px',
-    outline: 'none',
-    cursor: 'pointer',
-    transition: `background-color ${durations.fast}`,
   },
-  selected: { color: colors.onSignal, backgroundColor: colors.signal, borderColor: colors.signal },
+  selected: {
+    color: { default: colors.onSignal, ':hover': colors.onSignal },
+    backgroundColor: { default: colors.signal, ':hover': colors.signal },
+    borderColor: colors.signal,
+    // 选中的那项压在邻居的边上，四条边都是信号色
+    zIndex: 1,
+  },
 });
 
 export const Segmented = _component(
@@ -58,8 +67,17 @@ export const Segmented = _component(
             key={option.value}
             type="button"
             aria-pressed={option.value === value}
+            aria-label={option.name}
+            title={option.name}
             onClick={() => onChange?.(option.value)}
-            {...css.attrs(styles.item, option.value === value && styles.selected)}
+            {...ripple}
+            {...css.attrs(
+              rippleHost.root,
+              focusRing.inset,
+              pressable.root,
+              styles.item,
+              option.value === value && styles.selected,
+            )}
           >
             {option.label}
           </button>

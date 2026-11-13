@@ -108,7 +108,7 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
   const renderLink: RenderLink = { send: (message) => toRender(message), onRegion: null };
   render.onmessage = ({ data }: MessageEvent<RenderReport>) => {
     if (data.type === 'error') renderError.value = data.message;
-    else if (data.type === 'lost') renderError.value = `画面断了，正在恢复：${data.message}`;
+    else if (data.type === 'lost') renderError.value = data.message;
     else if (data.type === 'ready') renderError.value = null;
     else if (data.type === 'region') renderLink.onRegion?.(data.region, data.picked);
   };

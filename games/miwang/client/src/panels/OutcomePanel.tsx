@@ -1,10 +1,11 @@
 /** 结算：分出胜负之后盖在地图中间 */
-import { OUTCOME_TEXT, regions } from '@miwang/content';
+import { regions } from '@miwang/content';
 import type { OutbreakView } from '@miwang/sim';
-import { ActionButton, colors, Fact, fonts, Frame, Stack } from '@rune-engine/ui';
+import { ActionButton, colors, Fact, fonts, Frame, Icon, space, Stack } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { amount, compact, percent } from './format.ts';
+import { RotateCcw, Skull, Trophy } from 'lucide';
+import { useContent, useFormats, useUi } from '../i18n.ts';
 
 const styles = css.create({
   root: {
@@ -14,8 +15,15 @@ const styles = css.create({
     placeItems: 'center',
     pointerEvents: 'none',
   },
-  panel: { width: '22rem', maxWidth: '90vw' },
-  verdict: { fontFamily: fonts.text, fontSize: '1.5rem', letterSpacing: '0.2em' },
+  panel: { width: '23rem', maxWidth: '90vw' },
+  verdict: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: space.md,
+    fontFamily: fonts.text,
+    fontSize: '1.5rem',
+    letterSpacing: '0.15em',
+  },
   won: { color: colors.calm },
   lost: { color: colors.danger },
 });
@@ -25,30 +33,38 @@ export const OutcomePanel = _component(
     () => {
       const { outcome } = view;
       if (!outcome) return null;
+      const ui = useUi().outcome;
+      const content = useContent();
+      const format = useFormats();
       const won = outcome.winner === view.player;
       return (
         <div {...css.attrs(styles.root)}>
-          <Frame title={`第 ${outcome.tick} 天 · 对局结束`} sx={styles.panel}>
+          <Frame title={ui.title(outcome.tick)} sx={styles.panel}>
             <span {...css.attrs(styles.verdict, won ? styles.won : styles.lost)}>
-              {won ? '你赢了' : '你输了'}
+              <Icon icon={won ? Trophy : Skull} size="1.75rem" />
+              {won ? ui.won : ui.lost}
             </span>
-            <span>{OUTCOME_TEXT[outcome.reason]}</span>
+            <span>{content.outcomes[outcome.reason]}</span>
             <Stack gap="xs">
               <Fact
-                label={view.attacker ? '累计感染' : '累计上报'}
-                value={compact.format(view.totals.infected)}
+                label={view.attacker ? ui.infected : ui.reported}
+                value={format.compact(view.totals.infected)}
               />
-              <Fact label="死亡" value={compact.format(view.totals.deaths)} />
-              <Fact label="波及地区" value={`${view.totals.regions} / ${regions.length}`} />
+              <Fact label={ui.deaths} value={format.compact(view.totals.deaths)} />
+              <Fact label={ui.regions} value={`${view.totals.regions} / ${regions.length}`} />
               <Fact
-                label="病原体的性状"
-                value={view.pathogen.known ? view.pathogen.owned.length : '未知'}
+                label={ui.traits}
+                value={view.pathogen.known ? view.pathogen.owned.length : ui.unknown}
               />
-              <Fact label="完成的研究" value={view.defense.done.length} />
-              <Fact label="公众信任" value={percent.format(view.defense.trust)} />
-              <Fact label="经济损失" value={amount.format(view.defense.economyLost)} />
+              <Fact label={ui.techs} value={view.defense.done.length} />
+              <Fact label={ui.trust} value={format.percent(view.defense.trust)} />
+              <Fact label={ui.economy} value={format.amount(view.defense.economyLost)} />
             </Stack>
-            {onRestart && <ActionButton onPress={onRestart}>新开一局</ActionButton>}
+            {onRestart && (
+              <ActionButton icon={RotateCcw} onPress={onRestart}>
+                {ui.restart}
+              </ActionButton>
+            )}
           </Frame>
         </div>
       );
