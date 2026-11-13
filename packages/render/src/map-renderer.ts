@@ -6,6 +6,7 @@
  * 显卡设备会丢（驱动重启、显卡进程崩溃、标签页在后台太久被回收）：丢了以后设备上的东西全部作废。
  * 这里把“要画什么”（各地区的数值、弧线、相机、高亮）留在 CPU 这头，设备丢了就自己重建一套再接着画，调用方不用管。
  */
+import type { MapPaletteName } from './map-palette.ts';
 import {
   ARC_FLOATS,
   ARC_SEGMENTS,
@@ -25,6 +26,11 @@ export interface MapRendererOptions {
   onLost?: (reason: string) => void;
   /** 重建好了，画面接上了 */
   onRestored?: () => void;
+  /**
+   * 显卡不认的操作（缓冲区大小对不上、着色器和管线不匹配……）。这类错不会让任何调用抛出来，
+   * 只是那一帧画不出东西——不报出来的话就是一张黑屏，谁也不知道为什么。同样的话只报一次
+   */
+  onError?: (message: string) => void;
 }
 
 /** 一条弧线：地图上两个点之间的连线 */
@@ -56,6 +62,8 @@ export interface MapRenderer {
   /** 要画的弧线，整批换掉 */
   setArcs(arcs: readonly MapArc[]): void;
   setCamera(camera: MapCamera): void;
+  /** 换一套色带 */
+  setPalette(name: MapPaletteName): void;
   render(nowMs: number): void;
   /** 测试用：把设备弄丢，看能不能自己恢复 */
   loseDevice(): void;
@@ -227,13 +235,16 @@ async function createGpu({ canvas, mesh, regionCount }: MapRendererOptions): Pro
 }
 
 export async function createMapRenderer(options: MapRendererOptions): Promise<MapRenderer> {
-  const { canvas, mesh, regionCount, onLost, onRestored } = options;
+  const { canvas, mesh, regionCount, onLost, onRestored, onError } = options;
+  /** 已经报过的错：每帧都会再犯一次，不能每帧都报 */
+  const reportedErrors = new Set<string>();
 
   /** 数据纹理在 CPU 这头的副本：r 过渡前、g 目标、b 玩法的标记、a 界面的标记。设备丢了它还在，重建后整张重传 */
   const regionData = new Float32Array(regionCount * 4);
   const viewData = new Float32Array(VIEW_FLOATS);
   const camera: MapCamera = fitCamera(mesh.bounds);
   let highlight: [hovered: number, selected: number] = [-1, -1];
+  let palette: MapPaletteName = 'standard';
   let blendStart = -BLEND_MS;
   let dirty = true;
   /** 弧线在 CPU 这头的副本，和有几条 */
@@ -278,6 +289,12 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
     allocateTarget();
     allocateArcs();
     detail = detailMesh && uploadMesh(next.device, detailMesh);
+    next.device.addEventListener('uncapturederror', (event) => {
+      const { message } = event.error;
+      if (reportedErrors.has(message)) return;
+      reportedErrors.add(message);
+      onError?.(message);
+    });
     void next.device.lost.then((info) => {
       if (destroyed || gpu !== next) return;
       gpu = undefined;
@@ -341,6 +358,9 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
       if (selected >= 0 && selected < regionCount) regionData[selected * 4 + 3]! += 2;
       dirty = true;
     },
+    setPalette(name) {
+      palette = name;
+    },
     setDetail(next) {
       detailMesh = next;
       if (gpu) detail = uploadMesh(gpu.device, next);
@@ -399,6 +419,8 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
         nowMs / 1000,
         canvas.width,
         canvas.height,
+        palette === 'safe' ? 1 : 0,
+        0,
       ]);
       device.queue.writeBuffer(gpu.viewBuffer, 0, viewData);
 

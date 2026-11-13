@@ -15,8 +15,9 @@ import {
   type Session,
 } from '@rune-engine/net';
 import { observeCanvasSize } from '@rune-engine/runtime';
-import { shallowRef, type ShallowRef } from 'vue';
+import { shallowRef, watchEffect, type ShallowRef } from 'vue';
 import type { GameRecording, RenderControl, RenderReport } from '../messages.ts';
+import { palette } from '../palette.ts';
 import type { RoomInfo } from './room.ts';
 
 export type FromHost = HostMessage<OutbreakView>;
@@ -156,10 +157,12 @@ export function createCore(canvas: HTMLCanvasElement, opponent: 'ai' | 'human'):
   const stopObserving = observeCanvasSize(canvas, (width, height) =>
     toRender({ type: 'resize', width, height }),
   );
+  // 地图的色带跟着设置里选的配色走
+  const stopPalette = watchEffect(() => toRender({ type: 'palette', name: palette.value }));
 
   // ───── 连着主机的会话 ─────
   let session: Session<Command> | undefined;
-  const cleanups: (() => void)[] = [stopObserving, () => render.terminate()];
+  const cleanups: (() => void)[] = [stopObserving, stopPalette, () => render.terminate()];
 
   function onView(message: FromHost) {
     // 开发时看“改完代码到画面接上”要多久：performance.getEntriesByName('miwang:first-view')

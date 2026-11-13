@@ -32,4 +32,4 @@ export { TechTree, type TechTreeProps, type TreeNode } from './TechTree.tsx';
 export { TextField, type TextFieldProps } from './TextField.tsx';
 export { Tile, type TileProps, type TileState } from './Tile.tsx';
 export { Tip, type TipProps } from './Tip.tsx';
-export { colors, durations, fonts, space } from './tokens.ts';
+export { colors, colorSafeTheme, durations, fonts, space } from './tokens.ts';

@@ -277,6 +277,10 @@ export const zh = {
     volume: '音量',
     volumes: { master: '总音量', music: '音乐', ambience: '环境音', alert: '提示音', ui: '界面音' },
     credits: '数据与素材',
+    palette: '配色',
+    palettes: { standard: '标准', safe: '色觉友好' },
+    paletteHelp:
+      '色觉友好：地图上感染越重的地方越亮（深色 → 橙 → 浅黄），界面的警示色和平稳色换成朱红和天蓝，不靠分辨红绿。',
     creditLines: [
       '国家边界、人口、经济：Natural Earth（公有领域），边界经 world-atlas 整理',
       '中文地名：i18n-iso-countries（MIT）',

@@ -5,6 +5,7 @@
 import type { AiLevel, Command, OutbreakConfig, OutbreakView } from '@miwang/sim';
 import type { PlayerId, Recording } from '@rune-engine/core';
 import type { ClientMessage, HostMessage } from '@rune-engine/net';
+import type { MapPaletteName } from '@rune-engine/render';
 import type { MapCamera } from '@rune-engine/render/map-view';
 
 export type GameRecording = Recording<OutbreakConfig, Command>;
@@ -61,6 +62,8 @@ export type RenderControl =
     }
   /** 选中的地区（下标），没有时是 -1 */
   | { readonly type: 'select'; readonly region: number }
+  /** 换一套色带 */
+  | { readonly type: 'palette'; readonly name: MapPaletteName }
   /** 开发时用：把显卡设备弄丢，看画面能不能自己恢复 */
   | { readonly type: 'lose-device' }
   /** 开发时用：问一下最近这段时间画得多快 */

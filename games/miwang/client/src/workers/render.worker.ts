@@ -24,6 +24,7 @@ import {
   type MapArc,
   type MapBounds,
   type MapCamera,
+  type MapPaletteName,
   type MapRenderer,
 } from '@rune-engine/render';
 import { asPort } from '@rune-engine/runtime/worker';
@@ -32,6 +33,8 @@ import type { RenderControl, RenderReport } from '../messages.ts';
 declare const self: DedicatedWorkerGlobalScope;
 
 let renderer: MapRenderer | undefined;
+/** 用哪一套色带：渲染器建好之前先记着 */
+let paletteName: MapPaletteName = 'standard';
 let session: Session<Command> | undefined;
 /** 渲染器还没建好时先到的东西：建好后补上 */
 let pendingView: OutbreakView | undefined;
@@ -144,9 +147,11 @@ async function init(data: Extract<RenderControl, { type: 'init' }>) {
     regionCount: data.regionCount,
     onLost: (reason) => report({ type: 'lost', message: reason }),
     onRestored: () => report({ type: 'ready' }),
+    onError: (message) => report({ type: 'error', message }),
   });
   renderer.resize(size.width, size.height);
   renderer.setCamera(camera);
+  renderer.setPalette(paletteName);
   renderer.setHighlight(hovered, selected);
   updateArcs();
   if (pendingView) show(pendingView);
@@ -194,6 +199,10 @@ self.onmessage = ({ data }: MessageEvent<RenderControl>) => {
       }
       break;
     }
+    case 'palette':
+      paletteName = data.name;
+      renderer?.setPalette(paletteName);
+      break;
     case 'select':
       selected = data.region;
       renderer?.setHighlight(hovered, selected);

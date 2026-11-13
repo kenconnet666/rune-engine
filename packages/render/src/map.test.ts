@@ -8,6 +8,7 @@ import {
   zoomAround,
   type MapBounds,
 } from './map-view.ts';
+import { luminance, MAP_PALETTES, rampColor } from './map-palette.ts';
 import { decodeRegionMesh, encodeRegionMesh, type RegionMeshData } from './mesh-format.ts';
 import { createRegionPicker } from './region-picker.ts';
 
@@ -107,5 +108,38 @@ describe('地图视野', () => {
       y: 0,
       zoom: 12,
     });
+  });
+});
+
+describe('地图的色带', () => {
+  /** 沿色带从 0 走到 1，每一步的亮度 */
+  const lightness = (name: keyof typeof MAP_PALETTES) =>
+    Array.from({ length: 41 }, (_, step) => luminance(rampColor(MAP_PALETTES[name], step / 40)));
+
+  it('色觉友好的那一套：越重越亮，亮度一路往上走，轻重不靠色相也分得出', () => {
+    const values = lightness('safe');
+    for (let step = 1; step < values.length; step++) {
+      expect(values[step], `第 ${step} 步`).toBeGreaterThan(values[step - 1]!);
+    }
+    // 两头差得够开：最重的地方比陆地的底色亮得多
+    expect(values.at(-1)! / values[0]!).toBeGreaterThan(20);
+  });
+
+  it('标准的那一套不是这样：到顶的红比中间的琥珀暗——这正是要另做一套的原因', () => {
+    const values = lightness('standard');
+    expect(values.at(-1)).toBeLessThan(Math.max(...values));
+  });
+
+  it('两套的两头都是给定的颜色', () => {
+    for (const palette of Object.values(MAP_PALETTES)) {
+      for (const [value, expected] of [
+        [0, palette.land],
+        [1, palette.hot],
+      ] as const) {
+        rampColor(palette, value).forEach((channel, index) =>
+          expect(channel).toBeCloseTo(expected[index]!, 6),
+        );
+      }
+    }
   });
 });

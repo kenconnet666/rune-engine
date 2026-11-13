@@ -68,3 +68,20 @@ export async function clickInDialog(page, text) {
   })()`);
   if (!clicked) throw new Error(`对话框里没有“${text}”这个按钮`);
 }
+
+/**
+ * 地图画布上现在有多少种颜色：把它缩小画到一张普通画布上数一数。
+ * 画出来的地图有几百种；一种都数不出几种说明渲染线程没在画（着色器、管线出了问题时就是一张黑屏，不会有任何报错）。
+ */
+export const mapColors = (page) =>
+  page.evaluate(`(() => {
+    const probe = document.createElement('canvas');
+    probe.width = 320;
+    probe.height = 160;
+    const context = probe.getContext('2d');
+    context.drawImage(document.querySelector('canvas'), 0, 0, probe.width, probe.height);
+    const { data } = context.getImageData(0, 0, probe.width, probe.height);
+    const colors = new Set();
+    for (let i = 0; i < data.length; i += 4) colors.add((data[i] << 16) | (data[i + 1] << 8) | data[i + 2]);
+    return colors.size;
+  })()`);

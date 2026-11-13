@@ -1,9 +1,10 @@
-/** 设置：语言、音量；下面是数据与素材的来源和致谢 */
+/** 设置：语言、配色、音量；下面是数据与素材的来源和致谢 */
 import type { Locale } from '@miwang/content';
 import { colors, Dialog, Note, Scroll, Segmented, Slider, space, Stack } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { i18n, LOCALE_NAMES, useFormats, useUi } from '../i18n.ts';
+import { palette } from '../palette.ts';
 import type { GameAudio } from '../sound.ts';
 
 const styles = css.create({
@@ -54,6 +55,19 @@ export const Settings = _component(
                   }))}
                   onChange={(value) => (i18n.locale.value = value as Locale)}
                 />
+              </Stack>
+              <Stack gap="xs">
+                <Note>{ui.palette}</Note>
+                <Segmented
+                  label={ui.palette}
+                  value={palette.value}
+                  options={[
+                    { value: 'standard', label: ui.palettes.standard },
+                    { value: 'safe', label: ui.palettes.safe },
+                  ]}
+                  onChange={(value) => (palette.value = value === 'safe' ? 'safe' : 'standard')}
+                />
+                <Note>{ui.paletteHelp}</Note>
               </Stack>
               {audio && (
                 <Stack gap="xs">

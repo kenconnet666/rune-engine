@@ -17,6 +17,7 @@ import {
   hasButton,
   hasText,
   LOCALE_INIT,
+  mapColors,
   progress,
   readArgs,
   sleep,
@@ -75,7 +76,14 @@ try {
     const note = await page.evaluate(`document.body.innerText.match(/画面断了[^\\n]*/)?.[0]`);
     throw new Error(`渲染线程没起来：${note}\n控制台：${page.logs.slice(-8).join('\n')}`);
   }
-  await done('开局：选了流感型，对局开始，地图画出来了');
+  // 没报错不等于画出来了：直接数画布上的颜色（给渲染线程一点时间画出第一帧）
+  let colors = 0;
+  for (let waited = 0; waited < 50 && colors < 50; waited++) {
+    colors = await mapColors(page);
+    if (colors < 50) await sleep(200);
+  }
+  if (colors < 50) throw new Error(`地图没画出来：画布上只数得出 ${colors} 种颜色`);
+  await done(`开局：选了流感型，对局开始，地图画出来了（画布上 ${colors} 种颜色）`);
 
   const before = await dayOf(page);
   await page.evaluate(`document.querySelector('[aria-label="10 倍速"]').click()`);

@@ -289,6 +289,10 @@ export const en: ClientText = {
       ui: 'Interface',
     },
     credits: 'Data and assets',
+    palette: 'Colours',
+    palettes: { standard: 'Standard', safe: 'Colour-blind friendly' },
+    paletteHelp:
+      'Colour-blind friendly: on the map, heavier infection is brighter (dark → orange → pale yellow), and the warning and calm colours become vermilion and sky blue, so nothing depends on telling red from green.',
     creditLines: [
       'Borders, population, economy: Natural Earth (public domain), borders prepared by world-atlas',
       'Chinese place names: i18n-iso-countries (MIT)',

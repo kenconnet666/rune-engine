@@ -124,11 +124,20 @@ export async function launchChrome({
       });
       const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
       const call = (method, params) => send(method, params, sessionId);
-      /** 页面里报的错和控制台消息，测试结束时可以拿来看 */
+      /** 页面里报的错和控制台消息，测试结束时可以拿来看；页面起的 Worker 里的也算在内 */
       const errors = [];
       const logs = [];
+      /** 这个页面和它的 Worker 各自的调试会话 */
+      const sessions = new Set([sessionId]);
       listeners.add((message) => {
-        if (message.sessionId !== sessionId) return;
+        if (!sessions.has(message.sessionId)) return;
+        if (message.method === 'Target.attachedToTarget') {
+          // 页面起了一个 Worker：也听它的（模拟和渲染都在 Worker 里，那里抛的错主线程看不到）
+          const worker = message.params.sessionId;
+          sessions.add(worker);
+          send('Runtime.enable', {}, worker).catch(() => {});
+          return;
+        }
         if (message.method === 'Runtime.exceptionThrown') {
           const details = message.params.exceptionDetails;
           errors.push(details.exception?.description ?? details.text);
@@ -140,6 +149,11 @@ export async function launchChrome({
       });
       await call('Runtime.enable');
       await call('Page.enable');
+      await call('Target.setAutoAttach', {
+        autoAttach: true,
+        waitForDebuggerOnStart: false,
+        flatten: true,
+      });
       if (init) await call('Page.addScriptToEvaluateOnNewDocument', { source: init });
       await call('Page.navigate', { url });
 

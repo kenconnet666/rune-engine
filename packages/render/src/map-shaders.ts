@@ -3,15 +3,19 @@
  *   底图  整屏一张：深色的海面、四周压暗一点、淡淡的经纬网
  *   地区  每个地区一组三角形，颜色按地区下标去数据纹理里查；再用线画一遍边界
  *   弧线  地区之间的连线（航线、海运、疾病跳过去的那一下），在着色器里弯成弧、展成有宽度的带子
- * 三层共用一个 View：相机、时间、画布的像素尺寸。
+ * 三层共用一个 View：相机、时间、画布的像素尺寸、用哪一套色带。
  */
+import { MAP_PALETTES, type Rgb } from './map-palette.ts';
 
-/** View 的大小（按 f32 数） */
-export const VIEW_FLOATS = 8;
+/** View 的大小（按 f32 数）：结构体按 8 字节对齐，9 个数补成 10 个 */
+export const VIEW_FLOATS = 10;
 /** 一条弧线的数据占几个 f32：from.xy、to.xy、起始时间、路线种类、不透明度、是不是静态的路线 */
 export const ARC_FLOATS = 8;
 /** 一条弧线切成多少段 */
 export const ARC_SEGMENTS = 40;
+
+/** 把一个颜色写成 WGSL 的 vec3f */
+const vec3 = ([r, g, b]: Rgb) => `vec3f(${r}, ${g}, ${b})`;
 
 const VIEW = /* wgsl */ `
 struct View {
@@ -20,6 +24,9 @@ struct View {
   blend: f32,
   time: f32,
   viewport: vec2f,
+  // 色带：0 是标准的，1 是色觉友好的（见 map-palette.ts）
+  palette: f32,
+  pad: f32,
 };
 @group(0) @binding(0) var<uniform> view: View;
 `;
@@ -78,16 +85,19 @@ struct VOut {
   return out;
 }
 
-const LAND = vec3f(0.105, 0.145, 0.185);
-const WARM = vec3f(0.949, 0.639, 0.227);
-const HOT = vec3f(0.898, 0.282, 0.302);
+const LAND = ${vec3(MAP_PALETTES.standard.land)};
+const WARM = ${vec3(MAP_PALETTES.standard.warm)};
+const HOT = ${vec3(MAP_PALETTES.standard.hot)};
+const SAFE_WARM = ${vec3(MAP_PALETTES.safe.warm)};
+const SAFE_HOT = ${vec3(MAP_PALETTES.safe.hot)};
 
 @fragment fn fill(in: VOut) -> @location(0) vec4f {
   let data = textureLoad(regions, vec2i(i32(in.region), 0), 0);
   let eased = view.blend * view.blend * (3.0 - 2.0 * view.blend);
   let value = mix(data.r, data.g, eased);
-  var color = mix(LAND, WARM, smoothstep(0.0, 0.55, value));
-  color = mix(color, HOT, smoothstep(0.45, 1.0, value));
+  // 这两行的算法和 map-palette.ts 的 rampColor 一样，改的时候两边一起改
+  var color = mix(LAND, mix(WARM, SAFE_WARM, view.palette), smoothstep(0.0, 0.55, value));
+  color = mix(color, mix(HOT, SAFE_HOT, view.palette), smoothstep(0.45, 1.0, value));
   // 有感染的地区轻微地呼吸，数值越高越明显
   color *= 1.0 + 0.06 * value * sin(view.time * 2.2 + f32(in.region));
   if ((u32(data.b) & 1u) != 0u) {

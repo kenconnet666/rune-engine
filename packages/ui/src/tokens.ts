@@ -26,6 +26,21 @@ export const colors = css.defineVars('rune-colors', {
   calm: '#5ec4b6',
 });
 
+/**
+ * 色觉友好的那一套颜色：放在一个元素上，它里面的组件都换成这套。
+ * 警示色从红换成朱红、平稳色从青绿换成天蓝——和信号色（橙黄）三者之间，分不清红绿的人也能靠
+ * “偏黄还是偏蓝、亮还是暗”分开（取自 Okabe–Ito 那组色）。界面上凡是用颜色表意的地方同时都有图标或文字，颜色不是唯一的线索。
+ *
+ *   <div {...css.attrs(safe && colorSafeTheme)}>…</div>
+ */
+export const colorSafeTheme = css.createTheme(colors, {
+  signal: '#f2b134',
+  signalFaint: 'rgba(242, 177, 52, 0.12)',
+  focus: '#ffe08a',
+  danger: '#d55e00',
+  calm: '#56b4e9',
+});
+
 /** 字体：界面文字用系统界面字体；数字用窄体的等宽数字，位数变化时不抖 */
 export const fonts = css.defineVars('rune-fonts', {
   text: '"Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", system-ui, sans-serif',

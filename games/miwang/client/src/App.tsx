@@ -9,7 +9,7 @@
  * 地图和界面互相配合：指针停在一个地区上，旁边出现它的名字；点一下选中，右侧出现它的详情；
  * 点一条和地区有关的新闻，地图飞过去并选中它。
  */
-import { Callout, colors, fonts, Note, Scroll, space } from '@rune-engine/ui';
+import { Callout, colors, colorSafeTheme, fonts, Note, Scroll, space } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { CHAPTERS, type ChapterId } from '@miwang/content';
@@ -18,6 +18,7 @@ import { watchHints } from './chapters/hints.ts';
 import { markChapterPassed } from './chapters/progress.ts';
 import { placeName, useFormats, useUi } from './i18n.ts';
 import { createMapController, type MapController } from './map.ts';
+import { palette } from './palette.ts';
 import { ControlBar } from './panels/ControlBar.tsx';
 import { GoalPanel } from './panels/GoalPanel.tsx';
 import { HintPanel } from './panels/HintPanel.tsx';
@@ -190,7 +191,7 @@ export const App = _component(() => {
     };
 
     return (
-      <div {...css.attrs(styles.root)}>
+      <div {...css.attrs(styles.root, palette.value === 'safe' && colorSafeTheme)}>
         <canvas ref={_toRef(canvas)} aria-label={ui.app.mapLabel} {...css.attrs(styles.canvas)} />
         {/* 地名和标记压在地图上、界面的下面 */}
         {view && map && canvas && <MapOverlay map={map} view={view} canvas={canvas} />}
