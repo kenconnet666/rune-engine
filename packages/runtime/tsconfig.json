@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable"]
+  },
+  // 主线程这一半；Worker 里的那一半见 tsconfig.worker.json（两套环境的类型不能放进同一次检查）
+  "include": ["src/main", "src/shared"]
+}

@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    // 默认不带任何宿主环境：没有 DOM、没有 Node。要用浏览器或 Worker 接口的包在自己的 tsconfig 里加 lib，
+    // 模拟相关的包（core、net、游戏的 sim）保持这样，写了 document、setTimeout、process 直接编译报错
+    "lib": ["ES2024"],
+    "types": [],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    // 相对导入带 .ts：Node 直接加载源码（测试、脚本、之后的服务端）不用先构建
+    "allowImportingTsExtensions": true,
+
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  }
+}

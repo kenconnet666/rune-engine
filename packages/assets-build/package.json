@@ -1,0 +1,25 @@
+{
+  "name": "@rune-engine/assets-build",
+  "version": "0.0.0",
+  "private": true,
+  "description": "构建时的素材处理：把地理数据投影、切成三角形，输出运行时直接加载的地区网格",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"
+  },
+  "dependencies": {
+    "@rune-engine/render": "workspace:^",
+    "earcut": "catalog:",
+    "topojson-client": "catalog:"
+  },
+  "devDependencies": {
+    "@types/geojson": "catalog:",
+    "@types/topojson-client": "catalog:",
+    "@types/topojson-specification": "catalog:",
+    "typescript": "catalog:"
+  }
+}

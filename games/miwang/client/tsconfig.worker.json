@@ -1,0 +1,9 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "WebWorker"],
+    "types": ["@webgpu/types"],
+    "resolveJsonModule": true
+  },
+  "include": ["src/workers", "src/messages.ts"]
+}

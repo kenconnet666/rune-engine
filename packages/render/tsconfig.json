@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // 渲染器在 Worker 里跑（OffscreenCanvas）：只要 Worker 的接口，没有 DOM
+    "lib": ["ES2024", "WebWorker"],
+    "types": ["@webgpu/types"]
+  },
+  "include": ["src"]
+}

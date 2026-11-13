@@ -1,1 +1,19 @@
+*.log
+node_modules
+**/dist/
+*.tsbuildinfo
+coverage/
+test-results/
+**/.vitest/
+playwright-report/
 /.idea/
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# 构建时生成的素材（地图网格等）：由各包的 build 脚本产出，不进仓库
+**/generated/
+
+# Claude Code 的本机设置
+.claude/settings.local.json

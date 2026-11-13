@@ -1,0 +1,27 @@
+{
+  "name": "@miwang/content",
+  "version": "0.0.0",
+  "private": true,
+  "description": "《迷惘》的数据：世界地图的地区、开局配置；generated/ 里是构建脚本产出的地图网格",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./generated/*": "./generated/*"
+  },
+  "scripts": {
+    "build:map": "node scripts/build-map.ts",
+    "typecheck": "node scripts/build-map.ts && tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo && tsc -p scripts --incremental --tsBuildInfoFile node_modules/.cache/typecheck-scripts.tsbuildinfo"
+  },
+  "dependencies": {
+    "@miwang/sim": "workspace:^"
+  },
+  "devDependencies": {
+    "@rune-engine/assets-build": "workspace:^",
+    "@rune-engine/render": "workspace:^",
+    "@types/node": "catalog:",
+    "@types/topojson-specification": "catalog:",
+    "typescript": "catalog:",
+    "world-atlas": "catalog:"
+  }
+}

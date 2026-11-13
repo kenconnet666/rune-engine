@@ -1,0 +1,19 @@
+{
+  "name": "@rune-engine/render",
+  "version": "0.0.0",
+  "private": true,
+  "description": "WebGPU 2D 渲染：地区地图、数据纹理着色；不碰 DOM，主线程和 Worker 里都能跑",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./mesh-format": "./src/mesh-format.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"
+  },
+  "devDependencies": {
+    "@webgpu/types": "catalog:",
+    "typescript": "catalog:"
+  }
+}

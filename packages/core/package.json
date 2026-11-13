@@ -1,0 +1,22 @@
+{
+  "name": "@rune-engine/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "模拟内核：确定性的随机数与数学、固定步长时钟、命令与回放、状态哈希；不依赖任何宿主环境",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"
+  },
+  "dependencies": {
+    "@internationalized/date": "catalog:",
+    "decimal.js": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

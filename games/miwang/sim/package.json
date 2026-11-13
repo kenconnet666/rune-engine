@@ -1,0 +1,21 @@
+{
+  "name": "@miwang/sim",
+  "version": "0.0.0",
+  "private": true,
+  "description": "《迷惘》的规则：按地区的传播模型、攻防双方的命令、各自能看到的部分；只依赖模拟内核",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"
+  },
+  "dependencies": {
+    "@rune-engine/core": "workspace:^"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

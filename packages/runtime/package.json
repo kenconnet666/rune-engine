@@ -1,0 +1,22 @@
+{
+  "name": "@rune-engine/runtime",
+  "version": "0.0.0",
+  "private": true,
+  "description": "把各线程接起来：消息通道的适配、画布尺寸、主机的计时循环、对局记录的暂存",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/main/index.ts",
+    "./worker": "./src/worker/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo && tsc -p tsconfig.worker.json --incremental --tsBuildInfoFile node_modules/.cache/typecheck-worker.tsbuildinfo"
+  },
+  "dependencies": {
+    "@rune-engine/core": "workspace:^",
+    "@rune-engine/net": "workspace:^"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}
