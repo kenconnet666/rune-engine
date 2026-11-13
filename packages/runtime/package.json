@@ -2,7 +2,7 @@
   "name": "@rune-engine/runtime",
   "version": "0.0.0",
   "private": true,
-  "description": "把各线程接起来：消息通道的适配、画布尺寸、主机的计时循环、对局记录的暂存",
+  "description": "把各线程接起来：消息通道的适配、画布尺寸、主机的计时循环，和存在浏览器里的小东西（存档、设置）",
   "type": "module",
   "license": "MIT",
   "exports": {

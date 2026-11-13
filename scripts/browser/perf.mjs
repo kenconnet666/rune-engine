@@ -106,6 +106,8 @@ try {
         return result;
       });
 
+  // 开局那一下（关对话框、起主机、画第一帧）会有两三个长帧，那是一次性的：等它过去再量稳定打着的时候
+  await sleep(2500);
   await measure('1 倍速，整张地图');
   await page.evaluate(`document.querySelector('[aria-label="10 倍速"]').click()`);
   await measure('10 倍速，整张地图');

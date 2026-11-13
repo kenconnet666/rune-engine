@@ -20,7 +20,6 @@ export {
   ROUTES,
   TEMPERATE,
   TROPICAL,
-  WEALTHIEST,
   type Climate,
   type DefenseEffects,
   type DefenseKey,

@@ -40,9 +40,6 @@ export interface WorldRegion {
 export const regions = world.regions as readonly WorldRegion[];
 export const bounds: readonly number[] = world.bounds;
 
-/** 各地区的人口，下标和 regions 对应 */
-export const populations: readonly number[] = regions.map((region) => region.population);
-
 /** 地区的名字：中文没有的用英文名顶上 */
 export const regionName = (index: number, locale: Locale): string => {
   const region = regions[index];

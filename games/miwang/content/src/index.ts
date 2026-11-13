@@ -20,4 +20,4 @@ export {
   type Locale,
   type PathogenText,
 } from './text/index.ts';
-export { bounds, populations, regionName, regions, type WorldRegion } from './world.ts';
+export { bounds, regionName, regions, type WorldRegion } from './world.ts';

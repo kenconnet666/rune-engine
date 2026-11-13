@@ -141,6 +141,8 @@ export function createCore(canvas: HTMLCanvasElement, opponent: 'ai' | 'human'):
     else if (data.type === 'region') renderLink.onRegion?.(data.region, data.picked);
     else if (data.type === 'stats') console.info('渲染线程', data);
   };
+  // 渲染线程里没接住的错（每帧的循环里抛出来的）：线程自己报不了，主线程这头接着——否则就是一张不再动的画面
+  render.onerror = (event) => (renderError.value = event.message);
   // 开发时在控制台里用：__miwang.loseDevice() 试显卡设备丢了能不能自己恢复，__miwang.stats() 看渲染线程画得多快
   if (import.meta.env.DEV) {
     Object.assign(globalThis, {
