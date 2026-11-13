@@ -43,6 +43,7 @@ export {
 export { DEFAULT_RULES } from './defaults.ts';
 export { outbreak } from './outbreak.ts';
 export { setupCost, upkeepOf } from './rules/defense.ts';
+export type { History } from './rules/history.ts';
 export {
   ATTACKER,
   DEFENDER,

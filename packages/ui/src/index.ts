@@ -6,6 +6,7 @@
  */
 export { ActionButton, type ActionButtonProps } from './ActionButton.tsx';
 export { Callout, type CalloutProps } from './Callout.tsx';
+export { Chart, type ChartProps, type ChartSeries } from './Chart.tsx';
 export { Dialog, type DialogProps } from './Dialog.tsx';
 export { Fact, type FactProps } from './Fact.tsx';
 export { Frame, type FrameProps } from './Frame.tsx';

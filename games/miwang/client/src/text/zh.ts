@@ -35,6 +35,12 @@ export const zh = {
     compliance: (share: string) => `措施见效 ${share}`,
   },
 
+  trend: {
+    title: '趋势',
+    infected: '累计感染',
+    reported: '累计上报',
+  },
+
   news: {
     title: '新闻',
     empty: '还没有什么消息。',

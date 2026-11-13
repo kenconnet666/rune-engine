@@ -2,6 +2,7 @@
 import { dateAtTick, dateFromText, dateToText, type PlayerId } from '@rune-engine/core';
 import type { PathogenStats } from './config.ts';
 import { compliance, dailyBalance } from './rules/defense.ts';
+import { HISTORY_EVERY, type History } from './rules/history.ts';
 import { calamity } from './rules/outcome.ts';
 import { canEvolve, pathogenStats, traitCost } from './rules/pathogen.ts';
 import { canResearch, defenseStats, vaccineReady } from './rules/research.ts';
@@ -97,6 +98,8 @@ export interface OutbreakView {
 
   /** 起源地：攻方总是知道，守方要做完溯源；不知道时是 -1 */
   readonly origin: number;
+  /** 态势随时间的记录（这一方看得到的那一份）：每 every 天一笔 */
+  readonly history: History & { readonly every: number };
   /** 这一方看得到的新闻，旧的在前 */
   readonly news: readonly NewsItem[];
   readonly outcome: Outcome | null;
@@ -197,6 +200,7 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
       economyLost: state.economyLost,
     },
     origin: attacker || defense.trace >= 1 ? state.config.origin : -1,
+    history: { every: HISTORY_EVERY, ...(attacker ? state.history : state.reportedHistory) },
     news: state.news.filter((item) => (item.audience & audience) !== 0).slice(-NEWS_SHOWN),
     outcome: state.outcome,
   };

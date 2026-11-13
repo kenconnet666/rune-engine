@@ -1,5 +1,6 @@
 import { seedRandom, type PlayerId, type RandomState } from '@rune-engine/core';
 import type { OutbreakConfig } from './config.ts';
+import { emptyHistory, type History } from './rules/history.ts';
 
 /** 攻方、守方的编号 */
 export const ATTACKER: PlayerId = 0;
@@ -97,6 +98,9 @@ export interface OutbreakState {
   clearStreak: number;
 
   news: NewsItem[];
+  /** 态势随时间的记录：真实的一份、上报的一份 */
+  history: History;
+  reportedHistory: History;
   outcome: Outcome | null;
 
   // 下面是开局时从配置算出来的，整局不变，不进哈希
@@ -153,6 +157,8 @@ export function createState(config: OutbreakConfig): OutbreakState {
     infectedTotal: 0,
     clearStreak: 0,
     news: [],
+    history: emptyHistory(),
+    reportedHistory: emptyHistory(),
     outcome: null,
     worldPopulation: config.regions.reduce((sum, region) => sum + region.population, 0),
     startYearDay: yearDay(config.startDate),

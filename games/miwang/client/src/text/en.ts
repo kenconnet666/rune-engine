@@ -34,6 +34,12 @@ export const en: ClientText = {
     compliance: (share) => `measures at ${share}`,
   },
 
+  trend: {
+    title: 'Trend',
+    infected: 'Total infected',
+    reported: 'Total reported',
+  },
+
   news: {
     title: 'News',
     empty: 'Nothing to report yet.',

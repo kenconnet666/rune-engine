@@ -22,6 +22,7 @@ import { RegionPanel } from './panels/RegionPanel.tsx';
 import { ResearchPanel } from './panels/ResearchPanel.tsx';
 import { SetupDialog } from './panels/SetupDialog.tsx';
 import { StatusPanel } from './panels/StatusPanel.tsx';
+import { TrendPanel } from './panels/TrendPanel.tsx';
 import { Workbench } from './panels/Workbench.tsx';
 import { createGameSession, type GameSession } from './session.ts';
 
@@ -113,6 +114,7 @@ export const App = _component(() => {
         <div {...css.attrs(styles.layer)}>
           <Scroll sx={[styles.column, styles.left]}>
             <StatusPanel view={view} />
+            {view && <TrendPanel view={view} />}
             {view && <NewsPanel view={view} onLocate={(region) => map?.select(region, true)} />}
           </Scroll>
 
