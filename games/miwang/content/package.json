@@ -21,6 +21,7 @@
     "@rune-engine/render": "workspace:^",
     "@types/node": "catalog:",
     "@types/topojson-specification": "catalog:",
+    "i18n-iso-countries": "catalog:",
     "typescript": "catalog:",
     "world-atlas": "catalog:"
   }

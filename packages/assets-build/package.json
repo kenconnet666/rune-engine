@@ -20,6 +20,7 @@
     "@types/geojson": "catalog:",
     "@types/topojson-client": "catalog:",
     "@types/topojson-specification": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

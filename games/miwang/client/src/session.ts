@@ -73,6 +73,12 @@ export interface RenderLink {
 }
 
 const store = sessionStore<GameRecording>('miwang:recording');
+/**
+ * 存着的记录只在世界数据没变时才能接着用：地图、人口、航线换过之后，照旧的配置重放出来的已经不是眼前这张图了。
+ * 判断办法是拿记录里的种子和日期按现在的数据再生成一份配置，看是不是一模一样。
+ */
+const matchesWorld = ({ config }: GameRecording) =>
+  JSON.stringify(createConfig(config.seed, config.startDate)) === JSON.stringify(config);
 const other = (player: PlayerId) => (player === ATTACKER ? DEFENDER : ATTACKER);
 const shortId = () => Math.random().toString(36).slice(2, 8);
 
@@ -97,8 +103,16 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
   const renderLink: RenderLink = { send: (message) => toRender(message), onRegion: null };
   render.onmessage = ({ data }: MessageEvent<RenderReport>) => {
     if (data.type === 'error') renderError.value = data.message;
+    else if (data.type === 'lost') renderError.value = `画面断了，正在恢复：${data.message}`;
+    else if (data.type === 'ready') renderError.value = null;
     else if (data.type === 'region') renderLink.onRegion?.(data.region, data.picked);
   };
+  // 开发时在控制台里试“显卡设备丢了能不能自己恢复”：__miwang.loseDevice()
+  if (import.meta.env.DEV) {
+    Object.assign(globalThis, {
+      __miwang: { loseDevice: () => toRender({ type: 'lose-device' }) },
+    });
+  }
   const offscreen = canvas.transferControlToOffscreen();
   toRender({ type: 'init', canvas: offscreen, meshUrl, regionCount: regions.length }, [offscreen]);
   const stopObserving = observeCanvasSize(canvas, (width, height) =>
@@ -225,7 +239,8 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
     if (room.value) toHost({ type: 'open-room', room: room.value });
   }
 
-  start(store.load());
+  const saved = store.load();
+  start(saved && matchesWorld(saved) ? saved : null);
 
   return {
     ...base,

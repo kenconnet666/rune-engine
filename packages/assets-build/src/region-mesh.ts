@@ -10,10 +10,10 @@ import type { GeometryCollection, Topology } from 'topojson-specification';
 import { equalEarth, type Projection } from './projection.ts';
 
 export interface RegionInfo {
-  /** 数据源里的编号（world-atlas 是 ISO 3166-1 的数字代码） */
+  /** 数据源里的编号（world-atlas 是 ISO 3166-1 的数字代码）；数据源没给的是 “#” 加它在数据源里的下标 */
   readonly id: string;
   readonly name: string;
-  /** 投影后的面积（投影等面积时正比于真实面积） */
+  /** 面积，正比于真实面积（按等面积投影量的，和画图用哪种投影无关；整个地球约 13.6） */
   readonly area: number;
   /** 最大的那块陆地的中心：放标签、连航线用 */
   readonly center: readonly [x: number, y: number];
@@ -58,17 +58,30 @@ function unwrap(ring: readonly Position[]): readonly Position[] {
   return crosses ? ring.map(([lon, lat]) => [lon! < 0 ? lon! + 360 : lon!, lat!]) : ring;
 }
 
+export interface RegionMeshOptions {
+  /** 画图用的投影，默认 Equal Earth */
+  project?: Projection;
+  /** 不要的地区（按 {@link RegionInfo.id}）：没有常住人口的南极洲之类 */
+  skip?: (id: string) => boolean;
+}
+
 export function buildRegionMesh(
   topology: Topology,
   objectName: string,
-  project: Projection = equalEarth,
+  { project = equalEarth, skip = () => false }: RegionMeshOptions = {},
 ): RegionMesh {
   const collection = topology.objects[objectName] as GeometryCollection<{ name?: string }>;
   if (collection?.type !== 'GeometryCollection') {
     throw new Error(`TopoJSON 里没有名为 ${objectName} 的图层`);
   }
-  const features = feature(topology, collection).features;
+  const all = feature(topology, collection).features;
   const adjacency = neighbors(collection.geometries);
+  // 数据源没给编号的地区记成 “#下标”：直接拿下标当编号会和真编号撞上
+  // （world-atlas 里索马里兰没有编号，它的下标 166 正好是科科斯群岛的 ISO 代码）
+  const ids = all.map((item, index) => (item.id === undefined ? `#${index}` : String(item.id)));
+  // 去掉不要的地区之后下标会变：原下标 → 新下标（不要的是 -1），相邻关系里的下标跟着换
+  let count = 0;
+  const remap = ids.map((id) => (skip(id) ? -1 : count++));
 
   const vertices: number[] = [];
   const indices: number[] = [];
@@ -76,7 +89,9 @@ export function buildRegionMesh(
   const regions: RegionInfo[] = [];
   const bounds: [number, number, number, number] = [Infinity, Infinity, -Infinity, -Infinity];
 
-  features.forEach((item, region) => {
+  all.forEach((item, source) => {
+    const region = remap[source]!;
+    if (region < 0) return;
     const geometry = item.geometry as Polygon | MultiPolygon | null;
     const polygons: Position[][][] =
       geometry?.type === 'Polygon'
@@ -94,7 +109,8 @@ export function buildRegionMesh(
       const base = vertices.length / 3;
       polygon.forEach((ring, ringIndex) => {
         // GeoJSON 的环首尾是同一个点：去掉重复的那个
-        const points = unwrap(ring.slice(0, -1)).map(([lon, lat]) => project(lon!, lat!));
+        const lonLat = unwrap(ring.slice(0, -1));
+        const points = lonLat.map(([lon, lat]) => project(lon!, lat!));
         if (points.length < 3) return;
         if (ringIndex > 0) holes.push(flat.length / 2);
         const start = base + flat.length / 2;
@@ -106,15 +122,16 @@ export function buildRegionMesh(
           bounds[2] = Math.max(bounds[2], x);
           bounds[3] = Math.max(bounds[3], y);
         });
-        const shape = ringShape(points);
+        // 面积按等面积投影量（画图的投影可能把高纬度放大）；中心取画出来的那个形状的
+        const size = ringShape(lonLat.map(([lon, lat]) => equalEarth(lon!, lat!))).area;
         if (ringIndex === 0) {
-          area += shape.area;
-          if (shape.area > largest) {
-            largest = shape.area;
-            center = shape.center;
+          area += size;
+          if (size > largest) {
+            largest = size;
+            center = ringShape(points).center;
           }
         } else {
-          area -= shape.area;
+          area -= size;
         }
       });
       for (let i = 0; i < flat.length; i += 2) vertices.push(flat[i]!, flat[i + 1]!, region);
@@ -122,11 +139,13 @@ export function buildRegionMesh(
     }
 
     regions.push({
-      id: String(item.id ?? region),
-      name: item.properties?.name ?? String(item.id ?? region),
+      id: ids[source]!,
+      name: item.properties?.name ?? ids[source]!,
       area,
       center,
-      neighbors: adjacency[region] ?? [],
+      neighbors: (adjacency[source] ?? []).flatMap((index) =>
+        remap[index]! >= 0 ? [remap[index]!] : [],
+      ),
     });
   });
 

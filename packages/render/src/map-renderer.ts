@@ -1,6 +1,9 @@
 /**
  * 地区地图：每个地区是一组三角形，颜色不写在顶点里，而是按地区下标去一张小小的数据纹理里查。
  * 数值变了只改那张纹理（几 KB），网格不动；新旧数值之间在着色器里过渡，地图的颜色是“化开”的而不是跳变。
+ *
+ * 显卡设备会丢（驱动重启、显卡进程崩溃、标签页在后台太久被回收）：丢了以后设备上的东西全部作废。
+ * 这里把“要画什么”（各地区的数值、相机、高亮）留在 CPU 这头，设备丢了就自己重建一套再接着画，调用方不用管。
  */
 import { fitCamera, mapScale, type MapCamera } from './map-view.ts';
 import type { RegionMeshData } from './mesh-format.ts';
@@ -9,6 +12,10 @@ export interface MapRendererOptions {
   canvas: OffscreenCanvas;
   mesh: RegionMeshData;
   regionCount: number;
+  /** 显卡设备丢了，画面停了；重建是自动的，没建成之前每试一次失败也会再报一次原因 */
+  onLost?: (reason: string) => void;
+  /** 重建好了，画面接上了 */
+  onRestored?: () => void;
 }
 
 export interface MapRenderer {
@@ -22,12 +29,18 @@ export interface MapRenderer {
   setHighlight(hovered: number, selected: number): void;
   setCamera(camera: MapCamera): void;
   render(nowMs: number): void;
+  /** 测试用：把设备弄丢，看能不能自己恢复 */
+  loseDevice(): void;
   destroy(): void;
 }
 
 /** 数值过渡的时长 */
 const BLEND_MS = 700;
 const SAMPLES = 4;
+/** 重建设备失败后隔多久再试 */
+const RETRY_MS = 1500;
+/** 着色器里 View 的大小（按 f32 数；对齐到 8 个） */
+const VIEW_FLOATS = 8;
 
 const SHADER = /* wgsl */ `
 struct View {
@@ -83,8 +96,22 @@ const HOT = vec3f(0.898, 0.282, 0.302);
   return vec4f(0.62, 0.72, 0.82, 0.22);
 }`;
 
-export async function createMapRenderer(options: MapRendererOptions): Promise<MapRenderer> {
-  const { canvas, mesh, regionCount } = options;
+/** 跟着设备走的那部分：设备丢了全部作废，要整套重建 */
+interface Gpu {
+  readonly device: GPUDevice;
+  readonly context: GPUCanvasContext;
+  readonly format: GPUTextureFormat;
+  readonly vertexBuffer: GPUBuffer;
+  readonly indexBuffer: GPUBuffer;
+  readonly lineBuffer: GPUBuffer;
+  readonly viewBuffer: GPUBuffer;
+  readonly regionTexture: GPUTexture;
+  readonly bindGroup: GPUBindGroup;
+  readonly fillPipeline: GPURenderPipeline;
+  readonly outlinePipeline: GPURenderPipeline;
+}
+
+async function createGpu({ canvas, mesh, regionCount }: MapRendererOptions): Promise<Gpu> {
   const adapter = await navigator.gpu?.requestAdapter({ powerPreference: 'high-performance' });
   if (!adapter) throw new Error('这个浏览器没有可用的 WebGPU');
   const device = await adapter.requestDevice();
@@ -101,13 +128,8 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
     buffer.unmap();
     return buffer;
   };
-  const vertexBuffer = upload(mesh.vertices, GPUBufferUsage.VERTEX);
-  const indexBuffer = upload(mesh.indices, GPUBufferUsage.INDEX);
-  const lineBuffer = upload(mesh.lines, GPUBufferUsage.INDEX);
-
-  const viewData = new Float32Array(8);
   const viewBuffer = device.createBuffer({
-    size: viewData.byteLength,
+    size: VIEW_FLOATS * 4,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
   const regionTexture = device.createTexture({
@@ -115,8 +137,6 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
     format: 'rgba32float',
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
   });
-  /** 数据纹理在 CPU 这头的副本：r 过渡前、g 目标、b 标记 */
-  const regionData = new Float32Array(regionCount * 4);
 
   const layout = device.createBindGroupLayout({
     entries: [
@@ -131,13 +151,6 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
         visibility: GPUShaderStage.FRAGMENT,
         texture: { sampleType: 'unfilterable-float' },
       },
-    ],
-  });
-  const bindGroup = device.createBindGroup({
-    layout,
-    entries: [
-      { binding: 0, resource: { buffer: viewBuffer } },
-      { binding: 1, resource: regionTexture.createView() },
     ],
   });
   const module = device.createShaderModule({ code: SHADER });
@@ -173,25 +186,94 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
     }),
   ]);
 
+  return {
+    device,
+    context,
+    format,
+    vertexBuffer: upload(mesh.vertices, GPUBufferUsage.VERTEX),
+    indexBuffer: upload(mesh.indices, GPUBufferUsage.INDEX),
+    lineBuffer: upload(mesh.lines, GPUBufferUsage.INDEX),
+    viewBuffer,
+    regionTexture,
+    bindGroup: device.createBindGroup({
+      layout,
+      entries: [
+        { binding: 0, resource: { buffer: viewBuffer } },
+        { binding: 1, resource: regionTexture.createView() },
+      ],
+    }),
+    fillPipeline,
+    outlinePipeline,
+  };
+}
+
+export async function createMapRenderer(options: MapRendererOptions): Promise<MapRenderer> {
+  const { canvas, mesh, regionCount, onLost, onRestored } = options;
+
+  /** 数据纹理在 CPU 这头的副本：r 过渡前、g 目标、b 玩法的标记、a 界面的标记。设备丢了它还在，重建后整张重传 */
+  const regionData = new Float32Array(regionCount * 4);
+  const viewData = new Float32Array(VIEW_FLOATS);
   const camera: MapCamera = fitCamera(mesh.bounds);
   let highlight: [hovered: number, selected: number] = [-1, -1];
-  let multisampled: GPUTexture | undefined;
   let blendStart = -BLEND_MS;
   let dirty = true;
 
+  let gpu: Gpu | undefined;
+  let multisampled: GPUTexture | undefined;
+  let destroyed = false;
+
   const blendAt = (nowMs: number) => Math.min(1, (nowMs - blendStart) / BLEND_MS);
+
+  /** 多重采样的那张画布大小的纹理：画布尺寸变了、设备换了都要重开 */
+  const allocateTarget = () => {
+    multisampled?.destroy();
+    multisampled = gpu?.device.createTexture({
+      size: [canvas.width, canvas.height],
+      format: gpu.format,
+      sampleCount: SAMPLES,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+  };
+
+  const adopt = (next: Gpu) => {
+    gpu = next;
+    dirty = true;
+    allocateTarget();
+    void next.device.lost.then((info) => {
+      if (destroyed || gpu !== next) return;
+      gpu = undefined;
+      multisampled = undefined;
+      onLost?.(info.message || info.reason);
+      void restore();
+    });
+  };
+
+  const restore = async () => {
+    while (!destroyed) {
+      try {
+        const next = await createGpu(options);
+        if (destroyed) {
+          next.device.destroy();
+          return;
+        }
+        adopt(next);
+        onRestored?.();
+        return;
+      } catch (error) {
+        // 显卡进程可能还没回来：报一下原因，等一会儿再试
+        onLost?.(String(error));
+        await new Promise((resolve) => setTimeout(resolve, RETRY_MS));
+      }
+    }
+  };
+
+  adopt(await createGpu(options));
 
   return {
     resize(width, height) {
       canvas.width = Math.max(1, width);
       canvas.height = Math.max(1, height);
-      multisampled?.destroy();
-      multisampled = device.createTexture({
-        size: [canvas.width, canvas.height],
-        format,
-        sampleCount: SAMPLES,
-        usage: GPUTextureUsage.RENDER_ATTACHMENT,
-      });
+      allocateTarget();
     },
     setValues(values, nowMs) {
       // 过渡到一半又来了新数值：从画面上现在的样子接着走，不跳
@@ -222,10 +304,11 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
       Object.assign(camera, next);
     },
     render(nowMs) {
-      if (!multisampled) return;
+      if (!gpu || !multisampled) return;
+      const { device } = gpu;
       if (dirty) {
         device.queue.writeTexture(
-          { texture: regionTexture },
+          { texture: gpu.regionTexture },
           regionData,
           { bytesPerRow: regionCount * 16 },
           [regionCount, 1],
@@ -241,36 +324,40 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
         blendAt(nowMs),
         nowMs / 1000,
       ]);
-      device.queue.writeBuffer(viewBuffer, 0, viewData);
+      device.queue.writeBuffer(gpu.viewBuffer, 0, viewData);
 
       const encoder = device.createCommandEncoder();
       const pass = encoder.beginRenderPass({
         colorAttachments: [
           {
             view: multisampled.createView(),
-            resolveTarget: context.getCurrentTexture().createView(),
+            resolveTarget: gpu.context.getCurrentTexture().createView(),
             clearValue: { r: 0.035, g: 0.05, b: 0.07, a: 1 },
             loadOp: 'clear',
             storeOp: 'discard',
           },
         ],
       });
-      pass.setBindGroup(0, bindGroup);
-      pass.setVertexBuffer(0, vertexBuffer);
-      pass.setPipeline(fillPipeline);
-      pass.setIndexBuffer(indexBuffer, 'uint32');
+      pass.setBindGroup(0, gpu.bindGroup);
+      pass.setVertexBuffer(0, gpu.vertexBuffer);
+      pass.setPipeline(gpu.fillPipeline);
+      pass.setIndexBuffer(gpu.indexBuffer, 'uint32');
       pass.drawIndexed(mesh.indices.length);
-      pass.setPipeline(outlinePipeline);
-      pass.setIndexBuffer(lineBuffer, 'uint32');
+      pass.setPipeline(gpu.outlinePipeline);
+      pass.setIndexBuffer(gpu.lineBuffer, 'uint32');
       pass.drawIndexed(mesh.lines.length);
       pass.end();
       device.queue.submit([encoder.finish()]);
     },
+    loseDevice() {
+      gpu?.device.destroy();
+    },
     destroy() {
-      multisampled?.destroy();
-      regionTexture.destroy();
-      for (const buffer of [vertexBuffer, indexBuffer, lineBuffer, viewBuffer]) buffer.destroy();
-      device.destroy();
+      destroyed = true;
+      // 设备一销毁，它名下的缓冲、纹理跟着作废
+      gpu?.device.destroy();
+      gpu = undefined;
+      multisampled = undefined;
     },
   };
 }

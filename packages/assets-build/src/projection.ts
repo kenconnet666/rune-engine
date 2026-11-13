@@ -21,3 +21,12 @@ export const equalEarth: Projection = (longitude, latitude) => {
   const y = theta * (A1 + A2 * theta2 + theta6 * (A3 + A4 * theta2));
   return [x, y];
 };
+
+/**
+ * 米勒圆柱投影：经线竖直、纬线水平，整张图是个矩形——游戏里常见的那种“平的”世界地图。
+ * 高纬度会被放大（不如墨卡托夸张），所以面积不能从图上量。输出的 x 在 ±π、y 在 80°N 约 1.95、55°S 约 -1.05。
+ */
+export const miller: Projection = (longitude, latitude) => [
+  (longitude * Math.PI) / 180,
+  1.25 * Math.log(Math.tan(Math.PI / 4 + (0.4 * latitude * Math.PI) / 180)),
+];

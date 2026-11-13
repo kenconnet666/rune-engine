@@ -55,11 +55,16 @@ export type RenderControl =
       readonly tap: boolean;
     }
   /** 选中的地区（下标），没有时是 -1 */
-  | { readonly type: 'select'; readonly region: number };
+  | { readonly type: 'select'; readonly region: number }
+  /** 开发时用：把显卡设备弄丢，看画面能不能自己恢复 */
+  | { readonly type: 'lose-device' };
 
 /** 渲染 Worker → 主线程 */
 export type RenderReport =
+  /** 画面接上了：第一次建好，或者显卡设备丢了以后重建好 */
   | { readonly type: 'ready' }
+  /** 显卡设备丢了，画面停了，正在自己重建 */
+  | { readonly type: 'lost'; readonly message: string }
   /** 指针停在哪个地区上（下标，海上是 -1）；picked 表示在那里点了一下 */
   | { readonly type: 'region'; readonly region: number; readonly picked: boolean }
   | { readonly type: 'error'; readonly message: string };

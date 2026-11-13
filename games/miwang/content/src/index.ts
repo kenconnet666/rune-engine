@@ -8,10 +8,12 @@ import type { OutbreakConfig, RegionConfig } from '@miwang/sim';
 import world from '../generated/world.json' with { type: 'json' };
 
 export interface WorldRegion {
-  /** ISO 3166-1 的数字代码 */
+  /** ISO 3166-1 的数字代码；数据源没给代码的几个地区是 “#” 加它在数据源里的下标 */
   readonly id: string;
-  /** 英文名（数据源自带）；中文名等接上多语言文案再补 */
+  /** 英文名（数据源自带） */
   readonly name: string;
+  /** 中文名；查不到的是 null（现在没有这样的地区，以后换数据源可能会有） */
+  readonly nameZh: string | null;
   readonly area: number;
   readonly center: readonly number[];
   readonly neighbors: readonly number[];
@@ -23,19 +25,16 @@ export const bounds: readonly number[] = world.bounds;
 const WORLD_POPULATION = 8_000_000_000;
 /** 有航线的枢纽数：面积最大的这么多个地区两两相连（占位） */
 const HUBS = 14;
-/** 南极洲（ISO 010）没有常住人口 */
-const UNINHABITED = new Set(['010']);
 
-const inhabitedArea = regions.reduce(
-  (sum, region) => sum + (UNINHABITED.has(region.id) ? 0 : region.area),
-  0,
-);
+/** 地区的名字：有中文名用中文名，没有的用英文名 */
+export const regionName = (index: number): string =>
+  regions[index]?.nameZh ?? regions[index]?.name ?? '';
+
+const totalArea = regions.reduce((sum, region) => sum + region.area, 0);
 
 /** 各地区的人口（占位：按面积摊，见文件开头的说明） */
 export const populations: readonly number[] = regions.map((region) =>
-  UNINHABITED.has(region.id)
-    ? 0
-    : Math.max(50_000, Math.round((region.area / inhabitedArea) * WORLD_POPULATION)),
+  Math.max(50_000, Math.round((region.area / totalArea) * WORLD_POPULATION)),
 );
 
 /** 按种子开一局：起点在有人住的地区里按种子挑一个 */

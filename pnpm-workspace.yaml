@@ -20,6 +20,8 @@ catalog:
   '@types/topojson-specification': 1.0.5
   '@types/geojson': 7946.0.16
   earcut: 3.2.4
+  # 国家与地区的中文名（MIT）：构建地图时按 ISO 代码查
+  i18n-iso-countries: 7.14.0
   # 构建与测试
   vite: 8.3.4
   vitest: 5.0.5

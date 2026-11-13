@@ -6,7 +6,7 @@
  * 在“重点地区”里点一个名字，地图飞过去并选中它。
  */
 import { DateFormatter, parseDate } from '@internationalized/date';
-import { populations, regions } from '@miwang/content';
+import { populations, regionName, regions } from '@miwang/content';
 import {
   ATTACKER,
   COSTS,
@@ -137,7 +137,7 @@ const RegionPanel = _component(
       const level = view.intensity[index] ?? 0;
       const bits = view.measures[index] ?? 0;
       return (
-        <Frame title={region?.name} onClose={onClose} closeLabel="取消选中">
+        <Frame title={regionName(index)} onClose={onClose} closeLabel="取消选中">
           <Meter
             label={view.attacker ? '感染程度' : '上报程度'}
             value={level}
@@ -276,7 +276,7 @@ export const App = _component(() => {
                         detail={percent.format(view.intensity[index]!)}
                         onPress={() => map?.select(index, true)}
                       >
-                        {regions[index]?.name}
+                        {regionName(index)}
                       </ActionButton>
                     ))}
                     {hotRegions(view).length === 0 && (
@@ -354,7 +354,7 @@ export const App = _component(() => {
 
           {view && pointer && hovered >= 0 && (
             <Callout x={pointer.x} y={pointer.y}>
-              <span>{regions[hovered]?.name}</span>
+              <span>{regionName(hovered)}</span>
               <span {...css.attrs(styles.calloutDetail)}>
                 {attacker ? '感染程度' : '上报程度'} {percent.format(view.intensity[hovered] ?? 0)}
               </span>

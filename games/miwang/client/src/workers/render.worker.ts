@@ -60,7 +60,13 @@ async function init(data: Extract<RenderControl, { type: 'init' }>) {
   regionAt = createRegionPicker(mesh);
   // 主线程可能已经发过相机：没发过才用“整张地图居中”
   if (camera.zoom === 1 && camera.x === 0 && camera.y === 0) camera = fitCamera(bounds);
-  renderer = await createMapRenderer({ canvas: data.canvas, mesh, regionCount: data.regionCount });
+  renderer = await createMapRenderer({
+    canvas: data.canvas,
+    mesh,
+    regionCount: data.regionCount,
+    onLost: (reason) => report({ type: 'lost', message: reason }),
+    onRestored: () => report({ type: 'ready' }),
+  });
   renderer.resize(size.width, size.height);
   renderer.setCamera(camera);
   renderer.setHighlight(hovered, selected);
@@ -103,6 +109,9 @@ self.onmessage = ({ data }: MessageEvent<RenderControl>) => {
     case 'select':
       selected = data.region;
       renderer?.setHighlight(hovered, selected);
+      break;
+    case 'lose-device':
+      renderer?.loseDevice();
       break;
     case 'connect':
     case 'connect-channel':
