@@ -106,12 +106,14 @@ export async function launchChrome({
 
   return {
     /**
-     * 开一个页面。init 是页面自己的脚本运行之前先跑的一段脚本（预置 localStorage 之类）
+     * 开一个页面。init 是页面自己的脚本运行之前先跑的一段脚本（预置 localStorage 之类）。
+     * 再开一个页面时，前一个会变成后台标签页（动画停掉、定时器降频）；要两个页面同时都在前台
+     * （联机测试的两位玩家），给后开的那个 newWindow。
      * @param {string} url
-     * @param {{ init?: string }} [options]
+     * @param {{ init?: string, newWindow?: boolean }} [options]
      */
-    async open(url, { init } = {}) {
-      const { targetId } = await send('Target.createTarget', { url: 'about:blank' });
+    async open(url, { init, newWindow = false } = {}) {
+      const { targetId } = await send('Target.createTarget', { url: 'about:blank', newWindow });
       const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true });
       const call = (method, params) => send(method, params, sessionId);
       /** 页面里报的错和控制台消息，测试结束时可以拿来看 */
@@ -148,15 +150,25 @@ export async function launchChrome({
           }
           return result.value;
         },
-        /** 等到页面里的一个表达式为真；超时就报错，报错里带上当时页面上的文字 */
+        /**
+         * 等到页面里的一个表达式为真；超时就报错，报错里带上当时页面上的文字。
+         * 表达式算的时候出错也当“还没等到”：页面正在刷新的那一刻 document.body 还不在，这是常事；
+         * 一直出错的话（表达式写错了）最后的报错里带着那条错误。
+         */
         async waitFor(expression, { timeoutMs = 15_000, what = expression } = {}) {
           const deadline = Date.now() + timeoutMs;
+          let lastError = '';
           while (Date.now() < deadline) {
-            if (await page.evaluate(`Boolean(${expression})`)) return;
+            try {
+              if (await page.evaluate(`Boolean(${expression})`)) return;
+              lastError = '';
+            } catch (error) {
+              lastError = `\n表达式出错：${error.message}`;
+            }
             await new Promise((resolve) => setTimeout(resolve, 100));
           }
           const text = await page.evaluate('document.body?.innerText.slice(0, 400)');
-          throw new Error(`等了 ${timeoutMs} 毫秒没等到：${what}\n页面上是：${text}`);
+          throw new Error(`等了 ${timeoutMs} 毫秒没等到：${what}\n页面上是：${text}${lastError}`);
         },
         /** 点一下页面上的某个位置（CSS 像素） */
         async click(x, y) {

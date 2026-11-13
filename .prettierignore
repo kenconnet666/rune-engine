@@ -1,4 +1,6 @@
 pnpm-lock.yaml
 **/dist/
+**/dist-*/
 **/generated/
 coverage/
+**/.wrangler/

@@ -1,8 +1,9 @@
 /**
  * 一局游戏在主线程这头的样子。两种身份：
  *   - 主人：起主机 Worker，自己是它的一个客户端；另一方默认由电脑控制，开了房间、有人接进来之后换成那位玩家；
- *   - 客人（地址里带 ?join=房间号）：不起主机，经房间的通道连到主人的主机上。
- * 渲染 Worker 两种身份都有：它也是主机的一个只读客户端，状态不经过主线程。
+ *   - 客人（地址里带 ?join=房间号）：不起主机，经房间连到主人的主机上（房间和网络见 room.ts）。
+ * 渲染 Worker 两种身份都有：主人这头它是主机的一个只读客户端，状态不经过主线程；
+ * 客人这头状态从网络来，主线程收到后转一份给它。
  *
  * 主人正在打的这一局随时自动存着（见 saves.ts）：关掉页面再打开、开发时改了代码页面刷新，都照着记录重算到刚才那一步接着走。
  * 主人还可以回放一份记录：从头一天一天地放，能调速、暂停、跳到任意一天，但不能下命令。
@@ -20,16 +21,23 @@ import {
 } from '@rune-engine/net';
 import { asPort, observeCanvasSize } from '@rune-engine/runtime';
 import { shallowRef, type ShallowRef } from 'vue';
-import {
-  clientChannel,
-  roomChannel,
-  type GameRecording,
-  type HostControl,
-  type HostReport,
-  type RenderControl,
-  type RenderReport,
-  type RoomMessage,
+import type {
+  GameRecording,
+  HostControl,
+  HostReport,
+  RenderControl,
+  RenderReport,
 } from './messages.ts';
+import {
+  hostedRoom,
+  joinGuestRoom,
+  joiningCode,
+  newRoom,
+  openHostRoom,
+  type HostedRoom,
+  type OpenRoom,
+  type RoomInfo,
+} from './room.ts';
 import { autosave, matchesWorld } from './saves.ts';
 
 /** 一步（一天）在 1 倍速下是现实里的多少毫秒 */
@@ -51,8 +59,8 @@ export interface GameSession {
   readonly opponent: ShallowRef<'ai' | 'human'>;
   /** 电脑对手的难度（0 简单、1 普通、2 困难） */
   readonly aiLevel: ShallowRef<AiLevel>;
-  /** 房间号：主人开了房间、或者客人加入的那个 */
-  readonly room: ShallowRef<string | null>;
+  /** 联机的房间：主人开着的、或者客人加入的那个，和它现在的状态；没有房间是 null */
+  readonly room: ShallowRef<RoomInfo | null>;
   /** 渲染起不来时的原因（没有 WebGPU 等） */
   readonly renderError: ShallowRef<string | null>;
   /** 和渲染线程说话的口子：地图的相机、指针、选中都经它（见 map.ts） */
@@ -74,12 +82,16 @@ export interface GameSession {
   send(command: Command): void;
   setSpeed(speed: number): void;
   setPaused(paused: boolean): void;
-  /** 换一方来扮演（只有主人、对面是电脑时可以） */
+  /** 换一方来扮演（只有主人可以；对面是另一位玩家时，它跟着换到另一方） */
   setPlayer(player: PlayerId): void;
   /** 换电脑对手的难度（只有主人可以） */
   setAiLevel(level: AiLevel): void;
-  /** 开一个房间，返回另一位玩家打开就能加入的地址 */
-  openRoom(): string;
+  /** 开一个房间等另一位玩家进来（只有主人可以）；已经开着就什么都不做 */
+  openRoom(): void;
+  /** 关掉房间：对面由电脑接着控制 */
+  closeRoom(): void;
+  /** 另一位玩家掉线了，让电脑先接手；房间还开着，它回来就换回去 */
+  handOver(): void;
   /** 丢掉当前这局，换个种子重新开始（只有主人可以）；可以顺便换病原体、换扮演的一方、换电脑的难度 */
   restart(setup?: GameSetup): void;
   dispose(): void;
@@ -101,19 +113,17 @@ export interface RenderLink {
 
 const profileOf = (id: string) => PATHOGENS.find((pathogen) => pathogen.id === id);
 const other = (player: PlayerId) => (player === ATTACKER ? DEFENDER : ATTACKER);
-const shortId = () => Math.random().toString(36).slice(2, 8);
 
 export function createGameSession(canvas: HTMLCanvasElement): GameSession {
-  const params = new URLSearchParams(location.search);
-  const joining = params.get('join');
+  const joining = joiningCode();
 
   const view = shallowRef<OutbreakView | null>(null);
   const speed = shallowRef(1);
   const paused = shallowRef(false);
-  const player = shallowRef<PlayerId>(joining && params.get('as') === '1' ? DEFENDER : ATTACKER);
+  const player = shallowRef<PlayerId>(ATTACKER);
   const opponent = shallowRef<'ai' | 'human'>(joining ? 'human' : 'ai');
   const aiLevel = shallowRef<AiLevel>(1);
-  const room = shallowRef<string | null>(joining);
+  const room = shallowRef<RoomInfo | null>(null);
   const renderError = shallowRef<string | null>(null);
   const resumed = shallowRef<{ ticks: number; replayMs: number } | null>(null);
   const playback = shallowRef<{ readonly length: number } | null>(null);
@@ -185,40 +195,30 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
   };
 
   if (joining) {
-    // ───── 客人：经房间的通道连到主人的主机 ─────
-    const id = shortId();
-    const uiChannel = new BroadcastChannel(clientChannel(joining, `ui-${id}`));
-    const lobby = new BroadcastChannel(roomChannel(joining));
-    session = connectSession<Command, OutbreakView>(asPort<FromHost, ToHost>(uiChannel), handlers);
-    toRender({ type: 'connect-channel', name: clientChannel(joining, `render-${id}`) });
-    // 主人那边可能还没开房间：隔一会儿招呼一次，收到第一份状态就停
-    const knock = () => {
-      if (view.value) return clearInterval(knocking);
-      for (const [client, readonly] of [
-        [`ui-${id}`, false],
-        [`render-${id}`, true],
-      ] as const) {
-        lobby.postMessage({
-          type: 'join',
-          client,
-          player: player.value,
-          readonly,
-        } satisfies RoomMessage);
-      }
-    };
-    const knocking = setInterval(knock, 600);
-    knock();
-    cleanups.push(
-      () => clearInterval(knocking),
-      () => uiChannel.close(),
-      () => lobby.close(),
-    );
+    // ───── 客人：经房间连到主人的主机 ─────
+    // 状态从网络来，界面和渲染各要一份：渲染那份经这条通道转过去
+    const picture = new MessageChannel();
+    toRender({ type: 'connect', port: picture.port2 }, [picture.port2]);
+    const joined = joinGuestRoom({
+      code: joining,
+      onseat: (seat) => (player.value = seat),
+      onchange: (info) => (room.value = info),
+    });
+    session = connectSession<Command, OutbreakView>(joined.port, {
+      view(message) {
+        handlers.view(message);
+        picture.port1.postMessage(message);
+      },
+    });
+    cleanups.push(() => joined.close());
     return {
       ...base,
       role: 'guest',
       setPlayer() {},
       setAiLevel() {},
-      openRoom: () => location.href,
+      openRoom() {},
+      closeRoom() {},
+      handOver() {},
       restart() {},
       recording: () => null,
       load() {},
@@ -247,11 +247,51 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
         resumed.value =
           data.replayedTicks > 0 ? { ticks: data.replayedTicks, replayMs: data.replayMs } : null;
         break;
-      case 'joined':
-        opponent.value = 'human';
-        break;
     }
   };
+
+  /** 开着的房间；没开是 undefined */
+  let hosted: OpenRoom | undefined;
+  /** 第几次开房间：换了房间之后，上一个房间晚到的状态不算数 */
+  let hosting = 0;
+
+  /** 开房间。房间号撞上别人正在用的就换一个再开（attempt 是换过几次了） */
+  function openRoomAs(entry: HostedRoom, attempt = 0) {
+    hosted?.close();
+    hostedRoom.save(entry);
+    const turn = ++hosting;
+    hosted = openHostRoom({
+      ...entry,
+      seat: () => other(player.value),
+      attach(seat) {
+        const channel = new MessageChannel();
+        toHost(
+          { type: 'connect', id: 'guest', player: seat, readonly: false, port: channel.port2 },
+          [channel.port2],
+        );
+        return channel.port1;
+      },
+      detach: () => toHost({ type: 'disconnect', id: 'guest' }),
+      onguest(present) {
+        if (present) {
+          opponent.value = 'human';
+          toHost({ type: 'ai', player: null, level: aiLevel.value });
+        } else if (opponent.value === 'human') {
+          // 对面掉线了：先把时间停下，等它回来，或者由玩家决定让电脑接手
+          session?.setPaused(true);
+        }
+      },
+      onchange(info) {
+        if (turn !== hosting) return;
+        if (info.state === 'closed' && info.reason === 'taken' && attempt < 5) {
+          openRoomAs(newRoom(), attempt + 1);
+          return;
+        }
+        room.value = info;
+      },
+    });
+  }
+  cleanups.push(() => hosted?.close());
 
   /** 界面和渲染各用一条通道连主机，看的是同一方的视角；换视角就重连 */
   function connect() {
@@ -283,7 +323,8 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
       stepMs: STEP_MS,
     });
     connect();
-    if (room.value) toHost({ type: 'open-room', room: room.value });
+    // 主机重起之后旧的连接都没了：联机的那位玩家也重新接上
+    hosted?.reseat();
   }
 
   /** 回放：从第 from 天放起。跳到某一天也是它——主机照着记录重算到那一天再接着放 */
@@ -295,6 +336,7 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
     view.value = null;
     toHost({ type: 'start', start: { playback: recording, from }, stepMs: STEP_MS });
     connect();
+    hosted?.reseat();
     // 新起的主机是 1 倍速、没暂停的：跳转之后保持原来的快慢
     session?.setSpeed(wasSpeed);
     session?.setPaused(wasPaused);
@@ -302,6 +344,9 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
 
   const saved = autosave.load();
   start(saved && matchesWorld(saved) ? saved : null);
+  // 刷新之前开着房间：接着开同一个，另一位玩家会自己连回来
+  const kept = hostedRoom.load();
+  if (kept) openRoomAs(kept);
 
   return {
     ...base,
@@ -311,16 +356,27 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
       if (opponent.value === 'ai') toHost({ type: 'ai', player: other(player.value), level });
     },
     setPlayer(next) {
-      if (opponent.value === 'human') return;
       player.value = next;
       connect();
+      hosted?.reseat();
     },
     openRoom() {
-      room.value ??= String(Math.floor(1000 + Math.random() * 9000));
-      toHost({ type: 'open-room', room: room.value });
-      const url = new URL(location.href);
-      url.search = `?join=${room.value}&as=${other(player.value)}`;
-      return url.href;
+      if (!hosted) openRoomAs(newRoom());
+    },
+    closeRoom() {
+      hosting++;
+      hosted?.close();
+      hosted = undefined;
+      hostedRoom.clear();
+      room.value = null;
+      opponent.value = 'ai';
+      if (!playback.value)
+        toHost({ type: 'ai', player: other(player.value), level: aiLevel.value });
+    },
+    handOver() {
+      opponent.value = 'ai';
+      if (!playback.value)
+        toHost({ type: 'ai', player: other(player.value), level: aiLevel.value });
     },
     recording: () => latest,
     load(recording) {
@@ -345,7 +401,7 @@ export function createGameSession(canvas: HTMLCanvasElement): GameSession {
       view.value = null;
       // 换边、换难度要在开局之前定下来：开局时就按它们把电脑接到另一方
       if (setup.level !== undefined) aiLevel.value = setup.level;
-      if (setup.player !== undefined && opponent.value === 'ai') player.value = setup.player;
+      if (setup.player !== undefined) player.value = setup.player;
       start(null, (setup.pathogen && profileOf(setup.pathogen)) || DEFAULT_PATHOGEN);
     },
   };

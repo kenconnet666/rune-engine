@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // Workers 的运行环境：既不是浏览器也不是 Node，类型由 Cloudflare 单独提供
+    "types": ["@cloudflare/workers-types"]
+  },
+  "include": ["src"]
+}

@@ -8,7 +8,8 @@ export const zh = {
 
   app: {
     mapLabel: '世界地图：拖动平移，滚轮或双指缩放，点一个地区看详情',
-    guest: (room: string) => `已加入房间 ${room}，主机在另一位玩家那边。`,
+    guest: (room: string, path: string) => `已加入房间 ${room}（${path}），主机在另一位玩家那边。`,
+    guestAway: '和主人的连接断了，正在重连…画面停在断开之前。',
     resumed: (days: number, ms: string) =>
       `这一局是照着记录重放接上的：${days} 天，用了 ${ms} 毫秒。`,
     disclaimer: '数值还在调：航线是模型估的，病原体不对应任何真实疾病。',
@@ -123,12 +124,54 @@ export const zh = {
   opponent: {
     human: '对手 · 另一位玩家',
     ai: '对手 · 电脑',
-    room: (room: string) => `房间 ${room}：两位玩家都在。`,
+    room: (room: string, path: string) => `房间 ${room} · ${path}`,
+    waiting: (room: string) => `房间 ${room} 开着，等对方进来；这之前由电脑控制。`,
+    away: '对方掉线了，时间已经停下。等它回来，或者让电脑先接手。',
+    hostAway: '和主人的连接断了，正在重连…',
     level: '电脑的难度',
     levels: ['简单', '普通', '困难'],
-    invite: '邀请另一位玩家',
-    inviteHelp:
-      '在这台电脑的另一个标签页打开下面的地址（现在只能连同一个浏览器，网络直连还没做）：',
+    online: '联机',
+    handOver: '让电脑接手',
+  },
+
+  lobby: {
+    title: '联机',
+    intro:
+      '两个人各扮一方。主机在开房间的人这边；对方打开邀请链接，或者在自己的主菜单里输入房间号，就能进来。',
+    localOnly: '这个版本没有接联机服务：房间只能在同一个浏览器的另一个标签页里加入。',
+    open: '开一个房间',
+    close: '关掉房间',
+    code: '房间号',
+    link: '邀请链接',
+    copy: '复制链接',
+    copied: '已复制',
+    side: '我扮演',
+    states: {
+      connecting: '正在连接房间…',
+      waiting: '房间开着，等对方进来。',
+      joined: '对方已经进来了。',
+      away: '对方掉线了：时间已经停下。等它回来，或者让电脑先接手。',
+      closed: '房间关了。',
+    },
+    paths: { relay: '经服务器中转', direct: '直连' },
+    reasons: {
+      taken: '这个房间号被别人占用了。',
+      full: '房间里已经有两位玩家了。',
+      missing: '没有这个房间：房间号不对，或者主人已经离开很久了。',
+      replaced: '同一个身份在别的页面里又进来了，这个页面让位。',
+      invalid: '两边的版本对不上，刷新页面再试。',
+      left: '已经离开房间。',
+    },
+    join: '加入别人的房间',
+    joinGo: '加入',
+    badCode: '房间号是 4–8 位字母和数字。',
+  },
+
+  joining: {
+    title: (room: string) => `加入房间 ${room}`,
+    connecting: '正在连接…',
+    waiting: '房间在，主人现在不在：等一等，主人回来就自动接上。',
+    leave: '不等了，自己开一局',
   },
 
   controls: {
@@ -151,10 +194,12 @@ export const zh = {
     about: '一个关于传染病怎样传播、又怎样被拦住的策略游戏。',
     resume: '继续这一局',
     newGame: '新开一局',
+    online: '联机',
     saves: '存档与回放',
     encyclopedia: '百科',
     settings: '设置',
     open: '菜单',
+    leaveRoom: '离开房间',
   },
 
   saves: {

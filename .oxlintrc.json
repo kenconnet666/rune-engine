@@ -10,5 +10,11 @@
       { "considerDefaultExhaustiveForUnions": true }
     ]
   },
-  "ignorePatterns": ["**/dist/**", "**/generated/**", "coverage/**"]
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/dist-*/**",
+    "**/.wrangler/**",
+    "**/generated/**",
+    "coverage/**"
+  ]
 }

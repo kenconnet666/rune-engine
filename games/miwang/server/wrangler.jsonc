@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "miwang",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  // 本地开发时听的端口：客户端的开发服务器把 /api 转到这里（见 client/vite.config.ts）
+  "dev": { "port": 8787 },
+  "durable_objects": {
+    "bindings": [{ "name": "ROOMS", "class_name": "Room" }],
+  },
+  // 免费额度里的 Durable Object 必须是用 SQLite 存储的这一种
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+}

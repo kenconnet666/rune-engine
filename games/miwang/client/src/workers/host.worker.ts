@@ -1,6 +1,7 @@
 /**
  * 主机 Worker：对局唯一的真实状态在这里。主线程的界面、渲染 Worker、电脑对手、另一位玩家都是连上来的客户端，
  * 走的是同一套会话协议——单人和双人的差别只是“另一方是谁在发命令”。
+ * 联机的那位玩家也是经主线程递过来的一个 port：网络连接在主线程里（Worker 里建不了 WebRTC 连接）。
  */
 import {
   decide,
@@ -20,14 +21,7 @@ import {
   type HostMessage,
 } from '@rune-engine/net';
 import { asPort, startHostLoop } from '@rune-engine/runtime/worker';
-import {
-  clientChannel,
-  roomChannel,
-  type GameRecording,
-  type HostControl,
-  type HostReport,
-  type RoomMessage,
-} from '../messages.ts';
+import type { GameRecording, HostControl, HostReport } from '../messages.ts';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -45,7 +39,6 @@ let config: OutbreakConfig | undefined;
 let aiPlayer: PlayerId | null = null;
 let aiLevel: AiLevel = 1;
 let stopAi: (() => void) | undefined;
-let room: BroadcastChannel | undefined;
 /** 现在是不是在回放：回放时不往外报记录（不能盖掉正在打的那一局的自动存档），也没有电脑对手 */
 let playingBack = false;
 
@@ -82,29 +75,6 @@ function playAi(player: PlayerId | null, level: AiLevel) {
   stopAi = () => {
     session.close();
     leave();
-  };
-}
-
-/** 开房间：听客人的招呼，把它们各自的通道接成客户端；有人接手了电脑控制的那一方，电脑就退下 */
-function openRoom(name: string) {
-  room?.close();
-  room = new BroadcastChannel(roomChannel(name));
-  room.onmessage = ({ data }: MessageEvent<RoomMessage>) => {
-    if (data.type !== 'join' || !host) return;
-    const channel = new BroadcastChannel(clientChannel(name, data.client));
-    disconnect.get(data.client)?.();
-    const leave = host.connect(asPort<ToHost, FromHost>(channel), data.player, {
-      readonly: data.readonly,
-    });
-    disconnect.set(data.client, () => {
-      leave();
-      channel.close();
-    });
-    if (!data.readonly) {
-      if (aiPlayer === data.player) playAi(null, aiLevel);
-      tell({ type: 'joined', player: data.player });
-    }
-    room?.postMessage({ type: 'welcome', client: data.client } satisfies RoomMessage);
   };
 }
 
@@ -149,11 +119,12 @@ self.onmessage = ({ data }: MessageEvent<HostControl>) => {
         }),
       );
       break;
+    case 'disconnect':
+      disconnect.get(data.id)?.();
+      disconnect.delete(data.id);
+      break;
     case 'ai':
       playAi(data.player, data.level);
-      break;
-    case 'open-room':
-      openRoom(data.room);
       break;
   }
 };

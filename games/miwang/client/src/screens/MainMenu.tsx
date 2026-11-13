@@ -1,11 +1,12 @@
 /**
- * 主菜单：游戏的名字、那句诗，和几个入口——继续、新开一局、存档与回放、百科、设置。
+ * 主菜单：游戏的名字、那句诗，和几个入口——继续、新开一局、联机、存档与回放、百科、设置。
+ * 加入别人房间的客人做不了主（开局、读档都是主人的事），只留继续、百科、设置和“离开房间”。
  * 盖在暂停的地图上：刚打开游戏时先到这里，对局中从底部的“菜单”回来。
  */
 import { ActionButton, colors, fonts, Frame, Note, space, Stack } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { BookOpen, History, Play, RotateCcw, Settings } from 'lucide';
+import { BookOpen, History, LogOut, Play, RotateCcw, Settings, Users } from 'lucide';
 import { useUi } from '../i18n.ts';
 
 const styles = css.create({
@@ -44,18 +45,26 @@ export const MainMenu = _component(
   ({
     canResume,
     onResume,
+    guest = false,
     onNewGame,
+    onOnline,
     onSaves,
     onEncyclopedia,
     onSettings,
+    onLeave,
   }: {
     /** 有一局正在进行（没分出胜负）：给“继续”这个入口 */
     canResume: boolean;
     onResume: () => void;
+    /** 是加入别人房间的客人 */
+    guest?: boolean;
     onNewGame: () => void;
+    onOnline: () => void;
     onSaves: () => void;
     onEncyclopedia: () => void;
     onSettings: () => void;
+    /** 客人离开房间 */
+    onLeave: () => void;
   }) =>
     () => {
       const ui = useUi().menu;
@@ -70,18 +79,30 @@ export const MainMenu = _component(
                   {ui.resume}
                 </ActionButton>
               )}
-              <ActionButton icon={RotateCcw} active={!canResume} onPress={onNewGame}>
-                {ui.newGame}
-              </ActionButton>
-              <ActionButton icon={History} onPress={onSaves}>
-                {ui.saves}
-              </ActionButton>
+              {!guest && (
+                <>
+                  <ActionButton icon={RotateCcw} active={!canResume} onPress={onNewGame}>
+                    {ui.newGame}
+                  </ActionButton>
+                  <ActionButton icon={Users} onPress={onOnline}>
+                    {ui.online}
+                  </ActionButton>
+                  <ActionButton icon={History} onPress={onSaves}>
+                    {ui.saves}
+                  </ActionButton>
+                </>
+              )}
               <ActionButton icon={BookOpen} onPress={onEncyclopedia}>
                 {ui.encyclopedia}
               </ActionButton>
               <ActionButton icon={Settings} onPress={onSettings}>
                 {ui.settings}
               </ActionButton>
+              {guest && (
+                <ActionButton icon={LogOut} onPress={onLeave}>
+                  {ui.leaveRoom}
+                </ActionButton>
+              )}
             </Stack>
             <Note>{ui.about}</Note>
           </Frame>

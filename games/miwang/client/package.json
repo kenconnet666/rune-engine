@@ -22,6 +22,7 @@
     "@rune-engine/net": "workspace:^",
     "@rune-engine/render": "workspace:^",
     "@rune-engine/runtime": "workspace:^",
+    "@rune-engine/transport": "workspace:^",
     "@rune-engine/ui": "workspace:^",
     "@zerodep-dev/vue-tsx-pro-tsx": "catalog:",
     "lucide": "catalog:",

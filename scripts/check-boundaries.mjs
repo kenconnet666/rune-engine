@@ -20,8 +20,11 @@ const ALLOWED = {
   '@rune-engine/audio': [],
   '@rune-engine/i18n': [],
   '@rune-engine/runtime': ['@rune-engine/core', '@rune-engine/net'],
+  '@rune-engine/transport': ['@rune-engine/net'],
+  '@rune-engine/edge': ['@rune-engine/net'],
   '@miwang/sim': ['@rune-engine/core'],
   '@miwang/content': ['@miwang/sim', '@rune-engine/assets-build', '@rune-engine/render'],
+  '@miwang/server': ['@rune-engine/edge', '@rune-engine/net', '@rune-engine/transport'],
   '@miwang/client': [
     '@miwang/sim',
     '@miwang/content',
@@ -32,6 +35,7 @@ const ALLOWED = {
     '@rune-engine/net',
     '@rune-engine/render',
     '@rune-engine/runtime',
+    '@rune-engine/transport',
     '@rune-engine/ui',
   ],
 };

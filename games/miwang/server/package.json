@@ -1,0 +1,24 @@
+{
+  "name": "@miwang/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "《迷惘》部署在 Cloudflare 上的那一个 Worker：联机的房间",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo && tsc -p tsconfig.test.json --incremental --tsBuildInfoFile node_modules/.cache/typecheck-test.tsbuildinfo"
+  },
+  "dependencies": {
+    "@rune-engine/edge": "workspace:^"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@rune-engine/net": "workspace:^",
+    "@rune-engine/transport": "workspace:^",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
+  }
+}

@@ -33,7 +33,12 @@ export interface HostOptions<Config, State, Command, View> {
   stepMs: number;
   /** 发给客户端的状态里哪些缓冲区可以直接转移（零拷贝） */
   transfer?: (view: View) => ArrayBuffer[];
+  /** 客户端最多能把倍速调到多少，默认 100 */
+  maxSpeed?: number;
 }
+
+/** 一步之内最多收多少条命令：正常玩一步也就几条，多出来的只可能是有人在灌 */
+const MAX_PENDING = 256;
 
 export interface Host<Config, Command, View> {
   /** 接上一方：player 决定它发的命令算谁的、看到的是谁的视角；返回断开的函数 */
@@ -127,20 +132,36 @@ export function createHost<Config, State, Command, View>(
     connect(port, player, { readonly = false } = {}) {
       const client = { port, player };
       clients.add(client);
-      port.onmessage = ({ data }) => {
-        if (readonly) return;
-        switch (data.type) {
+      port.onmessage = (event) => {
+        // 客户端可能在网络另一头，发来的东西不能信：形状不对的不理。
+        // 命令的内容主机不认识，由模拟自己核对（sim.step 不能被一条坏命令打断）
+        const data: unknown = event.data;
+        if (readonly || typeof data !== 'object' || data === null) return;
+        const message = data as {
+          type?: unknown;
+          command?: unknown;
+          speed?: unknown;
+          paused?: unknown;
+        };
+        switch (message.type) {
           case 'command':
             // 回放时过去的事已经定了，不接受新的命令
-            if (!playback) pending.push({ tick: recording.ticks, player, command: data.command });
+            if (playback || pending.length >= MAX_PENDING) return;
+            if (typeof message.command !== 'object' || message.command === null) return;
+            pending.push({ tick: recording.ticks, player, command: message.command as Command });
             break;
           case 'speed':
-            clock.speed = data.speed;
+            if (typeof message.speed !== 'number') return;
+            if (!(message.speed > 0 && message.speed <= (options.maxSpeed ?? 100))) return;
+            clock.speed = message.speed;
             publish();
             break;
           case 'pause':
-            clock.paused = data.paused;
+            if (typeof message.paused !== 'boolean') return;
+            clock.paused = message.paused;
             publish();
+            break;
+          default:
             break;
         }
       };

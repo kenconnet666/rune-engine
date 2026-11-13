@@ -147,3 +147,49 @@ describe('主机与会话', () => {
     expect(host.hash).toBe(original.hash);
   });
 });
+
+describe('主机不信客户端发来的东西', () => {
+  it('形状不对的消息不理：倍速不是正常的数、暂停不是真假、命令不是对象，都不生效也不出错', async () => {
+    const host = createHost({ sim: counter, start: { config: { start: 0 } }, stepMs: 100 });
+    const [hostSide, clientSide] = createPortPair<ClientMessage<Command>, HostMessage<View>>();
+    host.connect(hostSide, 0);
+    const seen: HostMessage<View>[] = [];
+    clientSide.onmessage = ({ data }) => seen.push(data);
+    const send = (message: unknown) => clientSide.postMessage(message as ClientMessage<Command>);
+    for (const bad of [
+      null,
+      'speed',
+      { type: 'speed', speed: Number.NaN },
+      { type: 'speed', speed: -3 },
+      { type: 'speed', speed: 1e9 },
+      { type: 'speed', speed: '2' },
+      { type: 'pause', paused: 'yes' },
+      { type: 'command', command: null },
+      { type: 'command' },
+      { type: 'nonsense' },
+    ]) {
+      send(bad);
+    }
+    await settle();
+    host.advance(100);
+    await settle();
+    expect(host.tick).toBe(1);
+    expect(seen.at(-1)).toMatchObject({ speed: 1, paused: false, view: { tick: 1, value: 0 } });
+    expect(host.recording.commands).toEqual([]);
+
+    // 正常的照常生效
+    send({ type: 'speed', speed: 3 });
+    send({ type: 'pause', paused: true });
+    await settle();
+    expect(seen.at(-1)).toMatchObject({ speed: 3, paused: true });
+  });
+
+  it('一步之内的命令有上限：灌进来的多出来的丢掉', async () => {
+    const host = createHost({ sim: counter, start: { config: { start: 0 } }, stepMs: 100 });
+    const { session } = join(host, 0);
+    for (let i = 0; i < 1000; i++) session.send({ add: 1 });
+    await settle();
+    host.advance(100);
+    expect(host.recording.commands).toHaveLength(256);
+  });
+});

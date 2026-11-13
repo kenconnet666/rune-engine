@@ -33,8 +33,6 @@ declare const self: DedicatedWorkerGlobalScope;
 
 let renderer: MapRenderer | undefined;
 let session: Session<Command> | undefined;
-/** 作为客人加入别人的房间时，状态从这条广播通道来 */
-let channel: BroadcastChannel | undefined;
 /** 渲染器还没建好时先到的东西：建好后补上 */
 let pendingView: OutbreakView | undefined;
 /** 最近一份状态里“跳到新地区”的记录，和各自第一次看到它的时刻（光从那时开始走） */
@@ -208,14 +206,9 @@ self.onmessage = ({ data }: MessageEvent<RenderControl>) => {
       report(frameStats());
       break;
     case 'connect':
-    case 'connect-channel':
       session?.close();
-      channel?.close();
-      channel = data.type === 'connect-channel' ? new BroadcastChannel(data.name) : undefined;
       session = connectSession<Command, OutbreakView>(
-        asPort<HostMessage<OutbreakView>, ClientMessage<Command>>(
-          data.type === 'connect-channel' ? channel! : data.port,
-        ),
+        asPort<HostMessage<OutbreakView>, ClientMessage<Command>>(data.port),
         { view: (message) => show(message.view) },
       );
       break;

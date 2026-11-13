@@ -11,6 +11,9 @@
   },
   "scripts": {
     "dev": "pnpm --filter @miwang/client dev",
+    "online": "pnpm run \"/^online:/\"",
+    "online:server": "pnpm --filter @miwang/server dev",
+    "online:client": "pnpm --filter @miwang/client dev --mode online",
     "typecheck": "pnpm --filter @miwang/content build:map && pnpm -r --parallel typecheck",
     "test": "vitest run --configLoader native",
     "lint": "oxlint . --deny-warnings",
@@ -18,7 +21,8 @@
     "format:check": "prettier --check . --cache --cache-strategy content",
     "check:boundaries": "node scripts/check-boundaries.mjs",
     "check": "pnpm format:check && pnpm lint && pnpm check:boundaries && pnpm typecheck && pnpm test",
-    "smoke": "node scripts/browser/smoke.mjs"
+    "smoke": "node scripts/browser/smoke.mjs",
+    "smoke:online": "node scripts/browser/online.mjs"
   },
   "devDependencies": {
     "@prettier/plugin-oxc": "catalog:",

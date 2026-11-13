@@ -24,6 +24,9 @@ catalog:
   lucide: 1.72.0
   # 国家与地区的中文名（MIT）：构建地图时按 ISO 代码查
   i18n-iso-countries: 7.14.0
+  # 服务端（Cloudflare Workers）：wrangler 在本地起一个和线上同样的运行环境，也用它部署
+  wrangler: 4.160.1
+  '@cloudflare/workers-types': 5.20261110.1
   # 构建与测试
   vite: 8.3.4
   vitest: 5.0.5
@@ -35,6 +38,11 @@ catalog:
   oxlint-tsgolint: 7.0.2004
   prettier: 3.9.10
   '@prettier/plugin-oxc': 0.2.3
+
+# wrangler 带进来的这两个包有安装脚本（核对平台对应的二进制）；不跑也能用，就不让它们在安装时执行代码
+allowBuilds:
+  esbuild: false
+  workerd: false
 
 minimumReleaseAgeExclude:
   # 自己的包（vue-tsx-pro 仓库），发布即用

@@ -18,6 +18,8 @@ import { createMapController, type MapController } from './map.ts';
 import { ControlBar } from './panels/ControlBar.tsx';
 import { MapOverlay } from './panels/MapOverlay.tsx';
 import { Encyclopedia } from './screens/Encyclopedia.tsx';
+import { Joining } from './screens/Joining.tsx';
+import { Lobby } from './screens/Lobby.tsx';
 import { MainMenu } from './screens/MainMenu.tsx';
 import { NewsPanel } from './panels/NewsPanel.tsx';
 import { PlaybackBar } from './panels/PlaybackBar.tsx';
@@ -93,11 +95,11 @@ export const App = _component(() => {
   let map = _state.raw<MapController | null>(null);
   let audio = _state.raw<GameAudio | null>(null);
   /**
-   * 盖在游戏上面的那一层现在是什么：主菜单、开局设置、百科、设置、工作台（进化或研究，看这一方是谁），或者没有。
-   * 同一时间只有一个；存档、百科和设置是从主菜单进去的，关掉回到主菜单。
+   * 盖在游戏上面的那一层现在是什么：主菜单、开局设置、联机大厅、存档、百科、设置、工作台（进化或研究，看这一方是谁），或者没有。
+   * 同一时间只有一个；联机、存档、百科和设置是从主菜单进去的，关掉回到主菜单。
    */
   let overlay = _state<
-    'menu' | 'setup' | 'saves' | 'encyclopedia' | 'settings' | 'workbench' | null
+    'menu' | 'setup' | 'lobby' | 'saves' | 'encyclopedia' | 'settings' | 'workbench' | null
   >(null);
   onMounted(() => {
     if (!canvas) return;
@@ -111,6 +113,12 @@ export const App = _component(() => {
   const openMenu = () => {
     overlay = 'menu';
     game?.setPaused(true);
+  };
+  /** 客人离开房间：回到不带房间号的地址，变回自己开局的主人 */
+  const leaveRoom = () => {
+    const url = new URL(location.href);
+    url.search = '';
+    location.href = url.href;
   };
 
   // 声音跟着状态走：有新闻就响提示音，局势越紧音乐越急；在菜单里、暂停着的时候音乐停下
@@ -137,7 +145,12 @@ export const App = _component(() => {
     /** 最下面那行小字：出错了说错误，否则说这一局的来历 */
     const note = (session: GameSession) => {
       if (session.renderError.value) return ui.app.renderLost(session.renderError.value);
-      if (session.role === 'guest') return ui.app.guest(session.room.value ?? '');
+      const room = session.room.value;
+      if (session.role === 'guest' && room) {
+        return room.state === 'joined'
+          ? ui.app.guest(room.code, ui.lobby.paths[room.path])
+          : ui.app.guestAway;
+      }
       const resumed = session.resumed.value;
       if (resumed) return ui.app.resumed(resumed.ticks, resumed.replayMs.toFixed(0));
       return ui.app.disclaimer;
@@ -192,14 +205,22 @@ export const App = _component(() => {
                   <PathogenPanel view={view} onOpen={() => {}} />
                 </>
               )}
-              {!watching && <OpponentPanel game={game} />}
+              {!watching && <OpponentPanel game={game} onOnline={() => (overlay = 'lobby')} />}
             </Scroll>
           )}
 
           <div {...css.attrs(styles.bottom)}>
             {game && <ControlBar game={game} map={map} onMenu={openMenu} />}
             {game && (
-              <Note tone={game.renderError.value != null ? 'danger' : 'muted'} sx={styles.note}>
+              <Note
+                tone={
+                  game.renderError.value != null ||
+                  (game.role === 'guest' && game.room.value?.state !== 'joined')
+                    ? 'danger'
+                    : 'muted'
+                }
+                sx={styles.note}
+              >
                 {note(game)}
               </Note>
             )}
@@ -237,12 +258,23 @@ export const App = _component(() => {
               overlay = null;
               game?.setPaused(false);
             }}
+            guest={game.role === 'guest'}
             onNewGame={() => (overlay = 'setup')}
+            onOnline={() => (overlay = 'lobby')}
             onSaves={() => (overlay = 'saves')}
             onEncyclopedia={() => (overlay = 'encyclopedia')}
             onSettings={() => (overlay = 'settings')}
+            onLeave={leaveRoom}
           />
         )}
+        {game && overlay === 'lobby' && <Lobby game={game} onClose={() => (overlay = 'menu')} />}
+        {/* 客人还没接上主人的时候：说明现在卡在哪一步，进不去的话说原因 */}
+        {game?.role === 'guest' &&
+          game.room.value &&
+          overlay === null &&
+          (view === null || game.room.value.state === 'closed') && (
+            <Joining room={game.room.value} onLeave={leaveRoom} />
+          )}
         {game && overlay === 'setup' && (
           <Setup
             game={game}

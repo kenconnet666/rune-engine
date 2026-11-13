@@ -6,7 +6,10 @@ export const en: ClientText = {
 
   app: {
     mapLabel: 'World map: drag to pan, scroll or pinch to zoom, click a region for details',
-    guest: (room) => `Joined room ${room}; the host runs on the other player's side.`,
+    guest: (room, path) =>
+      `Joined room ${room} (${path}); the host runs on the other player's side.`,
+    guestAway:
+      'Lost the connection to the host; reconnecting… The picture is frozen where it dropped.',
     resumed: (days, ms) =>
       `This game was resumed by replaying its record: ${days} days in ${ms} ms.`,
     disclaimer:
@@ -122,12 +125,57 @@ export const en: ClientText = {
   opponent: {
     human: 'Opponent · another player',
     ai: 'Opponent · computer',
-    room: (room) => `Room ${room}: both players are here.`,
+    room: (room, path) => `Room ${room} · ${path}`,
+    waiting: (room) =>
+      `Room ${room} is open, waiting for the other player; the computer plays until then.`,
+    away: 'The other player dropped out and time is paused. Wait for them, or let the computer take over.',
+    hostAway: 'Lost the connection to the host; reconnecting…',
     level: 'Computer difficulty',
     levels: ['Easy', 'Normal', 'Hard'],
-    invite: 'Invite another player',
-    inviteHelp:
-      'Open this address in another tab on this computer (same browser only for now; network play is not built yet):',
+    online: 'Play together',
+    handOver: 'Let the computer take over',
+  },
+
+  lobby: {
+    title: 'Play together',
+    intro:
+      'Two players, one side each. The game runs on the side of whoever opens the room; the other player opens the invite link, or types the room code in their own main menu.',
+    localOnly:
+      'This build has no online service: the room can only be joined from another tab of this same browser.',
+    open: 'Open a room',
+    close: 'Close the room',
+    code: 'Room code',
+    link: 'Invite link',
+    copy: 'Copy link',
+    copied: 'Copied',
+    side: 'I play as',
+    states: {
+      connecting: 'Connecting to the room…',
+      waiting: 'The room is open, waiting for the other player.',
+      joined: 'The other player is here.',
+      away: 'The other player dropped out: time is paused. Wait for them, or let the computer take over.',
+      closed: 'The room is closed.',
+    },
+    paths: { relay: 'relayed by the server', direct: 'direct' },
+    reasons: {
+      taken: 'This room code is in use by someone else.',
+      full: 'The room already has two players.',
+      missing: 'No such room: the code is wrong, or the host left a long time ago.',
+      replaced: 'The same identity joined from another page, so this page stepped aside.',
+      invalid: 'The two sides run different versions; reload the page and try again.',
+      left: 'You left the room.',
+    },
+    join: "Join someone else's room",
+    joinGo: 'Join',
+    badCode: 'A room code is 4–8 letters and digits.',
+  },
+
+  joining: {
+    title: (room) => `Joining room ${room}`,
+    connecting: 'Connecting…',
+    waiting:
+      'The room exists but the host is away: hold on, it reconnects as soon as they are back.',
+    leave: 'Stop waiting and start my own game',
   },
 
   controls: {
@@ -150,10 +198,12 @@ export const en: ClientText = {
     about: 'A strategy game about how infectious diseases spread, and how they are stopped.',
     resume: 'Continue this game',
     newGame: 'New game',
+    online: 'Play together',
     saves: 'Saves and replays',
     encyclopedia: 'Encyclopedia',
     settings: 'Settings',
     open: 'Menu',
+    leaveRoom: 'Leave the room',
   },
 
   saves: {

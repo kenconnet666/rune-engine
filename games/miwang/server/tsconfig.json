@@ -1,0 +1,9 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["@cloudflare/workers-types"]
+  },
+  "include": ["src"],
+  // 测试跑在 Node 里（它把这个 Worker 起起来再连上去），用的是另一套环境的类型
+  "exclude": ["src/**/*.test.ts"]
+}

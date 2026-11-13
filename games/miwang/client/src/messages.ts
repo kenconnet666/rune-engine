@@ -1,6 +1,10 @@
-/** 主线程和两个 Worker 之间的控制消息（对局本身的消息走 net 的会话协议，见各自收到的 port） */
-import type { AiLevel, Command, OutbreakConfig } from '@miwang/sim';
+/**
+ * 主线程和两个 Worker 之间的控制消息（对局本身的消息走 net 的会话协议，见各自收到的 port），
+ * 以及联机时两位玩家的页面之间说的话。
+ */
+import type { AiLevel, Command, OutbreakConfig, OutbreakView } from '@miwang/sim';
 import type { PlayerId, Recording } from '@rune-engine/core';
+import type { ClientMessage, HostMessage } from '@rune-engine/net';
 import type { MapCamera } from '@rune-engine/render/map-view';
 
 export type GameRecording = Recording<OutbreakConfig, Command>;
@@ -24,18 +28,16 @@ export type HostControl =
       readonly readonly: boolean;
       readonly port: MessagePort;
     }
+  /** 断开一方（联机的另一位玩家走了） */
+  | { readonly type: 'disconnect'; readonly id: string }
   /** 哪一方由电脑控制、多大难度；player 是 null 表示都不要（两边都是人） */
-  | { readonly type: 'ai'; readonly player: PlayerId | null; readonly level: AiLevel }
-  /** 开一个房间：另一位玩家凭房间号接进来 */
-  | { readonly type: 'open-room'; readonly room: string };
+  | { readonly type: 'ai'; readonly player: PlayerId | null; readonly level: AiLevel };
 
 /** 主机 Worker → 主线程 */
 export type HostReport =
   | { readonly type: 'recording'; readonly recording: GameRecording }
   /** 主机起来了：是不是照着记录重放的，重放了几步、用了多久 */
-  | { readonly type: 'started'; readonly replayedTicks: number; readonly replayMs: number }
-  /** 另一位玩家接进来了，扮演的是 player 这一方 */
-  | { readonly type: 'joined'; readonly player: PlayerId };
+  | { readonly type: 'started'; readonly replayedTicks: number; readonly replayMs: number };
 
 /** 主线程 → 渲染 Worker */
 export type RenderControl =
@@ -50,8 +52,6 @@ export type RenderControl =
   | { readonly type: 'resize'; readonly width: number; readonly height: number }
   /** 对局的状态从这个 port 来 */
   | { readonly type: 'connect'; readonly port: MessagePort }
-  /** 对局的状态从这个名字的广播通道来（作为客人加入别人的房间时） */
-  | { readonly type: 'connect-channel'; readonly name: string }
   | { readonly type: 'camera'; readonly camera: MapCamera }
   /** 指针在画布上的位置（占画布宽高的比例，0–1）；离开画布时是 null。tap 是在那里点了一下 */
   | {
@@ -84,18 +84,18 @@ export type RenderReport =
     };
 
 /**
- * 房间里的招呼（广播通道 `miwang:<房间号>`）：客人报上自己的通道名和要扮演的一方，
- * 主机在 `miwang:<房间号>:<client>` 这条通道上把它当成一个普通的客户端接上。
- * 现在走的是浏览器的广播通道，只能连同一台电脑、同一个浏览器里的标签页；换成 WebRTC 之后招呼的内容不变。
+ * 联机：主机在主人的浏览器里，客人的页面经房间连过来（见 room.ts）。两个页面之间除了会话协议本身，
+ * 只多几句话——客人进来打招呼，主人告诉它扮演哪一方；之后就是普通的客户端了。
  */
-export type RoomMessage =
-  | {
-      readonly type: 'join';
-      readonly client: string;
-      readonly player: PlayerId;
-      readonly readonly: boolean;
-    }
-  | { readonly type: 'welcome'; readonly client: string };
+/** 主人的页面 → 客人的页面 */
+export type GuestDown =
+  /** 你扮演这一方（开局时、主人换边时都会说） */
+  | { readonly type: 'seat'; readonly player: PlayerId }
+  /** 这一局已经有另一位玩家了 */
+  | { readonly type: 'full' }
+  | HostMessage<OutbreakView>;
 
-export const roomChannel = (room: string) => `miwang:${room}`;
-export const clientChannel = (room: string, client: string) => `miwang:${room}:${client}`;
+/** 客人的页面 → 主人的页面 */
+export type GuestUp =
+  /** 我来了（还没被安排位置的时候隔一会儿说一次） */
+  { readonly type: 'hello' } | ClientMessage<Command>;
