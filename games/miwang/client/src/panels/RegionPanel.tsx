@@ -139,7 +139,7 @@ export const RegionPanel = _component(
                           : ui.region.setup(format.amount(cost.setup))
                       }
                       state={on ? 'owned' : 'available'}
-                      title={ui.region.measureHint(
+                      tip={ui.region.measureHint(
                         name,
                         detail,
                         format.amount(cost.setup),

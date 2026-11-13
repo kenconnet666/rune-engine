@@ -4,15 +4,16 @@
  *   state  owned 已经有了（或者开关开着）、locked 还不能要（前置没满足）、不写是可以要
  *   selected  正在看它的详情
  *
- *   <Tile icon={Wind} label="飞沫传播" detail="8 点" selected={id === current} onPress={() => select(id)} />
+ *   <Tile icon={Wind} label="飞沫传播" detail="8 点" tip="咳嗽、说话时的飞沫带着病原体。" onPress={() => select(id)} />
  */
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import type { VNodeChild } from 'vue';
+import { useId, type VNodeChild } from 'vue';
 import { Icon, type IconData } from './Icon.tsx';
 import { mergeAttrs, type PartProps } from './props.ts';
 import { ripple, rippleHost } from './ripple.ts';
 import { focusRing, pressable } from './styles.ts';
+import { Tip } from './Tip.tsx';
 import { colors, fonts, space } from './tokens.ts';
 
 export type TileState = 'available' | 'owned' | 'locked';
@@ -21,6 +22,8 @@ export interface TileProps extends PartProps<'button', 'type'> {
   icon?: IconData;
   label: VNodeChild;
   detail?: VNodeChild;
+  /** 指针停在上面时浮出的说明 */
+  tip?: VNodeChild;
   state?: TileState;
   selected?: boolean;
   onPress?: () => void;
@@ -64,28 +67,38 @@ const styles = css.create({
 });
 
 export const Tile = _component(
-  ({ icon, label, detail, state = 'available', selected, onPress, ...rest }: TileProps) =>
-    () => (
-      <button
-        {...mergeAttrs<'button'>(
-          {
-            sx: [
-              rippleHost.root,
-              focusRing.visible,
-              pressable.root,
-              styles.root,
-              state === 'owned' && styles.owned,
-              state === 'locked' && styles.locked,
-              selected && styles.selected,
-            ],
-          },
-          rest,
-          { type: 'button', onClick: () => onPress?.(), ...ripple },
-        )}
-      >
-        {icon && <Icon icon={icon} size="1.375rem" weight={1.75} />}
-        <span>{label}</span>
-        {detail != null && <span {...css.attrs(styles.detail)}>{detail}</span>}
-      </button>
-    ),
+  ({ icon, label, detail, tip, state = 'available', selected, onPress, ...rest }: TileProps) => {
+    const tipId = useId();
+    return () => (
+      <>
+        <button
+          {...mergeAttrs<'button'>(
+            {
+              sx: [
+                rippleHost.root,
+                focusRing.visible,
+                pressable.root,
+                styles.root,
+                state === 'owned' && styles.owned,
+                state === 'locked' && styles.locked,
+                selected && styles.selected,
+              ],
+            },
+            rest,
+            {
+              type: 'button',
+              onClick: () => onPress?.(),
+              ...ripple,
+              ...(tip != null && { interestfor: tipId }),
+            },
+          )}
+        >
+          {icon && <Icon icon={icon} size="1.375rem" weight={1.75} />}
+          <span>{label}</span>
+          {detail != null && <span {...css.attrs(styles.detail)}>{detail}</span>}
+        </button>
+        {tip != null && <Tip id={tipId}>{tip}</Tip>}
+      </>
+    );
+  },
 );

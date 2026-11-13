@@ -7,17 +7,20 @@
  */
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import type { VNodeChild } from 'vue';
+import { useId, type VNodeChild } from 'vue';
 import { Icon, type IconData } from './Icon.tsx';
 import { mergeAttrs, type PartProps } from './props.ts';
 import { ripple, rippleHost } from './ripple.ts';
 import { focusRing, pressable } from './styles.ts';
+import { Tip } from './Tip.tsx';
 import { colors, fonts, space } from './tokens.ts';
 
 export interface ActionButtonProps extends PartProps<'button', 'type' | 'aria-pressed'> {
   children?: VNodeChild;
   /** 文字前面的图标；compact 的按钮只放图标时不用写 children */
   icon?: IconData;
+  /** 指针停在上面时浮出的说明（只有图标的按钮用它说明自己是干什么的） */
+  tip?: VNodeChild;
   /** 靠右的小字：代价、等级 */
   detail?: VNodeChild;
   /** 已经生效的状态（开关类的操作） */
@@ -69,37 +72,44 @@ export const ActionButton = _component(
   ({
     children,
     icon,
+    tip,
     detail,
     active = false,
     compact = false,
     onPress,
     ...rest
-  }: ActionButtonProps) =>
-    () => (
-      <button
-        {...mergeAttrs<'button'>(
-          {
-            sx: [
-              rippleHost.root,
-              focusRing.visible,
-              pressable.root,
-              styles.root,
-              compact && styles.compact,
-              active && styles.active,
-            ],
-          },
-          rest,
-          {
-            type: 'button',
-            'aria-pressed': active || undefined,
-            onClick: () => onPress?.(),
-            ...ripple,
-          },
-        )}
-      >
-        {icon && <Icon icon={icon} />}
-        {children != null && <span {...css.attrs(styles.label)}>{children}</span>}
-        {detail != null && <span {...css.attrs(styles.detail)}>{detail}</span>}
-      </button>
-    ),
+  }: ActionButtonProps) => {
+    const tipId = useId();
+    return () => (
+      <>
+        <button
+          {...mergeAttrs<'button'>(
+            {
+              sx: [
+                rippleHost.root,
+                focusRing.visible,
+                pressable.root,
+                styles.root,
+                compact && styles.compact,
+                active && styles.active,
+              ],
+            },
+            rest,
+            {
+              type: 'button',
+              'aria-pressed': active || undefined,
+              onClick: () => onPress?.(),
+              ...ripple,
+              ...(tip != null && { interestfor: tipId }),
+            },
+          )}
+        >
+          {icon && <Icon icon={icon} />}
+          {children != null && <span {...css.attrs(styles.label)}>{children}</span>}
+          {detail != null && <span {...css.attrs(styles.detail)}>{detail}</span>}
+        </button>
+        {tip != null && <Tip id={tipId}>{tip}</Tip>}
+      </>
+    );
+  },
 );

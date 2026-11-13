@@ -63,21 +63,21 @@ export const ControlBar = _component(
               compact
               icon={Plus}
               aria-label={ui.zoomIn}
-              title={ui.zoomIn}
+              tip={ui.zoomIn}
               onPress={() => map?.zoomBy(1.6)}
             />
             <ActionButton
               compact
               icon={Minus}
               aria-label={ui.zoomOut}
-              title={ui.zoomOut}
+              tip={ui.zoomOut}
               onPress={() => map?.zoomBy(1 / 1.6)}
             />
             <ActionButton
               compact
               icon={Maximize}
               aria-label={ui.fit}
-              title={ui.fit}
+              tip={ui.fit}
               onPress={() => map?.reset()}
             />
           </Stack>

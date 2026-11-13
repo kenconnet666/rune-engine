@@ -29,4 +29,5 @@ export { dialogEnter, focusRing, pressable, scroll } from './styles.ts';
 export { Tabs, type TabItem, type TabsProps, type TabValue } from './Tabs.tsx';
 export { TechTree, type TechTreeProps, type TreeNode } from './TechTree.tsx';
 export { Tile, type TileProps, type TileState } from './Tile.tsx';
+export { Tip, type TipProps } from './Tip.tsx';
 export { colors, durations, fonts, space } from './tokens.ts';

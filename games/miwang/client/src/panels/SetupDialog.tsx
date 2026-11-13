@@ -106,6 +106,7 @@ export const SetupDialog = _component(
                       key={id}
                       icon={pathogenIcon(id)}
                       label={content.pathogens[id]?.name ?? id}
+                      tip={content.pathogens[id]?.summary}
                       state={id === pathogen ? 'owned' : 'available'}
                       aria-pressed={id === pathogen}
                       onPress={() => (pathogen = id)}
