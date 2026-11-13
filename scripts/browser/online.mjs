@@ -7,27 +7,28 @@
  * --relay 不试直连，单测经房间中转这条路；--expect 要求消息最后走的是哪条路（不写就只报告，不要求）。
  */
 import { launchChrome } from './chrome.mjs';
+import {
+  assertNoErrors,
+  closeDialog,
+  dayOf as day,
+  dayPast,
+  hasButton,
+  hasText,
+  LOCALE_INIT as init,
+  progress,
+  readArgs,
+  sleep,
+} from './game.mjs';
 
-const args = process.argv.slice(2);
-const url = args.find((arg) => !arg.startsWith('--')) ?? 'http://localhost:5180';
-const software = args.includes('--software');
-const relay = args.includes('--relay');
-const expect =
-  args.find((arg) => arg.startsWith('--expect='))?.slice('--expect='.length) ??
-  (relay ? 'relay' : undefined);
+const args = readArgs();
+const { url } = args;
+const relay = args.flag('relay');
+const expect = args.value('expect') ?? (relay ? 'relay' : undefined);
 /** 页面的地址：query 是 '?join=…' 这样的一段 */
 const address = (query = '') => `${url}/${query}${relay ? `${query ? '&' : '?'}relay` : ''}`;
 
-const chrome = await launchChrome({ software });
-let step = 0;
-const done = (what) => console.log(`${String(++step).padStart(2)}. ${what}`);
-const init = `localStorage.setItem('miwang:locale', 'zh')`;
-const hasText = (text) => `document.body.innerText.includes(${JSON.stringify(text)})`;
-const hasButton = (text) =>
-  `[...document.querySelectorAll('button')].some((b) => b.textContent.trim().startsWith(${JSON.stringify(text)}) && b.checkVisibility())`;
-const day = (page) =>
-  page.evaluate(`Number(document.body.innerText.match(/第 ([0-9]+) 天/)?.[1] ?? -1)`);
-const closeDialog = (page) => page.evaluate(`document.querySelector('dialog[open]')?.close()`);
+const chrome = await launchChrome({ software: args.flag('software') });
+const done = progress();
 
 try {
   // ───── 主人开房间 ─────
@@ -83,14 +84,11 @@ try {
   await host.clickButton('继续这一局');
   const start = await day(guest);
   await host.evaluate(`document.querySelector('[aria-label="10 倍速"]').click()`);
-  await guest.waitFor(
-    `Number(document.body.innerText.match(/第 ([0-9]+) 天/)?.[1]) > ${start + 15}`,
-    { what: '客人这头时间在走' },
-  );
+  await guest.waitFor(dayPast(start + 15), { what: '客人这头时间在走' });
   await guest.evaluate(`document.querySelector('[aria-label="暂停"]').click()`);
-  await new Promise((resolve) => setTimeout(resolve, 800));
+  await sleep(800);
   const [hostDay, guestDay] = [await day(host), await day(guest)];
-  await new Promise((resolve) => setTimeout(resolve, 1200));
+  await sleep(1200);
   if ((await day(host)) !== hostDay || (await day(guest)) !== guestDay || hostDay !== guestDay) {
     throw new Error(`客人按了暂停，两头没有停在同一天：${hostDay} / ${guestDay}`);
   }
@@ -126,10 +124,10 @@ try {
   await host.waitFor(hasText(`房间 ${code}`), { what: '主人这头又看到客人', timeoutMs: 30_000 });
   const before = await day(guest);
   await host.evaluate(`document.querySelector('[aria-label="10 倍速"]').click()`);
-  await guest.waitFor(
-    `Number(document.body.innerText.match(/第 ([0-9]+) 天/)?.[1]) > ${before + 10}`,
-    { what: '主人刷新后客人这头时间又在走', timeoutMs: 30_000 },
-  );
+  await guest.waitFor(dayPast(before + 10), {
+    what: '主人刷新后客人这头时间又在走',
+    timeoutMs: 30_000,
+  });
   await host.evaluate(`document.querySelector('[aria-label="暂停"]').click()`);
   done('主人刷新页面：对局接上了，客人自己连了回来');
 
@@ -140,19 +138,10 @@ try {
     done('不存在的房间：说了“没有这个房间”');
   }
 
-  for (const { name, page } of [
-    { name: '主人', page: host },
-    { name: '客人', page: guest },
-  ]) {
-    if (page.errors.length) {
-      throw new Error(
-        `${name}的页面报了 ${page.errors.length} 个错：\n${page.errors.slice(0, 8).join('\n')}`,
-      );
-    }
-  }
+  assertNoErrors({ 主人: host, 客人: guest });
   console.log('联机冒烟测试通过');
 } catch (error) {
-  console.error(`第 ${step + 1} 步没过：${error.message}`);
+  console.error(`第 ${done.steps() + 1} 步没过：${error.message}`);
   process.exitCode = 1;
 } finally {
   await chrome.close();

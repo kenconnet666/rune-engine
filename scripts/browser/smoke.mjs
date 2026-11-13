@@ -8,28 +8,32 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { launchChrome } from './chrome.mjs';
+import {
+  assertNoErrors,
+  closeDialog,
+  dayOf,
+  dayPast,
+  hasButton,
+  hasText,
+  LOCALE_INIT,
+  progress,
+  readArgs,
+  sleep,
+} from './game.mjs';
 
-const args = process.argv.slice(2);
-const url = args.find((arg) => !arg.startsWith('--')) ?? 'http://localhost:5180';
-const software = args.includes('--software');
-const shots = args.find((arg) => arg.startsWith('--shots='))?.slice('--shots='.length);
+const args = readArgs();
+const shots = args.value('shots');
 if (shots) mkdirSync(shots, { recursive: true });
 
-const chrome = await launchChrome({ software });
-let step = 0;
+const chrome = await launchChrome({ software: args.flag('software') });
+const report = progress();
 try {
-  // 界面语言默认跟着浏览器走：这里固定成中文，下面按中文的字找按钮
-  const page = await chrome.open(url, { init: `localStorage.setItem('miwang:locale', 'zh')` });
-  const hasText = (text) => `document.body.innerText.includes(${JSON.stringify(text)})`;
-  const hasButton = (text) =>
-    `[...document.querySelectorAll('button')].some((b) => b.textContent.trim().startsWith(${JSON.stringify(text)}) && b.checkVisibility())`;
+  const page = await chrome.open(args.url, { init: LOCALE_INIT });
+  /** 做完一步：报一行，要截图的话截一张 */
   const done = async (what) => {
-    step++;
-    console.log(`${String(step).padStart(2)}. ${what}`);
-    if (shots) await page.screenshot(join(shots, `${String(step).padStart(2, '0')}.png`));
+    report(what);
+    if (shots) await page.screenshot(join(shots, `${String(report.steps()).padStart(2, '0')}.png`));
   };
-  const dayNow = () =>
-    page.evaluate(`Number(document.body.innerText.match(/第 ([0-9]+) 天/)?.[1] ?? -1)`);
 
   await page.waitFor(hasButton('新开一局'), { what: '主菜单', timeoutMs: 30_000 });
   await done('主菜单出来了');
@@ -42,7 +46,7 @@ try {
   await page.waitFor(hasText('Language'), { what: '切到英文' });
   await page.clickButton('中文');
   await page.waitFor(hasText('语言'), { what: '切回中文' });
-  await page.evaluate(`document.querySelector('dialog[open]').close()`);
+  await closeDialog(page);
   await page.waitFor(hasButton('百科'), { what: '回到主菜单' });
   await done('设置：音量滑块在，中英文能切换');
 
@@ -50,7 +54,7 @@ try {
   await page.waitFor(hasText('流感型'), { what: '百科里的病原体' });
   await page.evaluate(`[...document.querySelectorAll('[role=tab]')][1].click()`);
   await page.waitFor(hasText('飞沫传播'), { what: '百科里的性状' });
-  await page.evaluate(`document.querySelector('dialog[open]').close()`);
+  await closeDialog(page);
   await page.waitFor(hasButton('新开一局'), { what: '回到主菜单' });
   await done('百科：病原体和性状都看得到');
 
@@ -72,16 +76,11 @@ try {
   }
   await done('开局：选了流感型，对局开始，地图画出来了');
 
-  const before = await dayNow();
+  const before = await dayOf(page);
   await page.evaluate(`document.querySelector('[aria-label="10 倍速"]').click()`);
-  await page.waitFor(
-    `Number(document.body.innerText.match(/第 ([0-9]+) 天/)?.[1]) > ${before + 20}`,
-    {
-      what: '时间在走',
-    },
-  );
+  await page.waitFor(dayPast(before + 20), { what: '时间在走' });
   await page.evaluate(`document.querySelector('[aria-label="暂停"]').click()`);
-  await done(`时间在走：从第 ${before} 天到了第 ${await dayNow()} 天`);
+  await done(`时间在走：从第 ${before} 天到了第 ${await dayOf(page)} 天`);
 
   await page.clickButton('进化');
   await page.waitFor(`document.querySelector('dialog[open]') && ${hasText('飞沫传播')}`, {
@@ -92,7 +91,7 @@ try {
   await page.clickButton('咳嗽');
   await page.waitFor(hasButton('换这个性状'), { what: '性状的详情和按钮' });
   await page.clickButton('换这个性状');
-  await page.evaluate(`document.querySelector('dialog[open]').close()`);
+  await closeDialog(page);
   // 命令到下一天才生效：让时间走一天
   await page.evaluate(`document.querySelector('[aria-label="1 倍速"]').click()`);
   await page.waitFor(hasText('1 个性状'), { what: '换到了一个性状' });
@@ -104,14 +103,14 @@ try {
   await page.waitFor(`document.querySelector('dialog[open]') && ${hasText('病原鉴定')}`, {
     what: '研究的工作台',
   });
-  await page.evaluate(`document.querySelector('dialog[open]').close()`);
+  await closeDialog(page);
   await done('换到守方：研究的工作台打得开');
 
   // 点地图中间偏右（亚洲）选一个地区，守方应该看到措施
   // 上一步关掉的对话框还有一小段离场动画，这时点下去会点在它上面：没选中就再点
   for (let attempt = 0; attempt < 6; attempt++) {
     await page.click(1180, 330);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await sleep(500);
     if (await page.evaluate(hasText('加强检测'))) break;
   }
   await page.waitFor(hasText('加强检测'), { what: '选中地区之后的措施' });
@@ -138,12 +137,10 @@ try {
   });
   await done('存档与回放：存了一份，从头回放，再退出来');
 
-  if (page.errors.length) {
-    throw new Error(`页面报了 ${page.errors.length} 个错：\n${page.errors.slice(0, 8).join('\n')}`);
-  }
+  assertNoErrors({ 游戏: page });
   console.log('冒烟测试通过');
 } catch (error) {
-  console.error(`第 ${step + 1} 步没过：${error.message}`);
+  console.error(`第 ${report.steps() + 1} 步没过：${error.message}`);
   process.exitCode = 1;
 } finally {
   await chrome.close();

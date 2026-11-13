@@ -5,18 +5,22 @@
  *   node scripts/browser/cloud.mjs [地址=http://localhost:5180] [--software]
  */
 import { launchChrome } from './chrome.mjs';
+import {
+  assertNoErrors,
+  dayOf,
+  dayPast,
+  hasButton,
+  hasText,
+  LOCALE_INIT as init,
+  progress,
+  readArgs,
+} from './game.mjs';
 
-const args = process.argv.slice(2);
-const url = args.find((arg) => !arg.startsWith('--')) ?? 'http://localhost:5180';
-const software = args.includes('--software');
+const args = readArgs();
+const { url } = args;
 
-const chrome = await launchChrome({ software });
-let step = 0;
-const done = (what) => console.log(`${String(++step).padStart(2)}. ${what}`);
-const init = `localStorage.setItem('miwang:locale', 'zh')`;
-const hasText = (text) => `document.body.innerText.includes(${JSON.stringify(text)})`;
-const hasButton = (text) =>
-  `[...document.querySelectorAll('button')].some((b) => b.textContent.trim().startsWith(${JSON.stringify(text)}) && b.checkVisibility())`;
+const chrome = await launchChrome({ software: args.flag('software') });
+const done = progress();
 const clickTab = (page, text) =>
   page.evaluate(
     `[...document.querySelectorAll('dialog[open] [role=tab]')].find((tab) => tab.textContent.includes(${JSON.stringify(text)})).click()`,
@@ -42,14 +46,10 @@ try {
   await first.waitFor(hasButton('继续这一局'), { what: '主菜单', timeoutMs: 30_000 });
   await first.clickButton('继续这一局');
   await first.evaluate(`document.querySelector('[aria-label="10 倍速"]').click()`);
-  await first.waitFor(`Number(document.body.innerText.match(/第 ([0-9]+) 天/)?.[1]) > 12`, {
-    what: '时间在走',
-  });
+  await first.waitFor(dayPast(12), { what: '时间在走' });
   await first.clickButton('菜单');
   await first.waitFor(hasButton('继续这一局'), { what: '回到主菜单' });
-  const savedDay = await first.evaluate(
-    `Number(document.body.innerText.match(/第 ([0-9]+) 天/)?.[1])`,
-  );
+  const savedDay = await dayOf(first);
   await openCloud(first);
   await first.waitFor(hasButton('开启云存档'), { what: '还没开云存档时的说明' });
   await first.clickButton('开启云存档');
@@ -116,19 +116,10 @@ try {
   await first.waitFor(hasText('云端还没有存档'), { what: '第一台设备刷新后也空了' });
   done('第二台设备删掉了那份存档，第一台刷新后也看不到了');
 
-  for (const { name, page } of [
-    { name: '第一台设备', page: first },
-    { name: '第二台设备', page: second },
-  ]) {
-    if (page.errors.length) {
-      throw new Error(
-        `${name}的页面报了 ${page.errors.length} 个错：\n${page.errors.slice(0, 8).join('\n')}`,
-      );
-    }
-  }
+  assertNoErrors({ 第一台设备: first, 第二台设备: second });
   console.log('云存档冒烟测试通过');
 } catch (error) {
-  console.error(`第 ${step + 1} 步没过：${error.message}`);
+  console.error(`第 ${done.steps() + 1} 步没过：${error.message}`);
   process.exitCode = 1;
 } finally {
   await chrome.close();

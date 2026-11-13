@@ -1,5 +1,5 @@
 /**
- * 云存档：把存档（对局记录）放到服务端的存档柜里，换一台设备也能接着打。
+ * 放在云端的存档：把存档（对局记录）放到服务端的存档柜里，换一台设备也能接着打。
  * 不用账号——这台设备生成一个“同步码”（存档柜的钥匙），存在本机；在另一台设备上填同一个码，看到的就是同一个柜子。
  * 记录是一大段 JSON，压过（gzip）再传。取回来的东西和导入的文件一样对待：先核对，再用。
  * 柜子的约定和客户端在 net、transport 包里；这里只是把“存档”装进去、取出来。
@@ -9,9 +9,9 @@ import { toWire } from '@rune-engine/core';
 import { VAULT_KEY, vaultKey } from '@rune-engine/net';
 import { jsonStore } from '@rune-engine/runtime';
 import { connectVault, gunzipText, gzipText, VaultError } from '@rune-engine/transport';
-import type { GameRecording } from './messages.ts';
-import { describeSave, parseRecording, readSaveMeta, type SaveMeta } from './saves.ts';
-import { API_URL, secureRandom } from './service.ts';
+import type { GameRecording } from '../messages.ts';
+import { API_URL, secureRandom } from '../service.ts';
+import { describeSave, parseRecording, readSaveMeta, type SaveMeta } from './recording.ts';
 
 /** 有没有云存档服务 */
 export const CLOUD = API_URL !== undefined;

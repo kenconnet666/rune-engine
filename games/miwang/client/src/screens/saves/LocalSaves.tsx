@@ -9,15 +9,8 @@ import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { Download, FolderOpen, Play, Save, Trash2, Upload } from 'lucide';
 import { useUi } from '../../i18n.ts';
 import type { GameRecording } from '../../messages.ts';
-import {
-  deleteSave,
-  exportRecording,
-  listSaves,
-  parseRecording,
-  readSave,
-  SAVE_LIMIT,
-  writeSave,
-} from '../../saves.ts';
+import { deleteSave, listSaves, readSave, writeSave } from '../../saves/local.ts';
+import { exportRecording, parseRecording, SAVE_LIMIT } from '../../saves/recording.ts';
 import { SaveRow } from './SaveRow.tsx';
 
 const styles = css.create({

@@ -2,13 +2,14 @@
  * 主人：主机在这个标签页的 Worker 里，自己是它的一个客户端；渲染线程是它的另一个只读客户端，状态不经过主线程。
  * 另一方默认由电脑控制，开了房间、有人进来之后换成那位玩家（房间和网络见 room.ts）。
  *
- * 正在打的这一局随时自动存着（见 saves.ts）：关掉页面再打开、开发时改了代码页面刷新，都照着记录重算到刚才那一步接着走。
+ * 正在打的这一局随时自动存着（见 saves/local.ts）：关掉页面再打开、开发时改了代码页面刷新，都照着记录重算到刚才那一步接着走。
  * 还可以回放一份记录：从头一天一天地放，能调速、暂停、跳到任意一天，但不能下命令。
  */
 import { createConfig, DEFAULT_PATHOGEN, PATHOGENS } from '@miwang/content';
 import { asPort } from '@rune-engine/runtime';
 import type { GameRecording, HostControl, HostReport } from '../messages.ts';
-import { autosave, matchesWorld } from '../saves.ts';
+import { autosave } from '../saves/local.ts';
+import { matchesWorld } from '../saves/recording.ts';
 import { other, type FromHost, type GameSession, type SessionCore, type ToHost } from './core.ts';
 import { hostedRoom, newRoom, openHostRoom, type HostedRoom, type OpenRoom } from './room.ts';
 

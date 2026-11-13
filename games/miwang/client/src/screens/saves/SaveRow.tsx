@@ -5,7 +5,7 @@ import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { i18n, useContent, useUi } from '../../i18n.ts';
 import { pathogenIcon } from '../../icons.ts';
-import type { SaveMeta } from '../../saves.ts';
+import type { SaveMeta } from '../../saves/recording.ts';
 
 export interface SaveAction {
   readonly icon: IconData;

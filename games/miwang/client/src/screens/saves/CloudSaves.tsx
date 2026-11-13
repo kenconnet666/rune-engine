@@ -29,10 +29,10 @@ import {
   forgetCloudKey,
   listCloudSaves,
   uploadCloudSave,
-} from '../../cloud.ts';
+} from '../../saves/cloud.ts';
 import { useUi } from '../../i18n.ts';
 import type { GameRecording } from '../../messages.ts';
-import { SAVE_LIMIT, type SaveMeta } from '../../saves.ts';
+import { SAVE_LIMIT, type SaveMeta } from '../../saves/recording.ts';
 import { SaveRow } from './SaveRow.tsx';
 
 const styles = css.create({
