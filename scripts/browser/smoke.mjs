@@ -62,8 +62,14 @@ try {
   await page.waitFor(`${hasText('流感型')} && /第 [0-9]+ 天/.test(document.body.innerText)`, {
     what: '对局开始',
   });
-  const renderNote = await page.evaluate(`document.body.innerText.includes('画面断了')`);
-  if (renderNote) throw new Error('渲染线程没起来：页面上写着“画面断了”');
+  // 显卡设备偶尔会丢一下（软件渲染的机器上尤其），渲染器自己会重建：给它一点时间恢复。
+  // 一直不恢复才算没过，把页面上写的原因带出来
+  try {
+    await page.waitFor(`!${hasText('画面断了')}`, { what: '画面恢复', timeoutMs: 20_000 });
+  } catch {
+    const note = await page.evaluate(`document.body.innerText.match(/画面断了[^\\n]*/)?.[0]`);
+    throw new Error(`渲染线程没起来：${note}\n控制台：${page.logs.slice(-8).join('\n')}`);
+  }
   await done('开局：选了流感型，对局开始，地图画出来了');
 
   const before = await dayNow();
