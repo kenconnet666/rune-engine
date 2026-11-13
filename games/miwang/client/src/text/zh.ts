@@ -172,6 +172,8 @@ export const zh = {
   settings: {
     title: '设置',
     language: '语言',
+    volume: '音量',
+    volumes: { master: '总音量', music: '音乐', ambience: '环境音', alert: '提示音', ui: '界面音' },
     credits: '数据与素材',
     creditLines: [
       '国家边界、人口、经济：Natural Earth（公有领域），边界经 world-atlas 整理',

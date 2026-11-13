@@ -12,7 +12,7 @@
 import { Callout, colors, fonts, Note, Scroll, space } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { onBeforeUnmount, onMounted } from 'vue';
+import { onBeforeUnmount, onMounted, watchEffect } from 'vue';
 import { placeName, useFormats, useUi } from './i18n.ts';
 import { createMapController, type MapController } from './map.ts';
 import { ControlBar } from './panels/ControlBar.tsx';
@@ -31,6 +31,7 @@ import { StatusPanel } from './panels/StatusPanel.tsx';
 import { TrendPanel } from './panels/TrendPanel.tsx';
 import { Workbench } from './screens/Workbench.tsx';
 import { createGameSession, type GameSession } from './session.ts';
+import { createGameAudio, type GameAudio } from './sound.ts';
 
 /** 小屏幕（手机横屏、很矮的窗口）：两边的面板只留最要紧的，把地图让出来 */
 const COMPACT = '@media (max-height: 560px), (max-width: 1000px)';
@@ -88,6 +89,7 @@ export const App = _component(() => {
   let canvas = _state.raw<HTMLCanvasElement | null>(null);
   let game = _state.raw<GameSession | null>(null);
   let map = _state.raw<MapController | null>(null);
+  let audio = _state.raw<GameAudio | null>(null);
   /**
    * 盖在游戏上面的那一层现在是什么：主菜单、开局设置、百科、设置、工作台（进化或研究，看这一方是谁），或者没有。
    * 同一时间只有一个；百科和设置是从主菜单进去的，关掉回到主菜单。
@@ -97,6 +99,7 @@ export const App = _component(() => {
     if (!canvas) return;
     game = createGameSession(canvas);
     map = createMapController(canvas, game.renderLink);
+    audio = createGameAudio();
     // 自己开的局先到主菜单，时间停着；加入别人房间的直接进对局
     if (game.role === 'host') openMenu();
   });
@@ -106,9 +109,15 @@ export const App = _component(() => {
     game?.setPaused(true);
   };
 
+  // 声音跟着状态走：有新闻就响提示音，局势越紧音乐越急；在菜单里、暂停着的时候音乐停下
+  watchEffect(() => {
+    if (game) audio?.update(game.view.value, overlay === null && !game.paused.value);
+  });
+
   onBeforeUnmount(() => {
     map?.dispose();
     game?.dispose();
+    audio?.dispose();
   });
 
   return () => {
@@ -230,7 +239,7 @@ export const App = _component(() => {
           />
         )}
         {overlay === 'encyclopedia' && <Encyclopedia onClose={() => (overlay = 'menu')} />}
-        {overlay === 'settings' && <Settings onClose={() => (overlay = 'menu')} />}
+        {overlay === 'settings' && <Settings audio={audio} onClose={() => (overlay = 'menu')} />}
       </div>
     );
   };

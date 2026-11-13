@@ -15,6 +15,7 @@
   "dependencies": {
     "@miwang/content": "workspace:^",
     "@miwang/sim": "workspace:^",
+    "@rune-engine/audio": "workspace:^",
     "@rune-engine/core": "workspace:^",
     "@rune-engine/i18n": "workspace:^",
     "@rune-engine/input": "workspace:^",

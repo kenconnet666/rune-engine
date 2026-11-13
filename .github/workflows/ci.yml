@@ -36,3 +36,24 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
+
+  # 冒烟测试：把游戏构建出来，在无界面的 Chrome 里从头点一遍（主菜单、设置、百科、开局、进化、换边、选地区）。
+  # 运行器上没有显卡，WebGPU 用软件实现的那个
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @miwang/client build
+      - name: 起静态服务并跑冒烟测试
+        env:
+          CHROME_NO_SANDBOX: 1
+        run: |
+          pnpm --filter @miwang/client exec vite preview --port 4173 --strictPort &
+          for attempt in $(seq 1 30); do curl -sf http://localhost:4173/ > /dev/null && break; sleep 1; done
+          pnpm smoke http://localhost:4173 --software

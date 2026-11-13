@@ -24,6 +24,7 @@ export {
   type SegmentedProps,
   type SegmentedValue,
 } from './Segmented.tsx';
+export { Slider, type SliderProps } from './Slider.tsx';
 export { Stack, type StackProps } from './Stack.tsx';
 export { dialogEnter, focusRing, pressable, scroll } from './styles.ts';
 export { Tabs, type TabItem, type TabsProps, type TabValue } from './Tabs.tsx';

@@ -1,0 +1,121 @@
+/**
+ * 冒烟测试：在无界面的 Chrome 里把游戏从头到尾点一遍，确认主要的流程都走得通、页面没有报错。
+ * 先把游戏起起来（开发时 pnpm dev；CI 里是构建好的静态文件），再跑：
+ *   node scripts/browser/smoke.mjs [地址=http://localhost:5180] [--software] [--shots=目录]
+ * --software 用软件实现的 WebGPU（没有显卡的机器）；--shots 在几个关键的地方截图存到那个目录。
+ * 每一步做了什么都打出来；哪一步没等到就在那里失败，报错里带着当时页面上的文字。
+ */
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { launchChrome } from './chrome.mjs';
+
+const args = process.argv.slice(2);
+const url = args.find((arg) => !arg.startsWith('--')) ?? 'http://localhost:5180';
+const software = args.includes('--software');
+const shots = args.find((arg) => arg.startsWith('--shots='))?.slice('--shots='.length);
+if (shots) mkdirSync(shots, { recursive: true });
+
+const chrome = await launchChrome({ software });
+let step = 0;
+try {
+  const page = await chrome.open(url);
+  const hasText = (text) => `document.body.innerText.includes(${JSON.stringify(text)})`;
+  const hasButton = (text) =>
+    `[...document.querySelectorAll('button')].some((b) => b.textContent.trim().startsWith(${JSON.stringify(text)}) && b.checkVisibility())`;
+  const done = async (what) => {
+    step++;
+    console.log(`${String(step).padStart(2)}. ${what}`);
+    if (shots) await page.screenshot(join(shots, `${String(step).padStart(2, '0')}.png`));
+  };
+  const dayNow = () =>
+    page.evaluate(`Number(document.body.innerText.match(/第 ([0-9]+) 天/)?.[1] ?? -1)`);
+
+  await page.waitFor(hasButton('新开一局'), { what: '主菜单', timeoutMs: 30_000 });
+  await done('主菜单出来了');
+
+  await page.clickButton('设置');
+  await page.waitFor(`document.querySelectorAll('input[type=range]').length === 5`, {
+    what: '设置里的五个音量滑块',
+  });
+  await page.clickButton('EN');
+  await page.waitFor(hasText('Language'), { what: '切到英文' });
+  await page.clickButton('中文');
+  await page.waitFor(hasText('语言'), { what: '切回中文' });
+  await page.evaluate(`document.querySelector('dialog[open]').close()`);
+  await page.waitFor(hasButton('百科'), { what: '回到主菜单' });
+  await done('设置：音量滑块在，中英文能切换');
+
+  await page.clickButton('百科');
+  await page.waitFor(hasText('流感型'), { what: '百科里的病原体' });
+  await page.evaluate(`[...document.querySelectorAll('[role=tab]')][1].click()`);
+  await page.waitFor(hasText('飞沫传播'), { what: '百科里的性状' });
+  await page.evaluate(`document.querySelector('dialog[open]').close()`);
+  await page.waitFor(hasButton('新开一局'), { what: '回到主菜单' });
+  await done('百科：病原体和性状都看得到');
+
+  await page.clickButton('新开一局');
+  await page.waitFor(hasButton('开始'), { what: '开局设置' });
+  await page.clickButton('流感型');
+  await page.waitFor(hasText('季节性流感'), { what: '流感型的介绍' });
+  await page.clickButton('开始');
+  await page.waitFor(`${hasText('流感型')} && /第 [0-9]+ 天/.test(document.body.innerText)`, {
+    what: '对局开始',
+  });
+  const renderNote = await page.evaluate(`document.body.innerText.includes('画面断了')`);
+  if (renderNote) throw new Error('渲染线程没起来：页面上写着“画面断了”');
+  await done('开局：选了流感型，对局开始，地图画出来了');
+
+  const before = await dayNow();
+  await page.evaluate(`document.querySelector('[aria-label="10 倍速"]').click()`);
+  await page.waitFor(
+    `Number(document.body.innerText.match(/第 ([0-9]+) 天/)?.[1]) > ${before + 20}`,
+    {
+      what: '时间在走',
+    },
+  );
+  await page.evaluate(`document.querySelector('[aria-label="暂停"]').click()`);
+  await done(`时间在走：从第 ${before} 天到了第 ${await dayNow()} 天`);
+
+  await page.clickButton('进化');
+  await page.waitFor(`document.querySelector('dialog[open]') && ${hasText('飞沫传播')}`, {
+    what: '进化的工作台',
+  });
+  // 换“咳嗽”：它的价格比开局给的变异点低，什么时候都换得起
+  await page.evaluate(`[...document.querySelectorAll('dialog[open] [role=tab]')][1].click()`);
+  await page.clickButton('咳嗽');
+  await page.waitFor(hasButton('换这个性状'), { what: '性状的详情和按钮' });
+  await page.clickButton('换这个性状');
+  await page.evaluate(`document.querySelector('dialog[open]').close()`);
+  // 命令到下一天才生效：让时间走一天
+  await page.evaluate(`document.querySelector('[aria-label="1 倍速"]').click()`);
+  await page.waitFor(hasText('1 个性状'), { what: '换到了一个性状' });
+  await done('进化：换到了“咳嗽”');
+
+  await page.clickButton('守方');
+  await page.waitFor(hasText('守方 · 上报态势'), { what: '换到守方' });
+  await page.clickButton('安排研究');
+  await page.waitFor(`document.querySelector('dialog[open]') && ${hasText('病原鉴定')}`, {
+    what: '研究的工作台',
+  });
+  await page.evaluate(`document.querySelector('dialog[open]').close()`);
+  await done('换到守方：研究的工作台打得开');
+
+  // 点地图中间偏右（亚洲）选一个地区，守方应该看到措施
+  await page.click(1180, 330);
+  await page.waitFor(hasText('加强检测'), { what: '选中地区之后的措施' });
+  await done('地图：点选一个地区，出现它的措施');
+
+  await page.clickButton('菜单');
+  await page.waitFor(hasButton('继续这一局'), { what: '主菜单里的“继续”' });
+  await done('菜单：回到主菜单，可以继续');
+
+  if (page.errors.length) {
+    throw new Error(`页面报了 ${page.errors.length} 个错：\n${page.errors.slice(0, 8).join('\n')}`);
+  }
+  console.log('冒烟测试通过');
+} catch (error) {
+  console.error(`第 ${step + 1} 步没过：${error.message}`);
+  process.exitCode = 1;
+} finally {
+  await chrome.close();
+}

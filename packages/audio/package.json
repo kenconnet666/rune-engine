@@ -1,0 +1,18 @@
+{
+  "name": "@rune-engine/audio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "声音：WebAudio 的设备解锁、分路音量，和现场合成声音用的几样基本件（不带音频文件）",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

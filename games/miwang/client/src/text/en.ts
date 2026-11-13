@@ -171,6 +171,14 @@ export const en: ClientText = {
   settings: {
     title: 'Settings',
     language: 'Language',
+    volume: 'Volume',
+    volumes: {
+      master: 'Master',
+      music: 'Music',
+      ambience: 'Ambience',
+      alert: 'Alerts',
+      ui: 'Interface',
+    },
     credits: 'Data and assets',
     creditLines: [
       'Borders, population, economy: Natural Earth (public domain), borders prepared by world-atlas',

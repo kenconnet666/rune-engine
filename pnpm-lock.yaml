@@ -262,6 +262,9 @@ importers:
       '@miwang/sim':
         specifier: workspace:^
         version: link:../sim
+      '@rune-engine/audio':
+        specifier: workspace:^
+        version: link:../../../packages/audio
       '@rune-engine/core':
         specifier: workspace:^
         version: link:../../../packages/core
@@ -371,6 +374,15 @@ importers:
       '@types/topojson-specification':
         specifier: 'catalog:'
         version: 1.0.5
+      typescript:
+        specifier: 'catalog:'
+        version: 7.1.0-dev.20261104.1
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@types/node@24.19.2)(vite@8.3.4(@types/node@24.19.2))
+
+  packages/audio:
+    devDependencies:
       typescript:
         specifier: 'catalog:'
         version: 7.1.0-dev.20261104.1

@@ -17,7 +17,8 @@
     "format": "prettier --write . --cache --cache-strategy content",
     "format:check": "prettier --check . --cache --cache-strategy content",
     "check:boundaries": "node scripts/check-boundaries.mjs",
-    "check": "pnpm format:check && pnpm lint && pnpm check:boundaries && pnpm typecheck && pnpm test"
+    "check": "pnpm format:check && pnpm lint && pnpm check:boundaries && pnpm typecheck && pnpm test",
+    "smoke": "node scripts/browser/smoke.mjs"
   },
   "devDependencies": {
     "@prettier/plugin-oxc": "catalog:",

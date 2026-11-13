@@ -51,6 +51,8 @@ export async function launchChrome({
       '--no-first-run',
       '--no-default-browser-check',
       '--enable-unsafe-webgpu',
+      // CI 的容器里 Chrome 的沙箱起不来：那里跑的只有我们自己的页面，可以关掉
+      ...(process.env.CHROME_NO_SANDBOX ? ['--no-sandbox'] : []),
       ...(software ? ['--use-webgpu-adapter=swiftshader', '--enable-unsafe-swiftshader'] : []),
       `--window-size=${width},${height}`,
       `--force-device-scale-factor=${scale}`,

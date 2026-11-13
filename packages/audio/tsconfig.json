@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // 声音只能在主线程出（Worker 里没有 AudioContext）
+    "lib": ["ES2024", "DOM"]
+  },
+  "include": ["src"]
+}

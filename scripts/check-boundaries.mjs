@@ -17,6 +17,7 @@ const ALLOWED = {
   '@rune-engine/assets-build': ['@rune-engine/render'],
   '@rune-engine/ui': [],
   '@rune-engine/input': [],
+  '@rune-engine/audio': [],
   '@rune-engine/i18n': [],
   '@rune-engine/runtime': ['@rune-engine/core', '@rune-engine/net'],
   '@miwang/sim': ['@rune-engine/core'],
@@ -24,6 +25,7 @@ const ALLOWED = {
   '@miwang/client': [
     '@miwang/sim',
     '@miwang/content',
+    '@rune-engine/audio',
     '@rune-engine/core',
     '@rune-engine/i18n',
     '@rune-engine/input',
