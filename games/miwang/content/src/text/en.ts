@@ -396,6 +396,30 @@ export const en: ContentText = {
     },
   },
 
+  credits: {
+    naturalEarth:
+      'Borders, population, GDP and income groups of countries and regions (v5.1.2, 1:110m).',
+    worldAtlas: "Natural Earth's borders packaged as TopoJSON; the map's shapes come from it.",
+    isoCountries: 'Chinese names of countries and regions.',
+    okabeIto:
+      'The orange, vermilion and sky blue of the colour-blind friendly palette come from this set designed for colour-vision deficiency.',
+    vue: 'The UI runtime.',
+    vueTsxPro:
+      'TSX compiler and style engine; component conventions and basic feel also follow its component library.',
+    lucide: 'Icons in the interface (a few more were drawn for this project).',
+    decimal: 'Exact decimal numbers, supported natively by the engine core.',
+    internationalizedDate:
+      'Calendar dates that ignore the system time zone: the “which day” of a game.',
+    topojson: 'Extracts region polygons and adjacency when building the map.',
+    earcut: 'Triangulates polygons when building the map.',
+    typescript: 'The language this project is written in.',
+    vite: 'Dev server and bundling.',
+    vitest: 'Tests.',
+    oxlint: 'Linting.',
+    prettier: 'Code formatting.',
+    wrangler: 'Emulates Cloudflare locally and deploys the server.',
+  },
+
   effects: {
     air: 'Droplet and airborne spread',
     contact: 'Contact spread',

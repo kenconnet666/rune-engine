@@ -23,6 +23,7 @@ import { ControlBar } from './panels/ControlBar.tsx';
 import { GoalPanel } from './panels/GoalPanel.tsx';
 import { HintPanel } from './panels/HintPanel.tsx';
 import { MapOverlay } from './panels/MapOverlay.tsx';
+import { About } from './screens/About.tsx';
 import { Chapters } from './screens/Chapters.tsx';
 import { Encyclopedia } from './screens/Encyclopedia.tsx';
 import { Joining } from './screens/Joining.tsx';
@@ -102,8 +103,8 @@ export const App = _component(() => {
   let map = _state.raw<MapController | null>(null);
   let audio = _state.raw<GameAudio | null>(null);
   /**
-   * 盖在游戏上面的那一层现在是什么：主菜单、章节、开局设置、联机大厅、存档、百科、设置、工作台（进化或研究，看这一方是谁），或者没有。
-   * 同一时间只有一个；章节、联机、存档、百科和设置是从主菜单进去的，关掉回到主菜单。
+   * 盖在游戏上面的那一层现在是什么：主菜单、章节、开局设置、联机大厅、存档、百科、设置、关于、工作台（进化或研究，看这一方是谁），或者没有。
+   * 同一时间只有一个；章节、联机、存档、百科、设置和关于是从主菜单进去的，关掉回到主菜单。
    */
   let overlay = _state<
     | 'menu'
@@ -113,6 +114,7 @@ export const App = _component(() => {
     | 'saves'
     | 'encyclopedia'
     | 'settings'
+    | 'about'
     | 'workbench'
     | null
   >(null);
@@ -313,6 +315,7 @@ export const App = _component(() => {
             onSaves={() => (overlay = 'saves')}
             onEncyclopedia={() => (overlay = 'encyclopedia')}
             onSettings={() => (overlay = 'settings')}
+            onAbout={() => (overlay = 'about')}
             onLeave={leaveRoom}
           />
         )}
@@ -354,6 +357,7 @@ export const App = _component(() => {
         )}
         {overlay === 'encyclopedia' && <Encyclopedia onClose={() => (overlay = 'menu')} />}
         {overlay === 'settings' && <Settings audio={audio} onClose={() => (overlay = 'menu')} />}
+        {overlay === 'about' && <About onClose={() => (overlay = 'menu')} />}
       </div>
     );
   };

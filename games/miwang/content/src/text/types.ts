@@ -1,5 +1,6 @@
 import type { DefenseKey, EffectKey, Measure, Outcome, TraitGroup } from '@miwang/sim';
 import type { ChapterId } from '../tables/chapters.ts';
+import type { CreditId } from '../tables/credits.ts';
 
 /** 一样东西在界面上叫什么、一句话说明是什么 */
 export interface Label {
@@ -51,6 +52,8 @@ export interface ContentText {
   readonly pathogens: Readonly<Record<string, PathogenText>>;
   readonly outcomes: Readonly<Record<Outcome['reason'], string>>;
   readonly chapters: Readonly<Record<ChapterId, ChapterText>>;
+  /** 致谢表里的每一项在这个游戏里用来做什么 */
+  readonly credits: Readonly<Record<CreditId, string>>;
   /** 性状的各项效果、科技的各项效果叫什么（详情里列“这样东西改变了什么”用） */
   readonly effects: Readonly<Record<EffectKey, string>>;
   readonly defense: Readonly<Record<DefenseKey, string>>;

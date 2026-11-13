@@ -15,6 +15,7 @@
     "online:server": "pnpm --filter @miwang/server dev",
     "online:client": "pnpm --filter @miwang/client dev --mode online",
     "typecheck": "pnpm --filter @miwang/content build:map && pnpm -r --parallel typecheck",
+    "pretest": "pnpm --filter @miwang/content build:map",
     "test": "vitest run --configLoader native",
     "lint": "oxlint . --deny-warnings",
     "format": "prettier --write . --cache --cache-strategy content",

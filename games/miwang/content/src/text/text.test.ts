@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CHAPTER_IDS, CHAPTERS } from '../tables/chapters.ts';
+import { CREDITS } from '../tables/credits.ts';
 import { EVENTS } from '../tables/events.ts';
 import { PATHOGENS, SOURCES } from '../tables/pathogens.ts';
 import { TECHS } from '../tables/techs.ts';
@@ -16,6 +17,12 @@ describe('内容的文案', () => {
       expect(Object.keys(text.events).sort()).toEqual(ids(EVENTS));
       expect(Object.keys(text.pathogens).sort()).toEqual(ids(PATHOGENS));
       expect(Object.keys(text.chapters).sort()).toEqual([...CHAPTER_IDS].sort());
+      expect(Object.keys(text.credits).sort()).toEqual(
+        Object.values(CREDITS)
+          .flat()
+          .map((credit) => credit.id)
+          .sort(),
+      );
       for (const group of [text.traits, text.techs, text.events, text.measures]) {
         for (const label of Object.values(group)) {
           expect(label.name.length).toBeGreaterThan(0);

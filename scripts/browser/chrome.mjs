@@ -25,6 +25,24 @@ const CANDIDATES = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
 ];
 
+/**
+ * 没有显卡的机器上用软件实现的 WebGPU（SwiftShader）。
+ * Linux 上 WebGPU 走 Vulkan，而且默认不开：要把 Vulkan 打开、也指到软件实现上，无界面时不建显示表面。
+ */
+const SOFTWARE_GPU = [
+  '--use-webgpu-adapter=swiftshader',
+  '--enable-unsafe-swiftshader',
+  ...(process.platform === 'linux'
+    ? [
+        '--enable-features=Vulkan',
+        '--use-vulkan=swiftshader',
+        '--use-angle=swiftshader',
+        '--disable-vulkan-surface',
+        '--ignore-gpu-blocklist',
+      ]
+    : []),
+];
+
 export function findChrome() {
   const found = CANDIDATES.find((path) => path && existsSync(path));
   if (!found) throw new Error('没找到 Chrome：用环境变量 CHROME 指出它的位置');
@@ -53,7 +71,7 @@ export async function launchChrome({
       '--enable-unsafe-webgpu',
       // CI 的容器里 Chrome 的沙箱起不来：那里跑的只有我们自己的页面，可以关掉
       ...(process.env.CHROME_NO_SANDBOX ? ['--no-sandbox'] : []),
-      ...(software ? ['--use-webgpu-adapter=swiftshader', '--enable-unsafe-swiftshader'] : []),
+      ...(software ? SOFTWARE_GPU : []),
       `--window-size=${width},${height}`,
       `--force-device-scale-factor=${scale}`,
       'about:blank',

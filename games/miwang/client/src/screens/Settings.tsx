@@ -1,6 +1,6 @@
-/** 设置：语言、配色、音量；下面是数据与素材的来源和致谢 */
+/** 设置：语言、配色、音量 */
 import type { Locale } from '@miwang/content';
-import { colors, Dialog, Note, Scroll, Segmented, Slider, space, Stack } from '@rune-engine/ui';
+import { Dialog, Note, Scroll, Segmented, Slider, space, Stack } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { i18n, LOCALE_NAMES, useFormats, useUi } from '../i18n.ts';
@@ -9,7 +9,11 @@ import type { GameAudio } from '../sound.ts';
 
 const styles = css.create({
   // 设置的内容不多：对话框用窄一点、矮一点的
-  root: { width: 'min(34rem, calc(100vw - 2rem))', height: 'min(40rem, calc(100vh - 2rem))' },
+  root: {
+    width: 'min(34rem, calc(100vw - 2rem))',
+    height: 'fit-content',
+    maxHeight: 'calc(100vh - 2rem)',
+  },
   volumes: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
@@ -17,16 +21,6 @@ const styles = css.create({
     rowGap: space.sm,
   },
   body: { flexGrow: 1, minHeight: 0, padding: space.lg },
-  credits: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: space.sm,
-    margin: 0,
-    paddingInlineStart: '1.1rem',
-    fontSize: '0.8125rem',
-    lineHeight: 1.6,
-    color: colors.text,
-  },
 });
 
 /** 音量的各路，按这个顺序排 */
@@ -88,15 +82,6 @@ export const Settings = _component(
                   </div>
                 </Stack>
               )}
-              <Stack gap="xs">
-                <Note>{ui.credits}</Note>
-                <ul {...css.attrs(styles.credits)}>
-                  {ui.creditLines.map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ul>
-                <Note>{ui.license}</Note>
-              </Stack>
             </Stack>
           </Scroll>
         </Dialog>

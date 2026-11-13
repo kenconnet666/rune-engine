@@ -62,6 +62,15 @@ try {
   await page.waitFor(hasButton('新开一局'), { what: '回到主菜单' });
   await done('百科：病原体和性状都看得到');
 
+  await page.clickButton('关于与致谢');
+  await page.waitFor(
+    `document.querySelectorAll('dialog[open] [data-credit]').length >= 15 && ${hasText('Natural Earth')}`,
+    { what: '关于与致谢里的致谢表' },
+  );
+  await closeDialog(page);
+  await page.waitFor(hasButton('新开一局'), { what: '回到主菜单' });
+  await done('关于与致谢：数据、参考、开源软件都列着');
+
   await page.clickButton('新开一局');
   await page.waitFor(hasButton('开始'), { what: '开局设置' });
   await page.clickButton('流感型');
@@ -84,7 +93,15 @@ try {
     colors = await mapColors(page);
     if (colors < 50) await sleep(200);
   }
-  if (colors < 50) throw new Error(`地图没画出来：画布上只数得出 ${colors} 种颜色`);
+  if (colors < 50) {
+    const gpu = await page.evaluate(`(async () => {
+      if (!navigator.gpu) return '没有 navigator.gpu';
+      const adapter = await navigator.gpu.requestAdapter();
+      if (!adapter) return 'requestAdapter 给的是 null';
+      return '适配器 ' + [adapter.info.vendor, adapter.info.architecture, adapter.info.description].join(' / ');
+    })()`);
+    throw new Error(`地图没画出来：画布上只数得出 ${colors} 种颜色（WebGPU：${gpu}）`);
+  }
   await done(`开局：选了流感型，对局开始，地图画出来了（画布上 ${colors} 种颜色）`);
 
   const before = await dayOf(page);

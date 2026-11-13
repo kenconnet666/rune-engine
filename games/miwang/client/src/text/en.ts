@@ -203,6 +203,7 @@ export const en: ClientText = {
     saves: 'Saves and replays',
     encyclopedia: 'Encyclopedia',
     settings: 'Settings',
+    credits: 'About and credits',
     open: 'Menu',
     leaveRoom: 'Leave the room',
   },
@@ -288,20 +289,31 @@ export const en: ClientText = {
       alert: 'Alerts',
       ui: 'Interface',
     },
-    credits: 'Data and assets',
     palette: 'Colours',
     palettes: { standard: 'Standard', safe: 'Colour-blind friendly' },
     paletteHelp:
       'Colour-blind friendly: on the map, heavier infection is brighter (dark → orange → pale yellow), and the warning and calm colours become vermilion and sky blue, so nothing depends on telling red from green.',
-    creditLines: [
-      'Borders, population, economy: Natural Earth (public domain), borders prepared by world-atlas',
-      'Chinese place names: i18n-iso-countries (MIT)',
-      'Icons: lucide (ISC), plus a few drawn for this project',
-      'Disease facts: public pages of the World Health Organization and the US CDC, cited in each pathogen entry',
-      'Air and sea routes are a model based on population, economy and distance, not real flight or shipping data',
+  },
+
+  about: {
+    title: 'About and credits',
+    intro: [
+      'Bewilderment is a strategy game about how infectious diseases spread and how they are stopped, and a personal project for learning how to build a game engine. It is open source (MIT) and not for commercial release.',
+      'It is not an epidemiological model, and certainly not medical advice: pathogen numbers are game values set after the “character” of their models, not real parameters; air and sea routes are estimated from population, economy and distance, not real flight or shipping data. To learn about real diseases, see the pages of the World Health Organization and national disease-control agencies listed below.',
+      'Borders on the map come from public geographic data and are there only to give the game a playable world map; they imply no position on any boundary or status.',
     ],
-    license:
-      'This game is an open-source personal learning project (MIT licence), not for commercial release.',
+    sections: {
+      data: 'Data',
+      references: 'References',
+      runtime: 'Open-source software (running in your browser)',
+      tools: 'Open-source software (build, test, deploy)',
+    },
+    sources: 'Sources for the disease facts',
+    sourcesNote:
+      'The facts about diseases in the encyclopedia come from these public pages and were checked against the originals before going into the game.',
+    ownWork: 'Made for this project',
+    ownWorkText:
+      'The rules, numbers, interface, map rendering and the text of the five chapters were written for this project; all sound is synthesised at run time with no recorded samples; fonts are the ones on your system.',
   },
 
   setup: {

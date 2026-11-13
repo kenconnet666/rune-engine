@@ -1,12 +1,22 @@
 /**
- * 主菜单：游戏的名字、那句诗，和几个入口——继续、章节、新开一局、联机、存档与回放、百科、设置。
+ * 主菜单：游戏的名字、那句诗，和几个入口——继续、章节、新开一局、联机、存档与回放、百科、设置、关于与致谢。
  * 加入别人房间的客人做不了主（开局、读档都是主人的事），只留继续、百科、设置和“离开房间”。
  * 盖在暂停的地图上：刚打开游戏时先到这里，对局中从底部的“菜单”回来。
  */
 import { ActionButton, colors, fonts, Frame, Note, space, Stack } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { BookOpen, History, LogOut, Play, RotateCcw, ScrollText, Settings, Users } from 'lucide';
+import {
+  BookOpen,
+  History,
+  Info,
+  LogOut,
+  Play,
+  RotateCcw,
+  ScrollText,
+  Settings,
+  Users,
+} from 'lucide';
 import { useUi } from '../i18n.ts';
 
 const styles = css.create({
@@ -52,6 +62,7 @@ export const MainMenu = _component(
     onSaves,
     onEncyclopedia,
     onSettings,
+    onAbout,
     onLeave,
   }: {
     /** 有一局正在进行（没分出胜负）：给“继续”这个入口 */
@@ -65,6 +76,7 @@ export const MainMenu = _component(
     onSaves: () => void;
     onEncyclopedia: () => void;
     onSettings: () => void;
+    onAbout: () => void;
     /** 客人离开房间 */
     onLeave: () => void;
   }) =>
@@ -102,6 +114,9 @@ export const MainMenu = _component(
               </ActionButton>
               <ActionButton icon={Settings} onPress={onSettings}>
                 {ui.settings}
+              </ActionButton>
+              <ActionButton icon={Info} onPress={onAbout}>
+                {ui.credits}
               </ActionButton>
               {guest && (
                 <ActionButton icon={LogOut} onPress={onLeave}>

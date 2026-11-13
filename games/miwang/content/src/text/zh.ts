@@ -298,6 +298,26 @@ export const zh: ContentText = {
     },
   },
 
+  credits: {
+    naturalEarth: '国家和地区的边界、人口、国内生产总值、收入分组（v5.1.2，1:1.1 亿）。',
+    worldAtlas: '把 Natural Earth 的边界整理成 TopoJSON 的那一份，地图的形状从它来。',
+    isoCountries: '国家和地区的中文名。',
+    okabeIto: '色觉友好配色里的橙、朱红、天蓝取自这组为色觉障碍者设计的颜色。',
+    vue: '界面的运行时。',
+    vueTsxPro: 'TSX 编译器和样式引擎；组件的写法和基础的手感也参考了它的组件库。',
+    lucide: '界面上的图标（另有几个是这个项目自己画的）。',
+    decimal: '精确的十进制数，引擎内核原生支持。',
+    internationalizedDate: '不碰系统时区的日历日期：对局里的“哪一天”。',
+    topojson: '构建地图时解出各地区的多边形和相邻关系。',
+    earcut: '构建地图时把多边形切成三角形。',
+    typescript: '写这个项目用的语言。',
+    vite: '开发服务器和打包。',
+    vitest: '测试。',
+    oxlint: '代码检查。',
+    prettier: '代码格式。',
+    wrangler: '在本机模拟 Cloudflare、部署服务端。',
+  },
+
   effects: {
     air: '飞沫与空气传播',
     contact: '接触传播',

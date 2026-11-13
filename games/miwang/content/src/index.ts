@@ -1,12 +1,13 @@
 /**
  * 《迷惘》的数据：
  *   world.ts    世界地图上的地区（来自构建脚本的产物）
- *   tables/     性状表、科技表、事件表、病原体档案、五章的剧本
+ *   tables/     性状表、科技表、事件表、病原体档案、五章的剧本、致谢表
  *   config.ts   把它们拼成一局的配置
  *   text/       各张表里的东西在界面上的名字和说明，每种语言一份
  */
 export { createConfig, type ConfigOptions } from './config.ts';
 export { CHAPTER_IDS, CHAPTERS, type ChapterDef, type ChapterId } from './tables/chapters.ts';
+export { CREDITS, type Credit, type CreditId, type CreditSection } from './tables/credits.ts';
 export { EVENTS } from './tables/events.ts';
 export { DEFAULT_PATHOGEN, PATHOGENS, SOURCES, type Source } from './tables/pathogens.ts';
 export { TECHS } from './tables/techs.ts';
