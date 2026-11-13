@@ -5,8 +5,15 @@
  * 正在打的这一局随时自动存着（见 saves/local.ts）：关掉页面再打开、开发时改了代码页面刷新，都照着记录重算到刚才那一步接着走。
  * 还可以回放一份记录：从头一天一天地放，能调速、暂停、跳到任意一天，但不能下命令。
  */
-import { createConfig, DEFAULT_PATHOGEN, PATHOGENS } from '@miwang/content';
+import {
+  CHAPTERS,
+  createConfig,
+  DEFAULT_PATHOGEN,
+  PATHOGENS,
+  type ChapterDef,
+} from '@miwang/content';
 import { asPort } from '@rune-engine/runtime';
+import { shallowRef } from 'vue';
 import type { GameRecording, HostControl, HostReport } from '../messages.ts';
 import { autosave } from '../saves/local.ts';
 import { matchesWorld } from '../saves/recording.ts';
@@ -29,13 +36,16 @@ export function hostSession(core: SessionCore): GameSession {
     host.postMessage(message, transfer);
   core.cleanups.push(() => host.terminate());
 
-  /** 主机最近报上来的对局记录；回放时是正在放的那份 */
-  let latest: GameRecording | null = null;
+  /**
+   * 主机最近报上来的对局记录；回放时是正在放的那份。
+   * 是响应式的：刚开局时它晚一步才到，界面（存档页的“存下这一局”）要跟着它亮起来
+   */
+  const latest = shallowRef<GameRecording | null>(null);
 
   host.onmessage = ({ data }: MessageEvent<HostReport>) => {
     switch (data.type) {
       case 'recording':
-        latest = data.recording;
+        latest.value = data.recording;
         autosave.save(data.recording);
         break;
       case 'started':
@@ -70,14 +80,18 @@ export function hostSession(core: SessionCore): GameSession {
     hosted?.reseat();
   }
 
-  function start(recording: GameRecording | null, pathogen = DEFAULT_PATHOGEN) {
+  /** 开局：有记录就照着它接上；没有就新开一局——打某一章，或者用某种病原体的普通对局 */
+  function start(
+    recording: GameRecording | null,
+    fresh: { chapter?: ChapterDef; pathogen?: typeof DEFAULT_PATHOGEN } = {},
+  ) {
     playback.value = null;
-    latest = recording;
+    latest.value = recording;
     const today = new Date().toISOString().slice(0, 10);
     const seed = Math.floor(Math.random() * 0x7fffffff);
     toHost({
       type: 'start',
-      start: recording ? { recording } : { config: createConfig(seed, today, { pathogen }) },
+      start: recording ? { recording } : { config: createConfig(seed, today, fresh) },
       stepMs: STEP_MS,
     });
     connect();
@@ -88,7 +102,7 @@ export function hostSession(core: SessionCore): GameSession {
     const wasPaused = paused.value;
     const wasSpeed = speed.value;
     playback.value = { length: recording.ticks };
-    latest = recording;
+    latest.value = recording;
     view.value = null;
     toHost({ type: 'start', start: { playback: recording, from }, stepMs: STEP_MS });
     connect();
@@ -180,7 +194,7 @@ export function hostSession(core: SessionCore): GameSession {
       opponent.value = 'ai';
       letAiPlay();
     },
-    recording: () => latest,
+    recording: () => latest.value,
     load(recording) {
       view.value = null;
       start(recording);
@@ -191,7 +205,7 @@ export function hostSession(core: SessionCore): GameSession {
       play(recording, 0);
     },
     seek(day) {
-      if (playback.value && latest) play(latest, day);
+      if (playback.value && latest.value) play(latest.value, day);
     },
     stopWatching() {
       view.value = null;
@@ -203,7 +217,13 @@ export function hostSession(core: SessionCore): GameSession {
       // 换边、换难度要在开局之前定下来：开局时就按它们把电脑接到另一方
       if (setup.level !== undefined) aiLevel.value = setup.level;
       if (setup.player !== undefined) player.value = setup.player;
-      start(null, (setup.pathogen && profileOf(setup.pathogen)) || DEFAULT_PATHOGEN);
+      const chapter = CHAPTERS.find((candidate) => candidate.id === setup.chapter);
+      start(
+        null,
+        chapter
+          ? { chapter }
+          : { pathogen: (setup.pathogen && profileOf(setup.pathogen)) || DEFAULT_PATHOGEN },
+      );
     },
   };
 }

@@ -315,6 +315,85 @@ export const en: ContentText = {
     calamity: 'Deaths crossed the calamity line.',
     eradicated: 'The pathogen was eradicated.',
     timeout: 'The line held to the end.',
+    goal: 'The pathogen did what this chapter asked of it.',
+    held: "The chapter's deadline passed and the pathogen fell short.",
+  },
+
+  chapters: {
+    bewilderment: {
+      name: 'Bewilderment',
+      line: 'A bewilderment too slight to fill a hand',
+      theme: 'Origin',
+      intro:
+        'Everything starts small: a handful of cases in one region, too few to fill a hand. Nobody knows what it is; it is not yet anything itself.',
+      attacker: 'Let it take root: get enough people infected before it is stopped.',
+      defender: 'Find it and press it down while it is small: hold out to the deadline.',
+      lessons: [
+        'Reading the map: brighter means more infection; click a region for details',
+        'Time: pause and fast-forward; commands take effect the next day',
+        'Latency and detection: the response sees only reported cases, the tip of the iceberg',
+      ],
+    },
+    malice: {
+      name: 'Malice',
+      line: 'From it an evil thought is born',
+      theme: 'Mutation',
+      intro:
+        'It begins to change. Every transmission is a roll of the dice, and the rolls add up to a direction: better at spreading, harsher, harder to deal with.',
+      attacker:
+        'Gather mutation points and take traits: make it something else, while more and more people are infected.',
+      defender:
+        'Work out what you are facing: identify the pathogen, watch each mutation, and do not let it grow.',
+      lessons: [
+        'Mutation points come from infections and deaths; spend them on traits',
+        'Three kinds of trait: routes, symptoms, abilities; each one makes the next cost more',
+        "Research for the response: the opponent's traits are visible only after identification",
+      ],
+    },
+    wilds: {
+      name: 'The wilds',
+      line: 'It crawls across the wilds',
+      theme: 'Overland spread',
+      intro:
+        'Without wings, it walks. From one region to the next, across border after border; in this chapter there are no flights and no ships.',
+      attacker: 'Walk out region by region: get infections into enough regions.',
+      defender:
+        'Set the barriers ahead of it: borders, isolation, measures in each region; keep it where it can walk.',
+      lessons: [
+        'Climate, density and wealth decide how well a region spreads it',
+        'Land routes only reach neighbours: see where it goes next',
+        'Regional measures each have a cost; close a border before it arrives',
+      ],
+    },
+    hills: {
+      name: 'The hills',
+      line: 'It climbs over the hills',
+      theme: 'Past the defences',
+      intro:
+        'Some places are hard to enter: many hospitals, fast testing, quick to lock down. It rises where defences are thin, and the highest hills are the ones to cross.',
+      attacker: 'Break into wealthy regions: get infections into enough high-income regions.',
+      defender:
+        'Hold the strongest ground, and remember strong defences cost: lockdowns hurt the economy and, in time, trust.',
+      lessons: [
+        'Wealthy regions have strong care and fast detection; they are the hardest to enter',
+        'Stealth and resistance abilities are for getting past defences',
+        'The cost of lockdowns and grounding flights: less income, falling trust, and low trust weakens measures',
+      ],
+    },
+    sky: {
+      name: 'The sky',
+      line: 'And sows calamity across the sky',
+      theme: 'The global endgame',
+      intro:
+        'Flights and shipping are open and the world is connected. This is a full game: no extra conditions, and the outcome returns to the calamity line.',
+      attacker: 'Let it fly: when deaths cross the calamity line, the game is yours.',
+      defender: 'Race against time: eradicate it, or get the vaccine out before the calamity line.',
+      lessons: [
+        'Flights and shipping carry it across oceans; grounding flights and closing ports cut them',
+        'A vaccine takes three research steps; once it rolls out, the susceptible become immune',
+        'The calamity line: the pathogen wins when deaths reach it; eradication or holding to the end wins for the response',
+      ],
+    },
   },
 
   effects: {

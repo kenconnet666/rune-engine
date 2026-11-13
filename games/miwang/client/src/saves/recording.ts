@@ -6,7 +6,7 @@
  * 记录只有在世界数据没变时才重放得出原来那一局：地图、人口、航线、病原体档案、规则的数值换过之后，
  * 照旧的配置算出来的已经对不上现在的界面了。所以读档、导入之前都先核对一遍（matchesWorld）。
  */
-import { createConfig, PATHOGENS } from '@miwang/content';
+import { CHAPTERS, createConfig, PATHOGENS } from '@miwang/content';
 import { ATTACKER, DEFENDER, type OutbreakView } from '@miwang/sim';
 import { fromWire, toWire, type PlayerId } from '@rune-engine/core';
 import type { GameRecording } from '../messages.ts';
@@ -28,15 +28,16 @@ export interface SaveMeta {
 export const SAVE_LIMIT = 8;
 
 /**
- * 这份记录是不是用现在的数据打的：拿记录里的种子、日期、病原体、起源地按现在的数据再生成一份配置，
+ * 这份记录是不是用现在的数据打的：拿记录里的种子、日期、病原体、起源地、章节按现在的数据再生成一份配置，
  * 看和记录里存的是不是一模一样。
  */
 export function matchesWorld({ config }: GameRecording): boolean {
   const pathogen = PATHOGENS.find((candidate) => candidate.id === config.pathogen?.id);
-  if (!pathogen) return false;
+  const chapter = CHAPTERS.find((candidate) => candidate.id === config.scenario?.id);
+  if (!pathogen || (config.scenario && !chapter)) return false;
   return (
     JSON.stringify(
-      createConfig(config.seed, config.startDate, { pathogen, origin: config.origin }),
+      createConfig(config.seed, config.startDate, { pathogen, origin: config.origin, chapter }),
     ) === JSON.stringify(config)
   );
 }

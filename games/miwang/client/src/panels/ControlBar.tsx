@@ -76,7 +76,8 @@ export const ControlBar = _component(
               onPress={() => map?.reset()}
             />
           </Stack>
-          {host && (!human || game.playback.value) && (
+          {/* 换边看另一方：对面是电脑时可以，回放时可以；章节里不行——一章是用选定的那一方打的 */}
+          {host && (game.playback.value || (!human && !game.view.value?.scenario)) && (
             <Segmented
               label={ui.role}
               value={game.player.value}

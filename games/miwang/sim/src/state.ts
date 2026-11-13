@@ -47,10 +47,13 @@ export interface Hop {
   readonly route: 'land' | 'air' | 'sea';
 }
 
-/** 胜负：calamity 死亡越过灾厄线（攻方赢）、eradicated 病原体被清除、timeout 守到了期限（后两种守方赢） */
+/**
+ * 胜负：calamity 死亡越过灾厄线（攻方赢）、eradicated 病原体被清除、timeout 守到了期限（后两种守方赢）；
+ * 剧本里是 goal 攻方做到了这一章的目标、held 守方守到了这一章的期限
+ */
 export interface Outcome {
   readonly winner: PlayerId;
-  readonly reason: 'calamity' | 'eradicated' | 'timeout';
+  readonly reason: 'calamity' | 'eradicated' | 'timeout' | 'goal' | 'held';
   readonly tick: number;
 }
 

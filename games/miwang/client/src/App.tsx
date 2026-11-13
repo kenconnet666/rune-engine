@@ -12,11 +12,17 @@
 import { Callout, colors, fonts, Note, Scroll, space } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import { CHAPTERS, type ChapterId } from '@miwang/content';
 import { onBeforeUnmount, onMounted, watchEffect } from 'vue';
+import { watchHints } from './chapters/hints.ts';
+import { markChapterPassed } from './chapters/progress.ts';
 import { placeName, useFormats, useUi } from './i18n.ts';
 import { createMapController, type MapController } from './map.ts';
 import { ControlBar } from './panels/ControlBar.tsx';
+import { GoalPanel } from './panels/GoalPanel.tsx';
+import { HintPanel } from './panels/HintPanel.tsx';
 import { MapOverlay } from './panels/MapOverlay.tsx';
+import { Chapters } from './screens/Chapters.tsx';
 import { Encyclopedia } from './screens/Encyclopedia.tsx';
 import { Joining } from './screens/Joining.tsx';
 import { Lobby } from './screens/Lobby.tsx';
@@ -95,11 +101,19 @@ export const App = _component(() => {
   let map = _state.raw<MapController | null>(null);
   let audio = _state.raw<GameAudio | null>(null);
   /**
-   * 盖在游戏上面的那一层现在是什么：主菜单、开局设置、联机大厅、存档、百科、设置、工作台（进化或研究，看这一方是谁），或者没有。
-   * 同一时间只有一个；联机、存档、百科和设置是从主菜单进去的，关掉回到主菜单。
+   * 盖在游戏上面的那一层现在是什么：主菜单、章节、开局设置、联机大厅、存档、百科、设置、工作台（进化或研究，看这一方是谁），或者没有。
+   * 同一时间只有一个；章节、联机、存档、百科和设置是从主菜单进去的，关掉回到主菜单。
    */
   let overlay = _state<
-    'menu' | 'setup' | 'lobby' | 'saves' | 'encyclopedia' | 'settings' | 'workbench' | null
+    | 'menu'
+    | 'chapters'
+    | 'setup'
+    | 'lobby'
+    | 'saves'
+    | 'encyclopedia'
+    | 'settings'
+    | 'workbench'
+    | null
   >(null);
   onMounted(() => {
     if (!canvas) return;
@@ -119,6 +133,22 @@ export const App = _component(() => {
     const url = new URL(location.href);
     url.search = '';
     location.href = url.href;
+  };
+
+  // 章节里的教学提示：到了该讲的时候讲一句
+  const hints = watchHints(() => game?.view.value ?? null);
+  // 章节打赢了记一笔（章节页上打勾）
+  watchEffect(() => {
+    const now = game?.view.value;
+    if (now?.scenario && now.outcome?.winner === now.player && !game?.playback.value) {
+      markChapterPassed(now.scenario.id as ChapterId, now.attacker);
+    }
+  });
+  /** 开一局（章节或者普通对局）：盖着的那一层收起来，地图上选中的清掉 */
+  const startGame = (setup: Parameters<GameSession['restart']>[0]) => {
+    overlay = null;
+    map?.select(-1);
+    game?.restart(setup);
   };
 
   // 声音跟着状态走：有新闻就响提示音，局势越紧音乐越急；在菜单里、暂停着的时候音乐停下
@@ -141,6 +171,9 @@ export const App = _component(() => {
     const pointer = map?.pointer.value ?? null;
     /** 正在回放：只能看，不能操作 */
     const watching = game?.playback.value != null;
+    /** 打的是章节的话，它后面的那一章（最后一章、普通对局没有） */
+    const chapterIndex = CHAPTERS.findIndex((chapter) => chapter.id === view?.scenario?.id);
+    const nextChapter = chapterIndex >= 0 ? CHAPTERS[chapterIndex + 1]?.id : undefined;
 
     /** 最下面那行小字：出错了说错误，否则说这一局的来历 */
     const note = (session: GameSession) => {
@@ -164,6 +197,10 @@ export const App = _component(() => {
         <div {...css.attrs(styles.layer)}>
           <Scroll sx={[styles.column, styles.left]}>
             <StatusPanel view={view} />
+            {view?.scenario && <GoalPanel view={view} />}
+            {hints.current.value && overlay === null && !watching && (
+              <HintPanel hint={hints.current.value} onDismiss={hints.dismiss} />
+            )}
             {view && (
               <div {...css.attrs(styles.extra)}>
                 <TrendPanel view={view} />
@@ -249,6 +286,16 @@ export const App = _component(() => {
           <Outcome
             view={view}
             onRestart={game?.role === 'host' ? () => (overlay = 'setup') : undefined}
+            onNextChapter={
+              game?.role === 'host' && nextChapter && view.outcome.winner === view.player
+                ? () => startGame({ chapter: nextChapter, player: view.player })
+                : undefined
+            }
+            onReplayChapter={
+              game?.role === 'host' && view.scenario
+                ? () => startGame({ chapter: view.scenario?.id as ChapterId, player: view.player })
+                : undefined
+            }
           />
         )}
         {game && overlay === 'menu' && (
@@ -259,6 +306,7 @@ export const App = _component(() => {
               game?.setPaused(false);
             }}
             guest={game.role === 'guest'}
+            onChapters={() => (overlay = 'chapters')}
             onNewGame={() => (overlay = 'setup')}
             onOnline={() => (overlay = 'lobby')}
             onSaves={() => (overlay = 'saves')}
@@ -266,6 +314,9 @@ export const App = _component(() => {
             onSettings={() => (overlay = 'settings')}
             onLeave={leaveRoom}
           />
+        )}
+        {overlay === 'chapters' && (
+          <Chapters onStart={startGame} onClose={() => (overlay = 'menu')} />
         )}
         {game && overlay === 'lobby' && <Lobby game={game} onClose={() => (overlay = 'menu')} />}
         {/* 客人还没接上主人的时候：说明现在卡在哪一步，进不去的话说原因 */}
@@ -278,11 +329,7 @@ export const App = _component(() => {
         {game && overlay === 'setup' && (
           <Setup
             game={game}
-            onStart={(setup) => {
-              overlay = null;
-              map?.select(-1);
-              game?.restart(setup);
-            }}
+            onStart={startGame}
             // 没开始就关掉：有一局在打就回主菜单，已经分出胜负的回到结算
             onClose={() => (overlay = view?.outcome ? null : 'menu')}
           />

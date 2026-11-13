@@ -1,9 +1,9 @@
 /** 一方能看到的部分：攻方看真实的感染，守方只看得到上报；对手的底牌要满足条件才看得到 */
 import { dateAtTick, dateFromText, dateToText, type PlayerId } from '@rune-engine/core';
-import type { PathogenStats } from './config.ts';
+import type { Goal, PathogenStats } from './config.ts';
 import { compliance, dailyBalance } from './rules/defense.ts';
 import { HISTORY_EVERY, type History } from './rules/history.ts';
-import { calamity } from './rules/outcome.ts';
+import { calamity, goalValue } from './rules/outcome.ts';
 import { canEvolve, pathogenStats, traitCost } from './rules/pathogen.ts';
 import { canResearch, defenseStats, vaccineReady } from './rules/research.ts';
 import {
@@ -106,6 +106,15 @@ export interface OutbreakView {
   /** 这一方看得到的新闻，旧的在前 */
   readonly news: readonly NewsItem[];
   readonly outcome: Outcome | null;
+  /**
+   * 这一局的剧本（章节）：目标、期限、各个目标现在到了多少。普通对局是 null。
+   * 攻方看到的进度是真实的；守方看到的是按上报算的（比真实的少），它还不知道的是 null。
+   */
+  readonly scenario: {
+    readonly id: string;
+    readonly days: number;
+    readonly goals: readonly (Goal & { readonly value: number | null })[];
+  } | null;
 }
 
 /** 多少天以内的“跳到新地区”算最近的 */
@@ -115,7 +124,7 @@ const NEWS_SHOWN = 30;
 
 export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
   const attacker = player === ATTACKER;
-  const { regions, traits, techs } = state.config;
+  const { regions, traits, techs, scenario } = state.config;
   const count = regions.length;
   const defense = defenseStats(state);
 
@@ -209,5 +218,15 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
     history: { every: HISTORY_EVERY, ...(attacker ? state.history : state.reportedHistory) },
     news: state.news.filter((item) => (item.audience & audience) !== 0).slice(-NEWS_SHOWN),
     outcome: state.outcome,
+    scenario: scenario
+      ? {
+          id: scenario.id,
+          days: scenario.days,
+          goals: scenario.goals.map((goal) => ({
+            ...goal,
+            value: goalValue(state, goal.metric, attacker, known),
+          })),
+        }
+      : null,
   };
 }

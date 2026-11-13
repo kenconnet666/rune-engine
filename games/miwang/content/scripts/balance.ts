@@ -5,6 +5,8 @@
  * 难度是 0、1、2；写 -1 表示这一方什么都不做（看另一方单独的效果）。
  * 想试某个规则数值时不用改代码：环境变量 RULES 里写要覆盖的项，比如 RULES='{"budgetPerDay":4}'。
  * 环境变量 PATHOGEN 选病原体档案（默认 novel）；写 all 就把每个档案各跑一遍、每个只打一行总结。
+ * 环境变量 CHAPTER 选章节（见 src/tables/chapters.ts）：按那一章的条件和目标打，用来定目标的数；
+ * 这时 GOALS 可以临时换目标，比如 GOALS='[{"metric":"regions","target":20}]'，DAYS 换期限。
  */
 import {
   ATTACKER,
@@ -13,17 +15,28 @@ import {
   outbreak,
   type AiLevel,
   type Command,
+  type Goal,
   type OutbreakView,
   type PathogenProfile,
   type Rules,
 } from '@miwang/sim';
 import { createConfig } from '../src/config.ts';
+import { CHAPTERS } from '../src/tables/chapters.ts';
 import { PATHOGENS } from '../src/tables/pathogens.ts';
 import { regionName } from '../src/world.ts';
 
 const [games = 20, attackerLevel = 1, defenderLevel = 1] = process.argv.slice(2).map(Number);
 const overrides = JSON.parse(process.env['RULES'] ?? '{}') as Partial<Rules>;
-const chosen = process.env['PATHOGEN'] ?? 'novel';
+const chapterId = process.env['CHAPTER'];
+const listed = CHAPTERS.find((candidate) => candidate.id === chapterId);
+if (chapterId && !listed) throw new Error(`没有叫 ${chapterId} 的章节`);
+/** 打的是哪一章（目标、期限可以临时换） */
+const chapter = listed && {
+  ...listed,
+  goals: process.env['GOALS'] ? (JSON.parse(process.env['GOALS']) as Goal[]) : listed.goals,
+  days: Number(process.env['DAYS'] ?? listed.days),
+};
+const chosen = process.env['PATHOGEN'] ?? chapter?.pathogen ?? 'novel';
 const pathogens = chosen === 'all' ? PATHOGENS : PATHOGENS.filter((p) => p.id === chosen);
 if (pathogens.length === 0) throw new Error(`没有叫 ${chosen} 的病原体档案`);
 
@@ -40,10 +53,12 @@ interface Result {
   techs: number;
   trust: number;
   vaccineDay: number;
+  /** 章节的各个目标最后到了多少（普通对局是空的） */
+  goals: string;
 }
 
 function play(seed: number, pathogen: PathogenProfile): Result {
-  const base = createConfig(seed, '2026-01-01', { pathogen });
+  const base = createConfig(seed, '2026-01-01', { pathogen, chapter });
   const config = { ...base, rules: { ...base.rules, ...overrides } };
   const state = outbreak.create(config);
   let attacker: OutbreakView = outbreak.observe(state, ATTACKER);
@@ -77,6 +92,9 @@ function play(seed: number, pathogen: PathogenProfile): Result {
     techs: attacker.defense.done.length,
     trust: attacker.defense.trust,
     vaccineDay,
+    goals: (attacker.scenario?.goals ?? [])
+      .map((goal) => `${goal.metric} ${goal.value}/${goal.target}`)
+      .join('，'),
   };
 }
 
@@ -93,7 +111,7 @@ for (const pathogen of pathogens) {
         `${String(r.seed).padStart(6)} ${r.origin.padEnd(8, '　')} ${r.winner} ${r.reason.padEnd(10)} ` +
           `${String(r.days).padStart(4)} 天  感染 ${compact.format(r.infected).padStart(7)}  死亡 ${compact.format(r.deaths).padStart(7)}  ` +
           `地区 ${String(r.regions).padStart(3)}  性状 ${String(r.traits).padStart(2)}  科技 ${String(r.techs).padStart(2)}  ` +
-          `信任 ${r.trust.toFixed(2)}  接种始于 ${r.vaccineDay}`,
+          `信任 ${r.trust.toFixed(2)}  接种始于 ${r.vaccineDay}${r.goals && `  目标 ${r.goals}`}`,
       );
     }
     console.log('');
@@ -103,8 +121,8 @@ for (const pathogen of pathogens) {
     results.reduce((sum, r) => sum + pick(r), 0) / results.length;
   const count = (reason: string) => results.filter((r) => r.reason === reason).length;
   console.log(
-    `${pathogen.id.padEnd(13)} ${games} 局（攻 ${attackerLevel} 守 ${defenderLevel}）：攻方赢 ${String(wins).padStart(2)} 局（${((wins / games) * 100).toFixed(0).padStart(3)}%）；` +
-      `灾厄 ${count('calamity')}、清除 ${count('eradicated')}、守到期限 ${count('timeout')}；` +
+    `${(chapter ? `${chapter.id}/` : '') + pathogen.id.padEnd(13)} ${games} 局（攻 ${attackerLevel} 守 ${defenderLevel}）：攻方赢 ${String(wins).padStart(2)} 局（${((wins / games) * 100).toFixed(0).padStart(3)}%）；` +
+      `灾厄 ${count('calamity')}、达成目标 ${count('goal')}、清除 ${count('eradicated')}、守到期限 ${count('timeout') + count('held')}；` +
       `平均 ${average((r) => r.days).toFixed(0)} 天，感染 ${compact.format(average((r) => r.infected))}，死亡 ${compact.format(average((r) => r.deaths))}；` +
       `用时 ${(elapsed / 1000).toFixed(1)} 秒`,
   );

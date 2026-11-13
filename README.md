@@ -48,6 +48,7 @@ pnpm dev          # 《迷惘》的开发服务器：http://localhost:5180
 pnpm online       # 同上，再加本地的服务端（联机、云存档；wrangler 在本机模拟 Cloudflare，听 8787）
 pnpm check        # 格式、lint、边界、类型、测试
 pnpm smoke        # 无界面的 Chrome 里把游戏从头点一遍（先把游戏起起来）
+pnpm smoke:chapters # 章节：目标、提示、打到分出胜负、下一章
 pnpm smoke:online # 两个页面一主一客，把联机走一遍
 pnpm smoke:cloud  # 两台“设备”把云存档走一遍（要带服务端）
 ```
@@ -63,6 +64,13 @@ pnpm smoke:cloud  # 两台“设备”把云存档走一遍（要带服务端）
 
 拖动平移；滚轮、触控板或双指捏合以指针为中心缩放；方向键、`+`、`-`、`0` 也行。
 指针停在一个地区上显示它的名字，点一下选中、右侧出现详情和这一方能对它做的事；点海面取消选中。
+
+## 章节
+
+主菜单 → 章节。诗的五句各是一章（迷惘、邪念、旷野、山丘、长空），每章是限定了条件和目标的一局，也是教学的顺序：
+攻方要在期限内做到这一章的目标，守方要拦到期限；每章都可以选扮演哪一方。打的时候左边有目标和进度，
+到了该讲的时候会冒出一句提示。各章的条件和目标在 `games/miwang/content/src/tables/chapters.ts`，
+数是用 `CHAPTER=<id> node games/miwang/content/scripts/balance.ts` 让电脑对打定的。
 
 ## 两个人玩
 

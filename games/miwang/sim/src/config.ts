@@ -309,6 +309,40 @@ export interface Rules {
   readonly complianceFloor: number;
 }
 
+/** 富裕程度最高的那一档（地区的 wealth 是 0–3） */
+export const WEALTHIEST = 3;
+
+/** 剧本里攻方要做到的一件事，按哪个数算 */
+export type GoalMetric =
+  /** 累计感染过的人次 */
+  | 'infected'
+  /** 出现过感染的地区数 */
+  | 'regions'
+  /** 出现过感染的最富裕地区数（WEALTHIEST 那一档） */
+  | 'wealthy'
+  /** 换到的性状数 */
+  | 'traits'
+  /** 累计死亡 */
+  | 'deaths';
+
+export interface Goal {
+  readonly metric: GoalMetric;
+  readonly target: number;
+}
+
+/**
+ * 剧本（章节）：给这一局另定胜负——攻方在期限内把几件事全做到就赢，到期没做到算守方守住了；
+ * 病原体被清除照旧是守方赢。一件事都没列的剧本按普通对局的灾厄线分胜负，只是期限换成剧本的。
+ * 没有剧本的就是普通对局。
+ */
+export interface Scenario {
+  /** 哪个剧本（界面按它找名字和引导的文字） */
+  readonly id: string;
+  readonly goals: readonly Goal[];
+  /** 期限（天） */
+  readonly days: number;
+}
+
 export interface OutbreakConfig {
   readonly seed: number;
   /** 这一局从哪天开始（'YYYY-MM-DD'）；一步是一天 */
@@ -321,4 +355,5 @@ export interface OutbreakConfig {
   readonly techs: readonly TechDef[];
   readonly events: readonly EventDef[];
   readonly rules: Rules;
+  readonly scenario?: Scenario;
 }

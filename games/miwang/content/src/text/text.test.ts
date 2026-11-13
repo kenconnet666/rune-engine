@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { CHAPTER_IDS, CHAPTERS } from '../tables/chapters.ts';
 import { EVENTS } from '../tables/events.ts';
 import { PATHOGENS, SOURCES } from '../tables/pathogens.ts';
 import { TECHS } from '../tables/techs.ts';
@@ -14,6 +15,7 @@ describe('内容的文案', () => {
       expect(Object.keys(text.techs).sort()).toEqual(ids(TECHS));
       expect(Object.keys(text.events).sort()).toEqual(ids(EVENTS));
       expect(Object.keys(text.pathogens).sort()).toEqual(ids(PATHOGENS));
+      expect(Object.keys(text.chapters).sort()).toEqual([...CHAPTER_IDS].sort());
       for (const group of [text.traits, text.techs, text.events, text.measures]) {
         for (const label of Object.values(group)) {
           expect(label.name.length).toBeGreaterThan(0);
@@ -59,6 +61,17 @@ describe('病原体档案', () => {
       expect(CONTENT_TEXT.en.pathogens[pathogen.id]?.facts.length, pathogen.id).toBe(
         CONTENT_TEXT.zh.pathogens[pathogen.id]?.facts.length,
       );
+    }
+  });
+});
+
+describe('章节', () => {
+  it('五章都在，按诗的顺序；用到的病原体档案都有', () => {
+    expect(CHAPTERS.map((chapter) => chapter.id)).toEqual([...CHAPTER_IDS]);
+    const pathogens = new Set(ids(PATHOGENS));
+    for (const chapter of CHAPTERS) {
+      expect(pathogens.has(chapter.pathogen), chapter.id).toBe(true);
+      expect(chapter.days).toBeGreaterThan(0);
     }
   });
 });

@@ -38,7 +38,7 @@ jobs:
       - run: pnpm test
 
   # 冒烟测试：把游戏构建出来，在无界面的 Chrome 里从头点一遍（主菜单、设置、百科、开局、进化、换边、选地区、存档回放），
-  # 再开两个页面一主一客把联机走一遍、当两台设备把云存档走一遍。运行器上没有显卡，WebGPU 用软件实现的那个。
+  # 打一遍章节，再开两个页面一主一客把联机走一遍、当两台设备把云存档走一遍。运行器上没有显卡，WebGPU 用软件实现的那个。
   # 构建两份：默认的那份没有服务端（房间只在同一个浏览器里通）；带服务端的那份照部署出去的形态起
   # （本机的 Workers 运行环境里，一个地址既是页面也是接口）
   smoke:
@@ -62,6 +62,7 @@ jobs:
           pnpm --filter @miwang/client exec vite preview --port 4173 --strictPort &
           for attempt in $(seq 1 30); do curl -sf http://localhost:4173/ > /dev/null && break; sleep 1; done
           pnpm smoke http://localhost:4173 --software
+          pnpm smoke:chapters http://localhost:4173 --software
           pnpm smoke:online http://localhost:4173 --software
           # 再照部署的形态起带服务端的那份：联机先试直连、再只走中转，然后是云存档
           pnpm --filter @miwang/server preview &

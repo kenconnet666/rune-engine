@@ -49,3 +49,18 @@ export function assertNoErrors(pages) {
     );
   }
 }
+
+/**
+ * 点打开着的对话框里文字以 text 开头的那个按钮。
+ * 对话框后面的画面上常有同名的按钮（“守方”），page.clickButton 会先碰到后面那个。
+ */
+export async function clickInDialog(page, text) {
+  const clicked = await page.evaluate(`(() => {
+    const button = [...document.querySelectorAll('dialog[open] button')].find(
+      (candidate) => candidate.textContent.trim().startsWith(${JSON.stringify(text)}),
+    );
+    button?.click();
+    return Boolean(button);
+  })()`);
+  if (!clicked) throw new Error(`对话框里没有“${text}”这个按钮`);
+}

@@ -198,6 +198,7 @@ export const en: ClientText = {
     about: 'A strategy game about how infectious diseases spread, and how they are stopped.',
     resume: 'Continue this game',
     newGame: 'New game',
+    chapters: 'Chapters',
     online: 'Play together',
     saves: 'Saves and replays',
     encyclopedia: 'Encyclopedia',
@@ -309,6 +310,79 @@ export const en: ClientText = {
     sources: 'Sources',
     note: "The game's numbers follow the character of the real disease; they are not its real parameters.",
     start: 'Start',
+  },
+
+  chapters: {
+    title: 'Chapters',
+    number: (n) => `Chapter ${n}`,
+    passedAttacker: 'Pathogen ✓',
+    passedDefender: 'Response ✓',
+    task: 'Your task',
+    attackerGoal: 'Do all of this before the deadline:',
+    defenderGoal: 'Hold to the deadline; do not let the opponent do this:',
+    deadline: (days) => `within ${days} days`,
+    lessons: 'What this chapter teaches',
+    start: 'Start this chapter',
+    standard:
+      'Decided by the calamity line: the pathogen wins when total deaths reach it; eradicating it or holding to the end wins for the response.',
+    goals: {
+      infected: (target) => `${target} people infected in total`,
+      regions: (target) => `Infection in ${target} regions`,
+      wealthy: (target) => `Infection in ${target} high-income regions`,
+      traits: (target) => `${target} traits acquired`,
+      deaths: (target) => `${target} deaths in total`,
+    },
+    daysLeft: (days) => `${days} days left`,
+    reportedNote: 'Progress here is counted from reports; the true numbers are never lower.',
+    unknown: 'Unknown',
+    passed: (name) => `Chapter “${name}” passed.`,
+    failed: (name) => `Chapter “${name}” not passed.`,
+    next: 'Next chapter',
+    again: 'Play this chapter again',
+  },
+
+  hints: {
+    title: 'Guide',
+    dismiss: 'Got it',
+    items: {
+      goal: "This panel on the left is the chapter's goal: what to do, how far along it is, and how many days are left.",
+      time: 'Time is at the bottom: pause, 1×, 3×, 10×. Nothing happens while time is paused; your decisions take effect the next day.',
+      map: 'Drag to pan and scroll to zoom; click a region to see its details on the right. Brighter means more infection.',
+      latency:
+        'People in the incubation period are not yet ill and the other side cannot see them; even the ill are only partly reported. The response moves once reported cases pile up.',
+      spread:
+        'It reached a new region: the arc lighting up on the map is the path it just took. Land routes only reach neighbours.',
+      countered:
+        'The response has started taking measures (the small icons on regions). Measures cut transmission there and cost the other side budget.',
+      firstReport:
+        'A region has reported cases. Click it and turn on “More testing” and “Isolate cases” on the right: the earlier and the more you find, the more isolation helps. Reports are the tip of the iceberg.',
+      budget:
+        'The budget is running dry. Every measure has a daily upkeep and works less well when you cannot pay: turn off the least useful, or wait for income.',
+      points:
+        'You have enough mutation points for a trait: open “Evolve” on the right. Routes spread it further, symptoms make it harsher (and easier to notice), abilities make it harder to deal with.',
+      tradeoff:
+        'Each trait makes the next cost more. Harsher symptoms are noticed sooner: spread first, or hit harder first?',
+      research:
+        'Open “Plan research” on the right. Do “Identify the pathogen” first: only then can you see what it is and which traits it has taken.',
+      identified:
+        'Identification is done: the “Pathogen” panel on the right now shows what it is and every mutation.',
+      terrain:
+        'Regions differ: click one to see its climate, density and wealth. Dense places spread droplets fast; wealthy places have strong care and early detection.',
+      borders:
+        'It is walking along land routes. See where it goes next and close that land border **before** it arrives; that is cheaper than sealing it afterwards.',
+      trust:
+        'Public trust is falling. Long lockdowns wear it down, and so do deaths; with low trust every measure works less well.',
+      defended:
+        'Wealthy regions have strong care and fast detection, and act at the first sign. Stealth delays detection; resistance abilities let it withstand what they use.',
+      economy:
+        'Lockdowns, grounded flights and closed ports all cut the budget a region pays in. Economic loss shows in the final tally: defences have a price.',
+      routes:
+        'Flights and shipping are open in this chapter: infection jumps across oceans along them. Select a region to see where it connects; grounding flights and closing ports cut those links.',
+      vaccine:
+        'The pathogen is identified, so vaccine work can begin: three steps, and the sooner the better. Once it rolls out, the susceptible become immune in batches.',
+      calamity:
+        'The calamity line is past thirty percent. When total deaths reach it, the pathogen wins.',
+    },
   },
 
   outcome: {

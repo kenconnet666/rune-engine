@@ -2,7 +2,7 @@
  * 一局游戏在主线程这头的样子（GameSession），和主人、客人两种身份共用的那一半：
  * 界面看的那些状态、渲染线程、连着主机的那条会话。两种身份各自的那一半见 host.ts、guest.ts。
  */
-import { regions } from '@miwang/content';
+import { regions, type ChapterId } from '@miwang/content';
 import detailUrl from '@miwang/content/generated/world-mesh-detail.bin?url';
 import meshUrl from '@miwang/content/generated/world-mesh.bin?url';
 import { ATTACKER, DEFENDER, type AiLevel, type Command, type OutbreakView } from '@miwang/sim';
@@ -77,6 +77,8 @@ export interface GameSession {
 
 /** 开一局时可以选的东西；没写的沿用现在的 */
 export interface GameSetup {
+  /** 打哪一章；不写是普通对局（章节自己定了用哪种病原体） */
+  readonly chapter?: ChapterId;
   /** 病原体档案的 id */
   readonly pathogen?: string;
   readonly player?: PlayerId;

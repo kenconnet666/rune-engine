@@ -1,5 +1,5 @@
 /** 结算：分出胜负之后盖在地图中间 */
-import { regions } from '@miwang/content';
+import { regions, type ChapterId } from '@miwang/content';
 import type { OutbreakView } from '@miwang/sim';
 import {
   ActionButton,
@@ -9,12 +9,13 @@ import {
   fonts,
   Frame,
   Icon,
+  Note,
   space,
   Stack,
 } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { RotateCcw, Skull, Trophy } from 'lucide';
+import { ArrowRight, RotateCcw, Skull, Trophy } from 'lucide';
 import { useContent, useFormats, useUi } from '../i18n.ts';
 
 const styles = css.create({
@@ -39,7 +40,20 @@ const styles = css.create({
 });
 
 export const Outcome = _component(
-  ({ view, onRestart }: { view: OutbreakView; onRestart?: () => void }) =>
+  ({
+    view,
+    onRestart,
+    onNextChapter,
+    onReplayChapter,
+  }: {
+    view: OutbreakView;
+    /** 新开一局（只有主人能开） */
+    onRestart?: () => void;
+    /** 打的是章节、通过了、后面还有一章：去下一章 */
+    onNextChapter?: () => void;
+    /** 打的是章节：再打一次 */
+    onReplayChapter?: () => void;
+  }) =>
     () => {
       const { outcome } = view;
       if (!outcome) return null;
@@ -48,6 +62,8 @@ export const Outcome = _component(
       const content = useContent();
       const format = useFormats();
       const won = outcome.winner === view.player;
+      const chapters = all.chapters;
+      const chapter = view.scenario ? content.chapters[view.scenario.id as ChapterId] : null;
       return (
         <div {...css.attrs(styles.root)}>
           <Frame title={ui.title(outcome.tick)} sx={styles.panel}>
@@ -56,6 +72,11 @@ export const Outcome = _component(
               {won ? ui.won : ui.lost}
             </span>
             <span>{content.outcomes[outcome.reason]}</span>
+            {chapter && (
+              <Note tone={won ? 'signal' : 'muted'}>
+                {(won ? chapters.passed : chapters.failed)(chapter.name)}
+              </Note>
+            )}
             {/* 整局的经过：累计感染、当时的病例、累计死亡 */}
             <Chart
               series={[
@@ -92,6 +113,16 @@ export const Outcome = _component(
               <Fact label={ui.trust} value={format.percent(view.defense.trust)} />
               <Fact label={ui.economy} value={format.amount(view.defense.economyLost)} />
             </Stack>
+            {onNextChapter && (
+              <ActionButton icon={ArrowRight} active onPress={onNextChapter}>
+                {chapters.next}
+              </ActionButton>
+            )}
+            {onReplayChapter && (
+              <ActionButton icon={RotateCcw} onPress={onReplayChapter}>
+                {chapters.again}
+              </ActionButton>
+            )}
             {onRestart && (
               <ActionButton icon={RotateCcw} onPress={onRestart}>
                 {ui.restart}
