@@ -19,7 +19,6 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -76,10 +75,15 @@ function archive(paths) {
   return out;
 }
 
+/**
+ * 一个目录下面所有的文件。不进 node_modules、不跟着链接走：装好的依赖是链接到别的包和 pnpm 的仓库里的，
+ * 跟进去就会改到不该改的文件（头一版就这样把别的包的说明文件改了）
+ */
 function* files(dir) {
-  for (const name of readdirSync(dir)) {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) yield* files(path);
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isSymbolicLink() || entry.name === 'node_modules') continue;
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) yield* files(path);
     else yield path;
   }
 }
