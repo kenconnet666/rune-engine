@@ -13,7 +13,8 @@ import {
   type MeasureLevel,
 } from '@miwang/sim';
 
-const reference = createConfig(0, '2000-01-01');
+// 不带世界条件：条件只改界面不直接显示的数，这里要的是默认规则
+const reference = createConfig(0, '2000-01-01', { conditions: [] });
 
 /** 规则里的数值（界面上写“全力的几成”“发布会要多少预算”时用） */
 export const RULES = reference.rules;

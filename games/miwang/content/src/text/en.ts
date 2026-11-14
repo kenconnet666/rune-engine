@@ -182,6 +182,51 @@ export const en: ContentText = {
     mutation: label('Spontaneous mutation', 'The pathogen gains extra mutation points.'),
   },
 
+  conditions: {
+    busySkies: label('Busy skies', 'A good year for airlines: air travel is up by a third.'),
+    tightBudget: label(
+      'Austerity',
+      'Budgets are tight everywhere: the response earns almost a fifth less each day.',
+    ),
+    shakenTrust: label(
+      'Aftershocks',
+      'The last scandal has barely passed: public trust starts low.',
+    ),
+    harshSeasons: label(
+      'Harsh seasons',
+      'A year of extremes: the seasons matter more for airborne spread.',
+    ),
+    wearyPublic: label(
+      'Restless public',
+      'People are tired of rules: lockdowns cost more trust and protests come sooner.',
+    ),
+    restlessGenome: label(
+      'Restless genome',
+      'This pathogen changes fast: mutation points build up more quickly on their own.',
+    ),
+    quietSkies: label(
+      'Quiet skies',
+      'A slow year for airlines: air travel is down by almost a third.',
+    ),
+    generousDonors: label(
+      'Donors deliver',
+      'International funding has arrived: the response starts with a larger budget.',
+    ),
+    trustedVoices: label(
+      'Trusted voices',
+      'People trust the health authorities: trust starts high and recovers faster.',
+    ),
+    watchfulClinics: label(
+      'Watchful clinics',
+      'Local clinics are alert: the first cluster is recognised at half the size.',
+    ),
+    extraTeam: label('Reserve team', 'One more response team is available.'),
+    mildSeasons: label(
+      'Mild seasons',
+      'A gentle year: the seasons matter half as much for airborne spread.',
+    ),
+  },
+
   calendar: {
     homecoming: label(
       'New-year homecoming',

@@ -8,6 +8,7 @@
 export { createConfig, type ConfigOptions } from './config.ts';
 export { CALENDAR } from './tables/calendar.ts';
 export { CHAPTER_IDS, CHAPTERS, type ChapterDef, type ChapterId } from './tables/chapters.ts';
+export { CONDITIONS, drawConditions, type ConditionDef } from './tables/conditions.ts';
 export { CREDITS, type Credit, type CreditId, type CreditSection } from './tables/credits.ts';
 export { DECISIONS } from './tables/decisions.ts';
 export { EVENTS } from './tables/events.ts';

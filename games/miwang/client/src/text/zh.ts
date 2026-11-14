@@ -143,6 +143,12 @@ export const zh = {
     taskFailed: (name: string) => `任务没做到：${name}`,
   },
 
+  conditions: {
+    title: '这一局的世界',
+    good: '对你有利',
+    bad: '对你不利',
+  },
+
   calendar: {
     title: '日程',
     startsIn: (days: number) => `还有 ${days} 天`,
@@ -371,6 +377,17 @@ export const zh = {
     hostAway: '和主人的连接断了，正在重连…',
     level: '电脑的难度',
     levels: ['简单', '普通', '困难'],
+    /** 电脑这一局的性格：叫什么、是个什么打法 */
+    style: (name: string, manner: string) => `这一局的路数：${name}——${manner}`,
+    styles: {
+      steady: { name: '按部就班', manner: '没有特别的偏向' },
+      swift: { name: '快攻', manner: '全力铺开，早早转去致命' },
+      lurker: { name: '潜伏', manner: '看重隐蔽，铺得很开才动手' },
+      lethal: { name: '凶猛', manner: '很早就往致命走' },
+      cautious: { name: '谨慎', manner: '病例还很少就设防，手里多留钱' },
+      scientist: { name: '重科研', manner: '钱先给研究，设防来得晚' },
+      frugal: { name: '惜经济', manner: '能不封锁就不封锁' },
+    },
     online: '联机',
     handOver: '让电脑接手',
   },
@@ -561,6 +578,9 @@ export const zh = {
     pathogen: '病原体',
     side: '你扮演',
     level: '电脑对手的难度',
+    conditions: '世界条件',
+    conditionsOn: '随机两条',
+    conditionsOff: '没有',
     facts: '关于它的原型',
     play: '在这局游戏里',
     sources: '资料来源',

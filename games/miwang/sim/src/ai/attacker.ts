@@ -3,11 +3,12 @@
  * 感染面还小的时候买传播和隐蔽（太早致命会被发现、病人也走不远），铺开之后（或者疫苗快出来了）转去买致死性。
  * 技能是手头宽裕时用的：激增放在病例最多的地方；困难档还会外溢到没到过的大地区，
  * 在守方开始到处设防、自己还没铺开的时候蛰伏。
+ * 性格（见 shared.ts）在这条思路上偏一偏：什么时候转去致命、看重传播还是隐蔽、技能用得勤不勤。
  */
 import type { Command } from '../commands.ts';
 import { EFFECT_KEYS, type EffectKey, type OutbreakConfig, type TraitDef } from '../config.ts';
 import type { Offer, OutbreakView } from '../view.ts';
-import { noise, type AiLevel } from './shared.ts';
+import { noise, type AiLevel, type AttackStyle } from './shared.ts';
 
 type Weights = Readonly<Record<EffectKey, number>>;
 
@@ -55,6 +56,39 @@ const LEVELS = [
   { every: 2, reserve: 0, random: 0, killAt: 0.35 },
 ] as const;
 
+/**
+ * 各种性格怎么偏：
+ *   harvest  转去收割的那条线乘几（小于 1 是早收割）
+ *   routes   铺开阶段各条传播途径的看重程度乘几
+ *   stealth  铺开阶段隐蔽、潜伏期传人的看重程度乘几
+ *   surgeAt  病例到多少就舍得用激增
+ *   veilAt   守方在几个地区设了防就考虑蛰伏
+ */
+const STYLES: Readonly<
+  Record<
+    AttackStyle,
+    { harvest: number; routes: number; stealth: number; surgeAt: number; veilAt: number }
+  >
+> = {
+  steady: { harvest: 1, routes: 1, stealth: 1, surgeAt: 200, veilAt: 3 },
+  swift: { harvest: 0.7, routes: 1.3, stealth: 0.6, surgeAt: 60, veilAt: 6 },
+  lurker: { harvest: 1.3, routes: 0.9, stealth: 3, surgeAt: 400, veilAt: 1 },
+  lethal: { harvest: 0.4, routes: 1, stealth: 0.8, surgeAt: 200, veilAt: 3 },
+};
+
+const ROUTE_KEYS: readonly EffectKey[] = ['air', 'contact', 'water', 'vector', 'blood'];
+const STEALTH_KEYS: readonly EffectKey[] = ['stealth', 'presymptomatic'];
+
+/** 这种性格在铺开阶段的权重 */
+function spreadWeights(style: AttackStyle): Weights {
+  const { routes, stealth } = STYLES[style];
+  if (routes === 1 && stealth === 1) return SPREAD;
+  const weights: Record<EffectKey, number> = { ...SPREAD };
+  for (const key of ROUTE_KEYS) weights[key] *= routes;
+  for (const key of STEALTH_KEYS) weights[key] *= stealth;
+  return weights;
+}
+
 /** 最想要的性状比手里能花的贵到这个倍数以上，就不等它了 */
 const WAIT_WITHIN = 2;
 
@@ -71,9 +105,11 @@ function skill(
   view: OutbreakView,
   config: OutbreakConfig,
   level: AiLevel,
+  style: AttackStyle,
   spreading: boolean,
   saving: number,
 ): Command[] {
+  const { surgeAt, veilAt } = STYLES[style];
   const ready = (kind: string) => {
     const def = config.skills.find((candidate) => candidate.kind === kind);
     const state = view.pathogen.skills.find((candidate) => candidate.id === def?.id);
@@ -93,7 +129,7 @@ function skill(
   };
 
   const surge = ready('surge');
-  if (surge && view.totals.cases > 200) {
+  if (surge && view.totals.cases > surgeAt) {
     const region = top((r) => view.cases[r]!);
     if (region >= 0) return [{ type: 'skill', skill: surge.id, region }];
   }
@@ -113,7 +149,7 @@ function skill(
     let weighted = 0;
     for (let r = 0; r < view.cases.length; r++) weighted += view.cases[r]! * view.reproduction[r]!;
     const reproduction = view.totals.cases > 0 ? weighted / view.totals.cases : 0;
-    if (guarded >= 3 && reproduction >= VEIL_REPRODUCTION) {
+    if (guarded >= veilAt && reproduction >= VEIL_REPRODUCTION) {
       return [{ type: 'skill', skill: veil.id }];
     }
   }
@@ -127,19 +163,24 @@ function worth(trait: TraitDef, weights: Weights): number {
 }
 
 /** 是不是该从“铺开”转到“收割”了 */
-function harvesting(view: OutbreakView, config: OutbreakConfig, level: AiLevel): boolean {
+function harvesting(
+  view: OutbreakView,
+  config: OutbreakConfig,
+  level: AiLevel,
+  style: AttackStyle,
+): boolean {
   const world = view.totals.population + view.totals.deaths;
   const infectedShare = world > 0 ? view.totals.infected / world : 0;
   // 疫苗做到第二步，或者拖得太久，就不能再等了
   const vaccineSteps = view.defense.done.filter(
     (id) => config.techs.find((tech) => tech.id === id)?.effects.vaccine,
   ).length;
-  return infectedShare >= LEVELS[level].killAt || vaccineSteps >= 2 || view.tick > 420;
+  const line = LEVELS[level].killAt * STYLES[style].harvest;
+  return infectedShare >= line || vaccineSteps >= 2 || view.tick > 420;
 }
 
 /** offers 里最想要的性状（值不值按这个阶段的权重算，再除以价钱）；没有值得要的是 undefined */
-function wanted(offers: readonly Offer[], config: OutbreakConfig, killing: boolean) {
-  const weights = killing ? KILL : SPREAD;
+function wanted(offers: readonly Offer[], config: OutbreakConfig, weights: Weights) {
   let best: { id: string; cost: number; score: number } | undefined;
   for (const offer of offers) {
     const trait = config.traits.find((candidate) => candidate.id === offer.id);
@@ -150,10 +191,16 @@ function wanted(offers: readonly Offer[], config: OutbreakConfig, killing: boole
   return best && best.score > 0 ? best : undefined;
 }
 
-export function attack(view: OutbreakView, config: OutbreakConfig, level: AiLevel): Command[] {
+export function attack(
+  view: OutbreakView,
+  config: OutbreakConfig,
+  level: AiLevel,
+  style: AttackStyle = 'steady',
+): Command[] {
   const { every, reserve, random } = LEVELS[level];
   if (view.tick % every !== 0) return [];
-  const killing = harvesting(view, config, level);
+  const killing = harvesting(view, config, level, style);
+  const weights = killing ? KILL : spreadWeights(style);
   const spendable = view.resource * (1 - reserve);
   const affordable = view.pathogen.offers.filter((offer) => offer.cost <= spendable);
 
@@ -163,9 +210,9 @@ export function attack(view: OutbreakView, config: OutbreakConfig, level: AiLeve
   }
   // 最想要的那个差一点就买得起：攒着，不退而求其次。还差得远（手里连一半都没有）就先买个买得起、
   // 也值得要的——传得慢的病原体点数来得也慢，干等会把整局等过去
-  const want = wanted(view.pathogen.offers, config, killing);
+  const want = wanted(view.pathogen.offers, config, weights);
   const next =
-    want && want.cost > spendable * WAIT_WITHIN ? wanted(affordable, config, killing) : want;
+    want && want.cost > spendable * WAIT_WITHIN ? wanted(affordable, config, weights) : want;
   if (next && next.cost <= spendable) return [{ type: 'evolve', trait: next.id }];
-  return skill(view, config, level, !killing, want?.cost ?? 0);
+  return skill(view, config, level, style, !killing, want?.cost ?? 0);
 }

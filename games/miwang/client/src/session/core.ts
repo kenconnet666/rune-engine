@@ -86,6 +86,8 @@ export interface GameSetup {
   readonly pathogen?: string;
   readonly player?: PlayerId;
   readonly level?: AiLevel;
+  /** 不要世界条件（普通对局默认按种子抽两条） */
+  readonly plain?: boolean;
 }
 
 export interface RenderLink {

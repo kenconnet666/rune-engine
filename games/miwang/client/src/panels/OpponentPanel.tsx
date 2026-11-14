@@ -2,7 +2,7 @@
  * 对手：电脑（可以调难度）或者另一位玩家（房间号、消息走的哪条路、对方在不在）。
  * 开房间、邀请、选边都在联机大厅里做，这里只给入口和现在的状态。
  */
-import type { AiLevel } from '@miwang/sim';
+import { aiStyle, ATTACKER, type AiLevel } from '@miwang/sim';
 import { ActionButton, Frame, Note, Segmented } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { Bot, Users } from 'lucide';
@@ -19,6 +19,9 @@ export const OpponentPanel = _component(
       const room = game.room.value;
       /** 另一位玩家现在连不上 */
       const away = human && room?.state !== 'joined';
+      // 电脑这一局的性格：由这一局的种子和它扮演哪一方定（和主机线程里用的是同一个函数）
+      const seed = game.recording()?.config.seed;
+      const style = seed === undefined ? undefined : aiStyle(seed, game.player.value !== ATTACKER);
       return (
         <Frame icon={human ? Users : Bot} title={human ? ui.human : ui.ai}>
           {human && room && !away && <Note>{ui.room(room.code, all.lobby.paths[room.path])}</Note>}
@@ -35,6 +38,11 @@ export const OpponentPanel = _component(
               options={ui.levels.map((label, value) => ({ value, label }))}
               onChange={(value) => game.setAiLevel(Number(value) as AiLevel)}
             />
+          )}
+          {host && !human && style && (
+            <Note data-ai-style={style}>
+              {ui.style(ui.styles[style].name, ui.styles[style].manner)}
+            </Note>
           )}
           {host && !human && room && room.state !== 'closed' && (
             <Note>{ui.waiting(room.code)}</Note>

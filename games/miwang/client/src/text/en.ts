@@ -155,6 +155,12 @@ export const en: ClientText = {
     taskFailed: (name) => `Objective missed: ${name}`,
   },
 
+  conditions: {
+    title: 'This world',
+    good: 'in your favour',
+    bad: 'against you',
+  },
+
   calendar: {
     title: 'Calendar',
     startsIn: (days) => `in ${days} days`,
@@ -391,6 +397,16 @@ export const en: ClientText = {
     hostAway: 'Lost the connection to the host; reconnecting…',
     level: 'Computer difficulty',
     levels: ['Easy', 'Normal', 'Hard'],
+    style: (name, manner) => `Its approach this game: ${name} — ${manner}`,
+    styles: {
+      steady: { name: 'Methodical', manner: 'no particular leaning' },
+      swift: { name: 'Blitz', manner: 'spreads flat out and turns deadly early' },
+      lurker: { name: 'Lurker', manner: 'values stealth and waits until it is everywhere' },
+      lethal: { name: 'Savage', manner: 'turns deadly very early' },
+      cautious: { name: 'Cautious', manner: 'acts on a handful of cases and keeps money in hand' },
+      scientist: { name: 'Research first', manner: 'funds research first and acts late' },
+      frugal: { name: 'Thrifty', manner: 'avoids lockdowns whenever it can' },
+    },
     online: 'Play together',
     handOver: 'Let the computer take over',
   },
@@ -594,6 +610,9 @@ export const en: ClientText = {
     pathogen: 'Pathogen',
     side: 'You play',
     level: 'Computer difficulty',
+    conditions: 'World conditions',
+    conditionsOn: 'Two at random',
+    conditionsOff: 'None',
     facts: 'About the real disease',
     play: 'In this game',
     sources: 'Sources',

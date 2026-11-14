@@ -56,6 +56,8 @@ export interface ContentText {
   readonly techs: Readonly<Record<string, Label>>;
   readonly measures: Readonly<Record<Measure, Label>>;
   readonly events: Readonly<Record<string, Label>>;
+  /** 世界条件：叫什么、这一局因此有什么不一样 */
+  readonly conditions: Readonly<Record<string, Label>>;
   /** 日程上的事（出行高峰、雨季、国际赛事） */
   readonly calendar: Readonly<Record<string, Label>>;
   readonly skills: Readonly<Record<string, Label>>;

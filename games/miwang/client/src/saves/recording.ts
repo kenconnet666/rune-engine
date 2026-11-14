@@ -37,7 +37,12 @@ export function matchesWorld({ config }: GameRecording): boolean {
   if (!pathogen || (config.scenario && !chapter)) return false;
   return (
     JSON.stringify(
-      createConfig(config.seed, config.startDate, { pathogen, origin: config.origin, chapter }),
+      createConfig(config.seed, config.startDate, {
+        pathogen,
+        origin: config.origin,
+        chapter,
+        conditions: config.conditions,
+      }),
     ) === JSON.stringify(config)
   );
 }

@@ -7,6 +7,7 @@
  *   应急队——派去上报病例最重的几个地区；原来驻的地方还排在前几名就不挪（来回跑的路上什么都干不了）。
  *   发布会——信任掉得厉害、手头又有余钱时开。疫苗——困难档会把疫苗优先给疫情重的地方。
  * 花钱有两条约束：手里要留一点应急的，维持费不能超过收入太多。
+ * 性格（见 shared.ts）在这套做法上偏一偏：设防早还是晚、钱先给研究还是先给措施、维持费压到多低。
  */
 import type { Command } from '../commands.ts';
 import {
@@ -23,7 +24,7 @@ import {
 } from '../config.ts';
 import { setupCost, upkeepOf } from '../rules/defense.ts';
 import type { OutbreakView } from '../view.ts';
-import type { AiLevel } from './shared.ts';
+import type { AiLevel, DefendStyle } from './shared.ts';
 
 /**
  * 各难度：隔几天做一次决定、封锁的线（上报病例占人口的比例，或者上报的病例数——哪个先到算哪个）、
@@ -36,9 +37,28 @@ const LEVELS = [
   { every: 2, lockAt: 3e-4, lockCases: 35, commands: 24, reserve: 6, targeted: true },
 ] as const;
 
-/** 维持费最多到收入的这个倍数；手头宽裕（超过 RICH）时可以暂时超支 */
-const UPKEEP_CAP = 0.9;
+/** 手头宽裕到这个数时，维持费可以暂时超过下面各性格的上限 */
 const RICH = 80;
+
+/**
+ * 各种性格怎么偏：
+ *   guard    设防的线乘几（小于 1 是病例还很少就设防）
+ *   lock     封锁的线另外再乘几（惜经济的：别的照常，封锁能不开就不开）
+ *   reserve  手里多留多少应急的钱
+ *   upkeep   维持费最多到收入的几倍
+ *   labFirst 研究不受“留一点应急的钱”的约束（钱先给研究）
+ */
+const STYLES: Readonly<
+  Record<
+    DefendStyle,
+    { guard: number; lock: number; reserve: number; upkeep: number; labFirst: boolean }
+  >
+> = {
+  steady: { guard: 1, lock: 1, reserve: 0, upkeep: 0.9, labFirst: false },
+  cautious: { guard: 0.5, lock: 1, reserve: 8, upkeep: 0.9, labFirst: false },
+  scientist: { guard: 1.5, lock: 1, reserve: 0, upkeep: 0.75, labFirst: true },
+  frugal: { guard: 1, lock: 2.5, reserve: 0, upkeep: 0.65, labFirst: false },
+};
 
 /** 一项科技现在值多少：各效果 × 当下的看重程度 */
 function worth(tech: TechDef, view: OutbreakView, pressure: number): number {
@@ -79,8 +99,12 @@ function wanted(
   config: OutbreakConfig,
   region: number,
   level: AiLevel,
+  style: DefendStyle,
 ): Set<Measure> {
-  const { lockAt, lockCases, targeted } = LEVELS[level];
+  const { targeted } = LEVELS[level];
+  const { guard, lock } = STYLES[style];
+  const lockAt = LEVELS[level].lockAt * guard;
+  const lockCases = LEVELS[level].lockCases * guard;
   const { population, wealth, climate } = config.regions[region]!;
   // 病例占人口的比例；病例数到了按人数的那条线，也当它到了封锁的线
   const share = Math.max(
@@ -96,7 +120,9 @@ function wanted(
   const open = new Set<Measure>();
   if (share > 0) open.add('testing').add('isolation');
   if (hold('masks', lockAt / 8)) open.add('masks');
-  if (hold('lockdown', lockAt)) open.add('lockdown').add('airports').add('borders').add('ports');
+  // 口子跟着设防的线关；封锁本身，惜经济的要等到重得多才开
+  if (hold('airports', lockAt)) open.add('airports').add('borders').add('ports');
+  if (hold('lockdown', lockAt * lock)) open.add('lockdown');
   if (targeted && view.pathogen.stats && share >= lockAt / 8) {
     // 知道了传播途径才知道该不该净水、灭蚊
     if (view.pathogen.stats.water > 0.12 && wealth < 2) open.add('sanitation');
@@ -131,10 +157,17 @@ function dispatch(view: OutbreakView, config: OutbreakConfig): Command[] {
   return commands;
 }
 
-export function defend(view: OutbreakView, config: OutbreakConfig, level: AiLevel): Command[] {
-  const { every, commands: limit, reserve } = LEVELS[level];
+export function defend(
+  view: OutbreakView,
+  config: OutbreakConfig,
+  level: AiLevel,
+  style: DefendStyle = 'steady',
+): Command[] {
+  const { every, commands: limit } = LEVELS[level];
   if (view.tick % every !== 0) return [];
-  const commands: Command[] = research(view, config, reserve);
+  const manner = STYLES[style];
+  const reserve = LEVELS[level].reserve + manner.reserve;
+  const commands: Command[] = research(view, config, manner.labFirst ? 0 : reserve);
   const { rules } = config;
 
   if (level >= 1) {
@@ -153,7 +186,7 @@ export function defend(view: OutbreakView, config: OutbreakConfig, level: AiLeve
   const openings: { region: number; measure: Measure; share: number; from: MeasureLevel }[] = [];
   for (let region = 0; region < config.regions.length; region++) {
     const current = view.measures[region]!;
-    const target = wanted(view, config, region, level);
+    const target = wanted(view, config, region, level, style);
     if (current === 0 && target.size === 0) continue;
     const share = view.cases[region]! / Math.max(1, config.regions[region]!.population);
     for (const measure of MEASURES) {
@@ -177,7 +210,7 @@ export function defend(view: OutbreakView, config: OutbreakConfig, level: AiLeve
       if (to <= from || to < lowest) break;
       const cost = setupCost(config, region, measure, to, from);
       const daily = upkeepOf(config, region, measure, to) - upkeepOf(config, region, measure, from);
-      const sustainable = upkeep + daily <= view.defense.income * UPKEEP_CAP || budget > RICH;
+      const sustainable = upkeep + daily <= view.defense.income * manner.upkeep || budget > RICH;
       if (cost > budget || !sustainable) continue;
       budget -= cost;
       upkeep += daily;

@@ -591,4 +591,9 @@ export interface OutbreakConfig {
   readonly tasks: readonly TaskDef[];
   readonly rules: Rules;
   readonly scenario?: Scenario;
+  /**
+   * 这一局的世界条件（内容的条件表里的 id）。它们怎么改规则在生成配置时已经算进 rules 了，
+   * 模拟自己用不着；记在这里是为了告诉双方这一局有什么不一样。章节没有这一项
+   */
+  readonly conditions?: readonly string[];
 }

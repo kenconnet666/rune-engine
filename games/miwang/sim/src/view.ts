@@ -147,6 +147,8 @@ export interface OutbreakView {
     readonly amount: number;
     readonly daysLeft: number;
   }[];
+  /** 这一局的世界条件（条件表里的 id）；没有是空的 */
+  readonly conditions: readonly string[];
   /** 日程：正在进行的、已经预告的（出行高峰、雨季、国际赛事），快的排前面；双方都看得到 */
   readonly calendar: readonly CalendarEntry[];
   /**
@@ -342,6 +344,7 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
         ? [{ key: item.key, amount: item.amount, daysLeft: item.until - state.tick }]
         : [],
     ),
+    conditions: state.config.conditions ?? [],
     calendar,
     decision: pending
       ? {

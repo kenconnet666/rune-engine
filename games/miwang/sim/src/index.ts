@@ -9,7 +9,16 @@
  *   rules/       规则，一条一个文件（传播、出行、防控、研究、事件、技能、抉择、胜负……）
  *   ai/          电脑对手
  */
-export { decide, type AiLevel } from './ai/index.ts';
+export {
+  aiStyle,
+  ATTACK_STYLES,
+  decide,
+  DEFEND_STYLES,
+  type AiLevel,
+  type AiStyle,
+  type AttackStyle,
+  type DefendStyle,
+} from './ai/index.ts';
 export type { Command } from './commands.ts';
 export {
   COLD,

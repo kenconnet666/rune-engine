@@ -98,6 +98,21 @@ export const zh: ContentText = {
     mutation: label('自发变异', '病原体得到额外的变异点。'),
   },
 
+  conditions: {
+    busySkies: label('航线繁忙', '航空业的好年景：坐飞机出行的人多三成半。'),
+    tightBudget: label('财政紧缩', '各国手头都紧：守方每天的预算少近两成。'),
+    shakenTrust: label('余波未平', '上一场风波刚过去：公众的信任从低处起步。'),
+    harshSeasons: label('冷冬热夏', '这一年四季分明：季节对飞沫传播的影响更大。'),
+    wearyPublic: label('人心思动', '大家受够了管束：封锁更伤信任，封不了多久就有人上街。'),
+    restlessGenome: label('不安分的基因组', '这种病原体变得快：变异点自己涨得更快。'),
+    quietSkies: label('航线冷清', '航空业的淡季：坐飞机出行的人少三成。'),
+    generousDonors: label('捐助到位', '国际捐助已经到账：守方开局的预算更多。'),
+    trustedVoices: label('信得过的声音', '公众信任卫生部门：信任从高处起步，掉了也回得快。'),
+    watchfulClinics: label('警觉的诊所', '基层诊所盯得紧：头一簇病例少一半就认得出来。'),
+    extraTeam: label('后备队', '多一支应急队可以调遣。'),
+    mildSeasons: label('温和的季节', '这一年冬暖夏凉：季节对飞沫传播的影响小一半。'),
+  },
+
   calendar: {
     homecoming: label('年初的返乡潮', '几亿人在路上：各条路线上的人都多。'),
     monsoon: label('雨季', '热带地区到处是积水：水源和蚊子传的病更厉害。'),

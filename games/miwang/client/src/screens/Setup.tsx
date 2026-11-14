@@ -64,6 +64,8 @@ export const Setup = _component(
     let pickedPathogen = _state<string | null>(null);
     let pickedPlayer = _state<number | null>(null);
     let pickedLevel = _state<AiLevel | null>(null);
+    /** 要不要世界条件：默认要 */
+    let plain = _state(false);
 
     return () => {
       const ui = useUi();
@@ -140,11 +142,25 @@ export const Setup = _component(
                 />
               </Stack>
             )}
+            <Stack gap="xs">
+              <Note>{ui.setup.conditions}</Note>
+              <Segmented
+                label={ui.setup.conditions}
+                value={plain ? 'off' : 'on'}
+                options={[
+                  { value: 'on', label: ui.setup.conditionsOn },
+                  { value: 'off', label: ui.setup.conditionsOff },
+                ]}
+                onChange={(value) => (plain = value === 'off')}
+              />
+            </Stack>
             <ActionButton
               icon={Play}
               active
               sx={styles.start}
-              onPress={() => onStart(solo ? { pathogen, player, level } : { pathogen })}
+              onPress={() =>
+                onStart(solo ? { pathogen, player, level, plain } : { pathogen, plain })
+              }
             >
               {ui.setup.start}
             </ActionButton>

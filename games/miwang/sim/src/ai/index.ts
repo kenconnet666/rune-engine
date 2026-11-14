@@ -8,15 +8,36 @@ import type { OutbreakView } from '../view.ts';
 import { attack } from './attacker.ts';
 import { choose } from './decisions.ts';
 import { defend } from './defender.ts';
-import type { AiLevel } from './shared.ts';
+import {
+  aiStyle,
+  ATTACK_STYLES,
+  DEFEND_STYLES,
+  type AiLevel,
+  type AiStyle,
+  type AttackStyle,
+  type DefendStyle,
+} from './shared.ts';
 
-export type { AiLevel };
+export { aiStyle, ATTACK_STYLES, DEFEND_STYLES };
+export type { AiLevel, AiStyle, AttackStyle, DefendStyle };
 
-/** 看了这一方的状态之后要下的命令（可能没有） */
-export function decide(view: OutbreakView, config: OutbreakConfig, level: AiLevel): Command[] {
+/**
+ * 看了这一方的状态之后要下的命令（可能没有）。
+ * 性格不传就按这一局的种子定（见 aiStyle）；传了的要是这一方的性格，不然当成 steady。
+ */
+export function decide(
+  view: OutbreakView,
+  config: OutbreakConfig,
+  level: AiLevel,
+  style: AiStyle = aiStyle(config.seed, view.attacker),
+): Command[] {
   if (view.outcome) return [];
+  const attackStyle = ATTACK_STYLES.find((candidate) => candidate === style) ?? 'steady';
+  const defendStyle = DEFEND_STYLES.find((candidate) => candidate === style) ?? 'steady';
   return [
     ...choose(view, config, level),
-    ...(view.attacker ? attack(view, config, level) : defend(view, config, level)),
+    ...(view.attacker
+      ? attack(view, config, level, attackStyle)
+      : defend(view, config, level, defendStyle)),
   ];
 }

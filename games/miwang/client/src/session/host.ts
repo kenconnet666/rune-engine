@@ -95,7 +95,11 @@ export function hostSession(core: SessionCore): GameSession {
   /** 开局：有记录就照着它接上；没有就新开一局——打某一章，或者用某种病原体的普通对局 */
   function start(
     recording: GameRecording | null,
-    fresh: { chapter?: ChapterDef; pathogen?: typeof DEFAULT_PATHOGEN } = {},
+    fresh: {
+      chapter?: ChapterDef;
+      pathogen?: typeof DEFAULT_PATHOGEN;
+      conditions?: readonly string[];
+    } = {},
   ) {
     playback.value = null;
     latest.value = recording;
@@ -237,7 +241,11 @@ export function hostSession(core: SessionCore): GameSession {
         null,
         chapter
           ? { chapter }
-          : { pathogen: (setup.pathogen && profileOf(setup.pathogen)) || DEFAULT_PATHOGEN },
+          : {
+              pathogen: (setup.pathogen && profileOf(setup.pathogen)) || DEFAULT_PATHOGEN,
+              // 不写就按种子抽；不要条件的写成空的
+              ...(setup.plain && { conditions: [] }),
+            },
       );
     },
   };

@@ -3,6 +3,7 @@ import { CHAPTER_IDS, CHAPTERS } from '../tables/chapters.ts';
 import { CREDITS } from '../tables/credits.ts';
 import { DECISIONS } from '../tables/decisions.ts';
 import { CALENDAR } from '../tables/calendar.ts';
+import { CONDITIONS } from '../tables/conditions.ts';
 import { EVENTS } from '../tables/events.ts';
 import { PATHOGENS, SOURCES } from '../tables/pathogens.ts';
 import { SKILLS } from '../tables/skills.ts';
@@ -20,6 +21,7 @@ describe('内容的文案', () => {
       expect(Object.keys(text.techs).sort()).toEqual(ids(TECHS));
       expect(Object.keys(text.events).sort()).toEqual(ids(EVENTS));
       expect(Object.keys(text.calendar).sort()).toEqual(ids(CALENDAR));
+      expect(Object.keys(text.conditions).sort()).toEqual(ids(CONDITIONS));
       expect(Object.keys(text.skills).sort()).toEqual(ids(SKILLS));
       expect(Object.keys(text.tasks).sort()).toEqual(ids(TASKS));
       expect(Object.keys(text.decisions).sort()).toEqual(ids(DECISIONS));
@@ -41,6 +43,7 @@ describe('内容的文案', () => {
         text.techs,
         text.events,
         text.calendar,
+        text.conditions,
         text.skills,
         text.tasks,
         text.measures,
