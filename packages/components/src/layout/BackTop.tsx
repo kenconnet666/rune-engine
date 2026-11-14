@@ -16,6 +16,7 @@ import { useLang } from '../config/context';
 import { t } from '../config/theme/tokens';
 import { useEventListener } from '../utils/dom/event-listener';
 import { useReducedMotion } from '../utils/dom/media-query';
+import { usePageScroller } from '../utils/dom/scroll-root';
 import { mergePartProps } from '../utils/props';
 import { FloatButton, FloatButtonGroupContext, type FloatButtonProps } from './FloatButton';
 
@@ -48,13 +49,16 @@ export const BackTop = _component(({ target, threshold = 400, ...rest }: BackTop
   let shown = _state(false);
 
   /** 滚动的元素：容器，或整页（document.scrollingElement） */
+  const pageScroller = usePageScroller();
+  /** 指定的容器，不然是页面滚动的那个（舞台里的盒子）；都没有才是文档 */
+  const container = () => target?.() ?? pageScroller();
   const scroller = () =>
-    target?.() ??
+    container() ??
     (typeof document === 'undefined' ? null : (document.scrollingElement as HTMLElement));
   const update = () => (shown = (scroller()?.scrollTop ?? 0) > threshold);
 
   // 整页的滚动事件在 window 上，容器的在容器自己上
-  useEventListener(() => (target ? target() : window), 'scroll', update, { passive: true });
+  useEventListener(() => container() ?? window, 'scroll', update, { passive: true });
   onMounted(update);
 
   function backToTop() {
@@ -62,7 +66,7 @@ export const BackTop = _component(({ target, threshold = 400, ...rest }: BackTop
     if (!element) return;
     element.scrollTo({ top: 0, behavior: reduced.value ? 'instant' : 'smooth' });
     // 焦点回到开头：整页时是 body 的第一个可聚焦位置，容器时是容器本身
-    const focusTarget = target ? element : document.body;
+    const focusTarget = container() ? element : document.body;
     // 为了能聚焦临时加的 tabindex，焦点离开后去掉：不把 body、滚动容器一直留成可聚焦的
     if (!focusTarget.hasAttribute('tabindex')) {
       focusTarget.setAttribute('tabindex', '-1');

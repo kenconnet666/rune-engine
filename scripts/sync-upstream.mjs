@@ -32,6 +32,8 @@ if (!upstream || !commit || !version) {
 const repo = join(import.meta.dirname, '..');
 const NAME = { from: '@zerodep-dev/vue-tsx-pro-ui', to: '@rune-engine/components' };
 
+/** 组件库里这边加的文件：同步时留着（相对 packages/components/src）。在上游文件上做的改动见下面“组件库”那一段 */
+const OWN_COMPONENTS = ['utils/dom/scroll-root.ts'];
 /** 文档站里这边自己写的：同步时留着（相对 apps/docs） */
 const OWN = ['package.json', 'vite.config.ts', 'tsconfig.json', 'src/main.ts', 'src/stage'];
 /**
@@ -129,9 +131,72 @@ const out = archive(['packages/ui/src', 'packages/ui/package.json', 'apps/docs']
 {
   const pkg = join(repo, 'packages/components');
   const src = join(pkg, 'src');
+  // 这边加的文件先拿出来，换完再放回去
+  const kept = mkdtempSync(join(tmpdir(), 'components-own-'));
+  for (const path of OWN_COMPONENTS) cpSync(join(src, path), join(kept, path));
   rmSync(src, { recursive: true });
   cpSync(join(out, 'packages/ui/src'), src, { recursive: true });
+  cpSync(kept, src, { recursive: true });
+  rmSync(kept, { recursive: true });
   console.log('组件库：文件', [...files(src)].length, '个，改了包名的', rename(src), '个');
+
+  // —— 这边在上游的文件上做的改动（分叉的开始）。每一处都要说清为什么；上游改了那几行的话这里会停下 ——
+  // “整页滚动”滚的是谁（utils/dom/scroll-root.ts）：站点放在舞台里时滚的是一个盒子，不是窗口。
+  // 没有另外指定容器的，认最外面说的那个
+  const spy = join(src, 'utils/dom/scroll-spy.ts');
+  patch(
+    spy,
+    "import { useEventListener } from './event-listener';",
+    "import { useEventListener } from './event-listener';\nimport { usePageScroller } from './scroll-root';",
+  );
+  patch(
+    spy,
+    "  if (typeof window === 'undefined') return current;\n",
+    "  if (typeof window === 'undefined') return current;\n  const pageScroller = usePageScroller();\n  /** 滚动的容器：指定的，不然是页面滚动的那个（没人说过就是窗口，null） */\n  const rootOf = () => read().root ?? pageScroller();\n",
+  );
+  patch(
+    spy,
+    '    const { ids, root } = read();',
+    '    const { ids } = read();\n    const root = rootOf();',
+  );
+  patch(
+    spy,
+    "  useEventListener(() => read().root ?? window, 'scroll', schedule, { passive: true });",
+    "  useEventListener(() => rootOf() ?? window, 'scroll', schedule, { passive: true });",
+  );
+  patch(spy, '  watch(() => read().root, schedule);', '  watch(rootOf, schedule);');
+  const backTop = join(src, 'layout/BackTop.tsx');
+  patch(
+    backTop,
+    "import { useReducedMotion } from '../utils/dom/media-query';",
+    "import { useReducedMotion } from '../utils/dom/media-query';\nimport { usePageScroller } from '../utils/dom/scroll-root';",
+  );
+  patch(
+    backTop,
+    [
+      '  const scroller = () =>',
+      '    target?.() ??',
+      "    (typeof document === 'undefined' ? null : (document.scrollingElement as HTMLElement));",
+    ].join('\n'),
+    [
+      '  const pageScroller = usePageScroller();',
+      '  /** 指定的容器，不然是页面滚动的那个（舞台里的盒子）；都没有才是文档 */',
+      '  const container = () => target?.() ?? pageScroller();',
+      '  const scroller = () =>',
+      '    container() ??',
+      "    (typeof document === 'undefined' ? null : (document.scrollingElement as HTMLElement));",
+    ].join('\n'),
+  );
+  patch(
+    backTop,
+    "  useEventListener(() => (target ? target() : window), 'scroll', update, { passive: true });",
+    "  useEventListener(() => container() ?? window, 'scroll', update, { passive: true });",
+  );
+  patch(
+    backTop,
+    '    const focusTarget = target ? element : document.body;',
+    '    const focusTarget = container() ? element : document.body;',
+  );
 
   // 核对“运行时导入的第三方依赖列全了”的那个测试：这边的包不算第三方
   const own = "        !specifier.startsWith('@zerodep-dev/vue-tsx-pro-') &&";
@@ -150,6 +215,8 @@ const out = archive(['packages/ui/src', 'packages/ui/package.json', 'apps/docs']
     if (key === './package.json') continue;
     exports[key] = typeof value === 'string' ? value : value['@vue-tsx-pro/source'];
   }
+  // 这边加的入口（主入口的 index.ts 是上游生成的，不去动它）
+  exports['./scroll-root'] = './src/utils/dom/scroll-root.ts';
   const next = {
     exports,
     dependencies: { ...theirs.dependencies, '@zerodep-dev/vue-tsx-pro-tsx': 'catalog:' },

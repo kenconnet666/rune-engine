@@ -9,6 +9,7 @@
  */
 import { onMounted, onScopeDispose, shallowRef, watch, type Ref, type ShallowRef } from 'vue';
 import { useEventListener } from './event-listener';
+import { usePageScroller } from './scroll-root';
 
 /** useScrollSpy 每次读取的选项 */
 export interface ScrollSpyOptions {
@@ -22,9 +23,13 @@ export interface ScrollSpyOptions {
 export function useScrollSpy(read: () => ScrollSpyOptions): Readonly<Ref<string | undefined>> {
   const current = shallowRef<string | undefined>();
   if (typeof window === 'undefined') return current;
+  const pageScroller = usePageScroller();
+  /** 滚动的容器：指定的，不然是页面滚动的那个（没人说过就是窗口，null） */
+  const rootOf = () => read().root ?? pageScroller();
 
   function update() {
-    const { ids, root } = read();
+    const { ids } = read();
+    const root = rootOf();
     const elements = ids
       .map((id) => document.getElementById(id))
       .filter((element): element is HTMLElement => element !== null);
@@ -49,10 +54,10 @@ export function useScrollSpy(read: () => ScrollSpyOptions): Readonly<Ref<string 
     frame = requestAnimationFrame(update);
   };
   // 滚动容器常常在挂载后才拿到（ref 回调）：换了容器就换绑，并按新容器重新算，不能留着按窗口算的结果
-  useEventListener(() => read().root ?? window, 'scroll', schedule, { passive: true });
+  useEventListener(() => rootOf() ?? window, 'scroll', schedule, { passive: true });
   useEventListener(window, 'resize', schedule);
   onMounted(update);
-  watch(() => read().root, schedule);
+  watch(rootOf, schedule);
   watch(() => read().ids, schedule, { flush: 'post' });
   onScopeDispose(() => cancelAnimationFrame(frame));
   return current;

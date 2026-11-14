@@ -26,7 +26,8 @@
     "./theme-boot": "./src/config/theme/boot.ts",
     "./theme-customize": "./src/theme-customize/index.ts",
     "./tokens": "./src/config/theme/tokens.ts",
-    "./vars": "./src/utils/style/vars.ts"
+    "./vars": "./src/utils/style/vars.ts",
+    "./scroll-root": "./src/utils/dom/scroll-root.ts"
   },
   "scripts": {
     "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"

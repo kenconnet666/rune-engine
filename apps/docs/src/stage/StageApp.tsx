@@ -9,6 +9,7 @@
  * 右下角有个开关可以换（StageSwitch）。
  */
 import { ScrollArea } from '@rune-engine/components';
+import { provideScrollRoot } from '@rune-engine/components/scroll-root';
 import { Stage } from '@rune-engine/stage';
 import { runUiRenderer } from '@rune-engine/stage/ui-renderer';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
@@ -40,6 +41,8 @@ function scrollRegion() {
 export const StageApp = _component(() => {
   const router = useRouter();
   let page = _state.raw<HTMLElement | null>(null);
+  // 站点里盯着“整页滚动”的组件（本页目录的高亮、回到顶部）：滚的是这个盒子，不是窗口
+  provideScrollRoot(() => page);
 
   // 路由自带的“换页回到顶部、带锚点滚到那一节”滚的是窗口；站点现在在盒子里滚，这里照着做一遍
   router.afterEach((to, from) => {
