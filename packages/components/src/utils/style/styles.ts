@@ -1,0 +1,240 @@
+/**
+ * 组件共用的档位类型与样式表。档位与主题 tokens 同名（COMPONENTS.md §6.2）：
+ * 组件的 size、gap 等 prop 直接用这些类型，取值一一对应到 token。
+ * 样式表只放被多个组件复用的；只有一个组件用的写在组件里。
+ */
+import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import type { CompiledStyles, SxStyles } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import { t } from '../../config/theme/tokens';
+
+/*
+ * 取值类型的写法（COMPONENTS.md §1）：写成带注释接口的 keyof，接口的每个键带注释，
+ * 补全列表与悬停取值时能看到每个取值的效果（WebStorm 把字符串字面量解析到 keyof 的键上）。
+ */
+
+/** 圆角档位，对应主题的 radii（em，随字号缩放），括号里是默认主题的值；各组件的 radius 都用它 */
+export interface RadiusScale {
+  /** 直角：表格、密集列表里与直线对齐 */
+  none: unknown;
+  /** 0.15em */
+  xs: unknown;
+  /** 0.25em */
+  sm: unknown;
+  /** 0.4em：控件与按钮的默认 */
+  md: unknown;
+  /** 0.7em：卡片、面板 */
+  lg: unknown;
+  /** 1em */
+  xl: unknown;
+  /** 胶囊形（宽高相等时是圆形） */
+  full: unknown;
+}
+
+/** 圆角档位 */
+export type Radius = keyof RadiusScale;
+
+/**
+ * 共用样式表 → 配方的一个档位：每个取值放这张表里的那一项，在给定的部件上（`size: variantOf(fontSizeStyles, 'root')`，
+ * 几个部件同用一个档位时都写上：`variantOf(radiusStyles, 'root', 'frame')`）。
+ * 配方直接引用共用的片段：各组件同样的档位合成同样的类，主题定制也能按档位改（`components.Xxx.variants.radius`），
+ * 不必在渲染时把字号、圆角排在配方之后（那样定制盖不住它们）
+ */
+export function variantOf<Key extends string, Part extends string>(
+  table: Readonly<Record<Key, CompiledStyles>>,
+  ...parts: readonly Part[]
+): { readonly [K in Key]: { readonly [P in Part]: readonly [CompiledStyles] } } {
+  const variant: Record<string, Record<string, readonly [CompiledStyles]>> = {};
+  for (const key of Object.keys(table) as Key[])
+    variant[key] = Object.fromEntries(parts.map((part) => [part, [table[key]]]));
+  return variant as never;
+}
+
+/** 圆角档位的样式：none、xs、sm、md、lg、xl、full */
+export const radiusStyles = css.create({
+  none: { borderRadius: 0 },
+  xs: { borderRadius: '_xs' },
+  sm: { borderRadius: '_sm' },
+  md: { borderRadius: '_md' },
+  lg: { borderRadius: '_lg' },
+  xl: { borderRadius: '_xl' },
+  full: { borderRadius: '_full' },
+});
+
+/** 间距档位，对应主题的 space（em，随字号缩放），括号里是默认主题的值 */
+export interface SpaceScale {
+  /** 无间距（0） */
+  none: unknown;
+  /** 0.25em：图标与文字之间、紧凑的元素之间 */
+  xs: unknown;
+  /** 0.5em：控件内部、相关的元素之间 */
+  sm: unknown;
+  /** 0.75em：一组内容的元素之间 */
+  md: unknown;
+  /** 1em：表单项之间、段落之间 */
+  lg: unknown;
+  /** 1.5em：区块之间、卡片与对话框的内边距 */
+  xl: unknown;
+}
+
+/** 间距档位：五档之外可以是 none */
+export type Space = keyof SpaceScale;
+
+/**
+ * 一组按名字取的样式（如按变体分组的色调表 Record<变体, StyleTable<色调>>）。
+ * css.create 的结果不用写它：create 返回具名的 CompiledStyles，类型直接推导
+ */
+export type StyleTable<Key extends string> = Readonly<Record<Key, SxStyles>>;
+
+/** 间距 gap：Flex、Grid */
+export const gapStyles = css.create({
+  none: { gap: '_none' },
+  xs: { gap: '_xs' },
+  sm: { gap: '_sm' },
+  md: { gap: '_md' },
+  lg: { gap: '_lg' },
+  xl: { gap: '_xl' },
+});
+
+/** 两侧的内边距：列表条目与所在容器（弹出层、卡片）的内边距对齐 */
+export const paddingInlineStyles = css.create({
+  none: { paddingInline: '_none' },
+  xs: { paddingInline: '_xs' },
+  sm: { paddingInline: '_sm' },
+  md: { paddingInline: '_md' },
+  lg: { paddingInline: '_lg' },
+  xl: { paddingInline: '_xl' },
+});
+
+/** 行间距：Grid 单独指定时 */
+export const rowGapStyles = css.create({
+  none: { rowGap: '_none' },
+  xs: { rowGap: '_xs' },
+  sm: { rowGap: '_sm' },
+  md: { rowGap: '_md' },
+  lg: { rowGap: '_lg' },
+  xl: { rowGap: '_xl' },
+});
+
+/** 列间距：Grid 单独指定时 */
+export const columnGapStyles = css.create({
+  none: { columnGap: '_none' },
+  xs: { columnGap: '_xs' },
+  sm: { columnGap: '_sm' },
+  md: { columnGap: '_md' },
+  lg: { columnGap: '_lg' },
+  xl: { columnGap: '_xl' },
+});
+
+/**
+ * 状态层（同 Material 的 state layer）：悬停、按下时叠一层自己的文字色，各色调、亮暗主题上都协调——
+ * 用在有底色的容器（提示条、横幅、彩色标签）里的按钮，那里幽灵按钮的灰色悬停底与底色不搭。
+ * - ghost：本身透明的按钮（关闭、移除），悬停 14%、按下 22% 的文字色作底色；
+ * - overlay：本身有底色的（可选中的标签），悬停时在底色上叠 8% 的文字色（背景图层，不改底色）
+ */
+export const stateLayerStyles = css.create({
+  ghost: {
+    backgroundColor: {
+      default: 'transparent',
+      _hover: 'color-mix(in srgb, currentColor 14%, transparent)',
+      _active: 'color-mix(in srgb, currentColor 22%, transparent)',
+    },
+  },
+  overlay: {
+    backgroundImage: {
+      default: 'none',
+      _hover:
+        'linear-gradient(color-mix(in srgb, currentColor 8%, transparent), color-mix(in srgb, currentColor 8%, transparent))',
+    },
+  },
+});
+
+/** 触屏（手指是主要的指点设备）：手机、平板 */
+export const coarsePointer = '@media (pointer: coarse)';
+
+/**
+ * 原生输入框（input、textarea）继承外壳的字体；触屏上字号不小于 16px——iOS 的 Safari 聚焦小于 16px 的输入框时会放大整页，
+ * 用户还得手动缩回去。桌面不变
+ */
+export const touchInputStyles = css.create({
+  font: {
+    fontFamily: 'inherit',
+    fontStyle: 'inherit',
+    fontWeight: 'inherit',
+    lineHeight: 'inherit',
+    fontSize: { default: 'inherit', [coarsePointer]: 'max(16px, 1em)' },
+  },
+});
+
+/**
+ * 焦点环：宽度、颜色全站一致，只有触发的伪类与偏移不同。
+ * - visible：键盘聚焦本元素（Link、Button 等），环离开元素一点；
+ * - tight：同上但贴着边框（勾选框、单选、开关这类小控件，环离远了显得松）；
+ * - inset：同上但画在元素里面（滚动区域、标签页面板、滑块：外层 overflow: hidden 会裁掉画在外面的环）；
+ * - virtual：一直画、画在里面：焦点在容器上、由当前项（aria-activedescendant）显示焦点时，给当前项（Cascader 的列）；
+ * - hasVisible：里面的元素键盘聚焦时画在整块上（FileDrop：原生 input 视觉上隐藏）；
+ * - within：里面的元素聚焦（含鼠标）时画在外壳上，往里收压住边框（输入框外壳）
+ */
+export const focusRingStyles = css.create({
+  visible: {
+    outlineStyle: { default: 'none', _focusVisible: 'solid' },
+    outlineWidth: '_sm',
+    outlineColor: '_focusRing',
+    outlineOffset: '_sm',
+  },
+  tight: {
+    outlineStyle: { default: 'none', _focusVisible: 'solid' },
+    outlineWidth: '_sm',
+    outlineColor: '_focusRing',
+    outlineOffset: '_borderWidths.sm',
+  },
+  inset: {
+    outlineStyle: { default: 'none', _focusVisible: 'solid' },
+    outlineWidth: '_sm',
+    outlineColor: '_focusRing',
+    outlineOffset: `calc(-1 * ${t.borderWidths.sm})`,
+  },
+  virtual: {
+    outlineStyle: 'solid',
+    outlineWidth: '_sm',
+    outlineColor: '_focusRing',
+    outlineOffset: `calc(-1 * ${t.borderWidths.sm})`,
+  },
+  hasVisible: {
+    outlineStyle: { default: 'none', ':has(:focus-visible)': 'solid' },
+    outlineWidth: '_sm',
+    outlineColor: '_focusRing',
+    outlineOffset: '_borderWidths.sm',
+  },
+  within: {
+    outlineStyle: { default: 'none', _focusWithin: 'solid' },
+    outlineWidth: '_sm',
+    outlineColor: '_focusRing',
+    outlineOffset: `calc(-1 * ${t.borderWidths.xs})`,
+  },
+});
+
+/**
+ * 列表元素（ul、ol）当布局容器时去掉默认的圆点与缩进。
+ * Safari 去掉圆点后会把它当成普通容器，读屏不再报“列表”，所以组件同时补上 role="list"（见 listRole）
+ */
+export const listStyles = css.create({
+  reset: { margin: 0, paddingInlineStart: 0, listStyleType: 'none' },
+});
+
+/** 布局组件的工厂（createFlex、createGrid、createContainer）可用的语义容器标签 */
+export type LayoutTag =
+  | 'div'
+  | 'section'
+  | 'article'
+  | 'ul'
+  | 'ol'
+  | 'li'
+  | 'nav'
+  | 'header'
+  | 'footer'
+  | 'main'
+  | 'aside'
+  | 'form';
+
+/** 列表标签需要的 role（见 listStyles），其他标签不加 */
+export const listRole = (tag: string) => (tag === 'ul' || tag === 'ol' ? 'list' : undefined);

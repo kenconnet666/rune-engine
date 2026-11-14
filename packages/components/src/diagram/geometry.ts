@@ -1,0 +1,277 @@
+/**
+ * 画布的几何（纯函数）：点与矩形、边界、相交与包含、折线的路径与中点、箭头。坐标都是画布坐标（缩放前的 px）。
+ */
+
+/** 画布上的一点 */
+export interface DiagramPoint {
+  /** 横坐标 */
+  x: number;
+  /** 纵坐标 */
+  y: number;
+}
+
+/** 画布上的矩形：左上角与大小 */
+export interface DiagramRect {
+  /** 左边的横坐标 */
+  x: number;
+  /** 上边的纵坐标 */
+  y: number;
+  /** 宽 */
+  width: number;
+  /** 高 */
+  height: number;
+}
+
+/** 节点的形状：画成什么样（DiagramNode），连线接在哪（圆、菱形的连线接在形状的边上，不接在节点框上） */
+export interface DiagramNodeShapes {
+  /** 圆角矩形，默认：任务、步骤 */
+  rect: unknown;
+  /** 胶囊形：开始、结束 */
+  pill: unknown;
+  /** 圆（节点框是正方形时是正圆）：开始、结束事件 */
+  circle: unknown;
+  /** 菱形：分支、网关 */
+  diamond: unknown;
+}
+
+/** 节点的形状 */
+export type DiagramNodeShape = keyof DiagramNodeShapes;
+
+/** 带形状的矩形：节点，连线算端点时看形状 */
+export interface DiagramShapeRect extends DiagramRect {
+  /** 形状，默认 rect */
+  shape?: DiagramNodeShape;
+}
+
+/** 形状只有一个“顶点”接线：圆、菱形每条边上的几条线都接在边的中点，不沿边排开 @internal */
+export const pointedShape = (shape: DiagramNodeShape | undefined) =>
+  shape === 'circle' || shape === 'diamond';
+
+/** 包住全部矩形与点的最小矩形；什么都没有时 undefined */
+export function boundsOf(
+  rects: Iterable<DiagramRect>,
+  points: Iterable<DiagramPoint> = [],
+): DiagramRect | undefined {
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  for (const rect of rects) {
+    left = Math.min(left, rect.x);
+    top = Math.min(top, rect.y);
+    right = Math.max(right, rect.x + rect.width);
+    bottom = Math.max(bottom, rect.y + rect.height);
+  }
+  for (const point of points) {
+    left = Math.min(left, point.x);
+    top = Math.min(top, point.y);
+    right = Math.max(right, point.x);
+    bottom = Math.max(bottom, point.y);
+  }
+  return left === Infinity
+    ? undefined
+    : { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+/** 两个角点围成的矩形（框选时按下点与当前点的先后不定） */
+export function rectFromCorners(a: DiagramPoint, b: DiagramPoint): DiagramRect {
+  return {
+    x: Math.min(a.x, b.x),
+    y: Math.min(a.y, b.y),
+    width: Math.abs(a.x - b.x),
+    height: Math.abs(a.y - b.y),
+  };
+}
+
+/** 两个矩形有重叠（只碰到边不算） */
+export function rectsIntersect(a: DiagramRect, b: DiagramRect): boolean {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+}
+
+/** outer 整个包住 inner（边重合也算） */
+export function rectContains(outer: DiagramRect, inner: DiagramRect): boolean {
+  return (
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.width <= outer.x + outer.width &&
+    inner.y + inner.height <= outer.y + outer.height
+  );
+}
+
+/** 矩形的中心 */
+export function rectCenter(rect: DiagramRect): DiagramPoint {
+  return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+}
+
+/**
+ * 从节点中心朝 toward 方向的射线与节点轮廓的交点：两个节点之间没有路由时，直线的两端落在轮廓上。
+ * 轮廓按 shape：矩形与胶囊按节点框，圆是框里的椭圆，菱形是四条边中点连成的菱形
+ */
+export function borderPoint(rect: DiagramShapeRect, toward: DiagramPoint): DiagramPoint {
+  const center = rectCenter(rect);
+  const dx = toward.x - center.x;
+  const dy = toward.y - center.y;
+  if (dx === 0 && dy === 0) return center;
+  // 方向上走 1 时在两个半轴上各占的比例
+  const rx = Math.abs(dx) / (rect.width / 2);
+  const ry = Math.abs(dy) / (rect.height / 2);
+  const scale =
+    rect.shape === 'circle'
+      ? 1 / Math.hypot(rx, ry)
+      : rect.shape === 'diamond'
+        ? 1 / (rx + ry)
+        : // 射线先碰到竖边还是横边
+          1 / Math.max(rx, ry);
+  return { x: center.x + dx * scale, y: center.y + dy * scale };
+}
+
+/** 两点之间的距离 */
+const distance = (a: DiagramPoint, b: DiagramPoint) => Math.hypot(b.x - a.x, b.y - a.y);
+
+/**
+ * 折线的 SVG 路径（`M … L …`）；radius 大于 0 时拐角改成圆角（正交路由的线更柔和），
+ * 圆角不超过相邻两段各自长度的一半，短段不会画反
+ */
+export function polylinePath(points: readonly DiagramPoint[], radius = 0): string {
+  if (points.length === 0) return '';
+  const [first] = points as [DiagramPoint];
+  let path = `M${first.x} ${first.y}`;
+  for (let index = 1; index < points.length; index++) {
+    const point = points[index]!;
+    const next = points[index + 1];
+    if (!next || radius <= 0) {
+      path += ` L${point.x} ${point.y}`;
+      continue;
+    }
+    const previous = points[index - 1]!;
+    const r = Math.min(radius, distance(previous, point) / 2, distance(point, next) / 2);
+    const before = towards(point, previous, r);
+    const after = towards(point, next, r);
+    path += ` L${before.x} ${before.y} Q${point.x} ${point.y} ${after.x} ${after.y}`;
+  }
+  return path;
+}
+
+/** 从 from 朝 to 走 length 的点 */
+function towards(from: DiagramPoint, to: DiagramPoint, length: number): DiagramPoint {
+  const total = distance(from, to);
+  if (total === 0) return from;
+  return {
+    x: from.x + ((to.x - from.x) * length) / total,
+    y: from.y + ((to.y - from.y) * length) / total,
+  };
+}
+
+/** 折线上走到一半长度的点：连线文字默认放在这里 */
+export function polylineMidpoint(points: readonly DiagramPoint[]): DiagramPoint {
+  if (points.length === 0) return { x: 0, y: 0 };
+  let remaining =
+    points.slice(1).reduce((sum, point, index) => sum + distance(points[index]!, point), 0) / 2;
+  for (let index = 1; index < points.length; index++) {
+    const segment = distance(points[index - 1]!, points[index]!);
+    if (remaining <= segment) return towards(points[index - 1]!, points[index]!, remaining);
+    remaining -= segment;
+  }
+  return points[points.length - 1]!;
+}
+
+/**
+ * 折线终点的箭头：三角形的三个顶点（SVG polygon 的 points），尖端在终点，沿最后一段的方向；
+ * 没有方向（少于两个不同的点）时返回空串
+ */
+export function arrowHead(points: readonly DiagramPoint[], size = 8): string {
+  const tip = points[points.length - 1];
+  // 最后一段可能长度为零（端点重复）：往前找一个不同的点定方向
+  const from = [...points]
+    .reverse()
+    .find((point) => tip && (point.x !== tip.x || point.y !== tip.y));
+  if (!tip || !from) return '';
+  const angle = Math.atan2(tip.y - from.y, tip.x - from.x);
+  const back = { x: tip.x - Math.cos(angle) * size, y: tip.y - Math.sin(angle) * size };
+  const half = size * 0.5;
+  const left = { x: back.x + Math.sin(angle) * half, y: back.y - Math.cos(angle) * half };
+  const right = { x: back.x - Math.sin(angle) * half, y: back.y + Math.cos(angle) * half };
+  const round = (value: number) => Math.round(value * 100) / 100;
+  return [tip, left, right].map((point) => `${round(point.x)},${round(point.y)}`).join(' ');
+}
+
+/** 去掉终点处箭头占的那一段：线画到箭头的底边，不从箭尖下面露出来 */
+export function trimEnd(points: readonly DiagramPoint[], length: number): DiagramPoint[] {
+  if (points.length < 2 || length <= 0) return [...points];
+  const tip = points[points.length - 1]!;
+  const before = points[points.length - 2]!;
+  const segment = distance(before, tip);
+  if (segment <= length) return [...points];
+  return [...points.slice(0, -1), towards(tip, before, length)];
+}
+
+/** 对齐线：拖动时与别的节点对齐的那条线（画布坐标的线段） */
+export interface DiagramGuide {
+  /** 起点 */
+  from: DiagramPoint;
+  /** 终点 */
+  to: DiagramPoint;
+}
+
+/**
+ * 拖动中的矩形向别的矩形对齐：左、中、右任一条竖线与别人的左、中、右相差不到 tolerance 时吸过去，横向同理（上、中、下）。
+ * 返回吸附后的位置与要画的对齐线（每个方向取差得最少的那一条，线从两个矩形里靠外的一端画到另一端）
+ */
+export function alignToGuides(
+  rect: DiagramRect,
+  others: readonly DiagramRect[],
+  tolerance: number,
+): { x: number; y: number; guides: DiagramGuide[] } {
+  const lines = (start: number, size: number) => [start, start + size / 2, start + size];
+  let best: { axis: 'x' | 'y'; diff: number; at: number; other: DiagramRect }[] = [];
+  for (const axis of ['x', 'y'] as const) {
+    const own = axis === 'x' ? lines(rect.x, rect.width) : lines(rect.y, rect.height);
+    let found: { diff: number; at: number; other: DiagramRect } | undefined;
+    for (const other of others) {
+      const theirs = axis === 'x' ? lines(other.x, other.width) : lines(other.y, other.height);
+      for (const mine of own) {
+        for (const line of theirs) {
+          const diff = line - mine;
+          if (Math.abs(diff) <= tolerance && (!found || Math.abs(diff) < Math.abs(found.diff))) {
+            found = { diff, at: line, other };
+          }
+        }
+      }
+    }
+    if (found) best = [...best, { axis, ...found }];
+  }
+  const x = rect.x + (best.find((item) => item.axis === 'x')?.diff ?? 0);
+  const y = rect.y + (best.find((item) => item.axis === 'y')?.diff ?? 0);
+  const placed = { ...rect, x, y };
+  const guides = best.map(({ axis, at, other }) =>
+    axis === 'x'
+      ? {
+          from: { x: at, y: Math.min(placed.y, other.y) },
+          to: { x: at, y: Math.max(placed.y + placed.height, other.y + other.height) },
+        }
+      : {
+          from: { x: Math.min(placed.x, other.x), y: at },
+          to: { x: Math.max(placed.x + placed.width, other.x + other.width), y: at },
+        },
+  );
+  return { x, y, guides };
+}
+
+/** 点落在哪个矩形里：后面的在上层，先找后面的 */
+export function rectAt<T extends DiagramRect>(
+  rects: readonly T[],
+  point: DiagramPoint,
+): T | undefined {
+  for (let index = rects.length - 1; index >= 0; index--) {
+    const rect = rects[index]!;
+    if (
+      point.x >= rect.x &&
+      point.x <= rect.x + rect.width &&
+      point.y >= rect.y &&
+      point.y <= rect.y + rect.height
+    ) {
+      return rect;
+    }
+  }
+  return undefined;
+}

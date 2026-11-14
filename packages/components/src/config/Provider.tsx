@@ -1,0 +1,167 @@
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import type { VNodeChild } from 'vue';
+import {
+  ConfigContext,
+  useConfig,
+  type Highlighter,
+  type TextMatcher,
+  type UiPermissions,
+  type UiRouter,
+} from './context';
+import { splitComponents, type ComponentsOptions } from './components';
+import { mergeDefaults } from './defaults';
+import { mergeStyles } from './styles';
+import { defineLang, type Lang } from './lang/lang';
+import { usePrefersDark } from '../utils/dom/media-query';
+import type { WorkCalendar } from '../utils/data/workdays';
+import type { FormSources } from '../form/schema-fields';
+import type { HttpClient } from '../utils/request/http';
+import { resolveTheme, themeAttrs, type ThemeInput } from './theme/theme';
+
+/** 局部配置；都不写时只是透明的容器，沿用上层配置 */
+export interface ProviderProps {
+  /** 主题；不写时沿用上层配置 */
+  theme?: ThemeInput;
+  /** 语言；只写要改的字段，其余沿用上层配置 */
+  lang?: Partial<Lang>;
+  /** 代码高亮器（CodeBlock 用）；不写时沿用上层配置 */
+  highlighter?: Highlighter;
+  /** 额外的文字匹配（拼音）；不写时沿用上层配置 */
+  textMatcher?: TextMatcher;
+  /**
+   * 组件的定制：各组件档位的默认值（`defaults`，按组件逐个与上层合并）、追加的样式（`styles`）与档位的样式（`variants`），
+   * 追加在上层的定制之后：`{ Button: { defaults: { radius: 'full' }, styles: { root: { letterSpacing: '1px' } } } }`（见 components.ts）
+   */
+  components?: ComponentsOptions;
+  /** 路由适配；不写时沿用上层配置 */
+  router?: UiRouter;
+  /** 权限判断；不写时沿用上层配置 */
+  permissions?: UiPermissions;
+  /** 请求客户端；不写时沿用上层配置 */
+  http?: HttpClient;
+  /** 工作日历；不写时沿用上层配置 */
+  workCalendar?: WorkCalendar;
+  /** 表单的数据来源；不写时沿用上层配置 */
+  formSources?: FormSources;
+  /** 波纹效果的开关；不写时沿用上层配置 */
+  ripple?: boolean;
+  children?: VNodeChild;
+}
+
+/** Provider 的样式：root、themed */
+const providerStyles = css.create({
+  // 不产生盒子，不影响布局；主题变量与文字样式照常由子元素继承
+  root: { display: 'contents' },
+  themed: {
+    color: '_text',
+    fontFamily: '_sans',
+    fontSize: '_md',
+    lineHeight: '_normal',
+  },
+});
+
+/**
+ * 局部配置主题与语言，可以嵌套：内层只写要改的部分，其余继承外层。
+ * 应用级配置见 createUi。
+ */
+export const Provider = _component(
+  ({
+    theme,
+    lang,
+    highlighter,
+    textMatcher,
+    components,
+    router,
+    permissions,
+    http,
+    workCalendar,
+    formSources,
+    ripple,
+    children,
+  }: ProviderProps) => {
+    const parent = useConfig();
+    const prefersDark = usePrefersDark();
+    const currentTheme = _derived(theme ? resolveTheme(theme, prefersDark.value) : parent.theme);
+    const currentLang = _derived(lang ? defineLang(parent.lang, lang) : parent.lang);
+    const configured = _derived(splitComponents(components));
+    const currentDefaults = _derived(mergeDefaults(parent.defaults, configured?.defaults));
+    const currentStyles = _derived(mergeStyles(parent.styles, configured?.styles));
+    ConfigContext.provide({
+      get theme() {
+        return currentTheme;
+      },
+      get lang() {
+        return currentLang;
+      },
+      get langScoped() {
+        return lang != null || !!parent.langScoped;
+      },
+      get highlighter() {
+        return highlighter ?? parent.highlighter;
+      },
+      get textMatcher() {
+        return textMatcher ?? parent.textMatcher;
+      },
+      get defaults() {
+        return currentDefaults;
+      },
+      get styles() {
+        return currentStyles;
+      },
+      get router() {
+        return router ?? parent.router;
+      },
+      get permissions() {
+        return permissions ?? parent.permissions;
+      },
+      get http() {
+        return http ?? parent.http;
+      },
+      get workCalendar() {
+        return workCalendar ?? parent.workCalendar;
+      },
+      get formSources() {
+        return formSources ?? parent.formSources;
+      },
+      get ripple() {
+        return ripple ?? parent.ripple;
+      },
+    });
+
+    return () => (
+      <div
+        {...(theme ? themeAttrs(currentTheme) : {})}
+        {...css.attrs(providerStyles.root, theme != null && providerStyles.themed)}
+        // 只在这一层配置了语言时写：没配置时沿用外层的（外层 Provider、createUi 或宿主页面自己的 lang / dir）
+        lang={lang ? currentLang.code : undefined}
+        dir={lang ? currentLang.direction : undefined}
+      >
+        {children}
+      </div>
+    );
+  },
+);
+
+/** ConfigScope 的 props */
+export interface ConfigScopeProps {
+  children?: VNodeChild;
+}
+
+/**
+ * 给移出 Provider 的内容（Teleport 到 body 的 Toaster 等）重新带上当前的主题、语言与文字方向：
+ * 主题变量、lang、dir 都挂在 Provider 的元素上，传送出去的元素不再是它的后代。
+ */
+export const ConfigScope = _component(({ children }: ConfigScopeProps) => {
+  const config = useConfig();
+  return () => (
+    <div
+      {...themeAttrs(config.theme)}
+      {...css.attrs(providerStyles.root, providerStyles.themed)}
+      lang={config.langScoped ? config.lang.code : undefined}
+      dir={config.langScoped ? config.lang.direction : undefined}
+    >
+      {children}
+    </div>
+  );
+});

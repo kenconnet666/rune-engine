@@ -1,0 +1,195 @@
+// 通知控制器：计时、暂停、更新、promise；显示区域（Toaster、ToastItem）的名称与播报、Esc 关闭。
+// 指针、滑动、焦点的交互在浏览器测试里（apps/host-demo/test/feedback.browser.test.ts）
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { nextTick } from 'vue';
+import { mount } from '../../utils/.test/mount';
+import { createToaster, Toaster } from '../Toast';
+
+beforeEach(() => vi.useFakeTimers());
+afterEach(() => vi.useRealTimers());
+
+const closing = (toaster: ReturnType<typeof createToaster>, id: string) =>
+  toaster.toasts.find((toast) => toast.id === id)?.closing;
+
+describe('createToaster', () => {
+  it('到时自动关闭（进入离场，等显示区域移除）；duration 为 Infinity 时不关闭', () => {
+    const toaster = createToaster({ duration: 1000 });
+    const short = toaster.show({ title: '已保存' });
+    const sticky = toaster.show({ title: '一直在', duration: Infinity });
+    vi.advanceTimersByTime(999);
+    expect(closing(toaster, short)).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(closing(toaster, short)).toBe(true);
+    vi.advanceTimersByTime(60_000);
+    expect(closing(toaster, sticky)).toBe(false);
+    toaster.remove(short);
+    expect(toaster.toasts.map((toast) => toast.id)).toEqual([sticky]);
+  });
+
+  it('暂停时剩余时间保留，继续后接着计时', () => {
+    const toaster = createToaster({ duration: 1000 });
+    const id = toaster.show({ title: 'x' });
+    vi.advanceTimersByTime(600);
+    toaster.pause();
+    vi.advanceTimersByTime(5000);
+    expect(closing(toaster, id)).toBe(false);
+    toaster.resume();
+    vi.advanceTimersByTime(399);
+    expect(closing(toaster, id)).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(closing(toaster, id)).toBe(true);
+  });
+
+  it('countdown 给剩余时间条：重新计时换编号，加载中、关闭后为 null；paused 跟随暂停', () => {
+    const toaster = createToaster({ duration: 1000 });
+    const id = toaster.show({ title: 'x' });
+    const record = () => toaster.toasts.find((toast) => toast.id === id)!;
+    const first = record().countdown!;
+    expect(first.duration).toBe(1000);
+    toaster.update(id, { duration: 3000 });
+    expect(record().countdown).toEqual({ duration: 3000, id: first.id + 1 });
+    toaster.update(id, { loading: true });
+    expect(record().countdown).toBeNull();
+    expect(toaster.paused).toBe(false);
+    toaster.pause();
+    expect(toaster.paused).toBe(true);
+    toaster.update(id, { loading: false });
+    toaster.dismiss(id);
+    expect(record().countdown).toBeNull();
+  });
+
+  it('setLimit：只给显示出来的（最新的几条）计时；前面的移除后，没轮到的才开始', () => {
+    const toaster = createToaster({ duration: 1000 });
+    toaster.setLimit(1);
+    const older = toaster.show({ title: '旧' });
+    const newer = toaster.show({ title: '新' });
+    vi.advanceTimersByTime(1000);
+    // 旧的被挤到显示的条数之外：停在原处，没有看到就不该消失
+    expect([closing(toaster, older), closing(toaster, newer)]).toEqual([false, true]);
+    toaster.remove(newer);
+    vi.advanceTimersByTime(999);
+    expect(closing(toaster, older)).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(closing(toaster, older)).toBe(true);
+  });
+
+  it('暂停期间新加的通知也等继续后才开始计时', () => {
+    const toaster = createToaster({ duration: 1000 });
+    toaster.pause();
+    const id = toaster.show({ title: 'x' });
+    vi.advanceTimersByTime(5000);
+    expect(closing(toaster, id)).toBe(false);
+    toaster.resume();
+    vi.advanceTimersByTime(1000);
+    expect(closing(toaster, id)).toBe(true);
+  });
+
+  it('dismiss 不给编号时关闭全部；关闭后 update 不再生效', () => {
+    const toaster = createToaster();
+    const a = toaster.show({ title: 'a' });
+    toaster.show({ title: 'b' });
+    toaster.dismiss();
+    expect(toaster.toasts.every((toast) => toast.closing)).toBe(true);
+    toaster.update(a, { title: 'changed' });
+    expect(toaster.toasts[0]!.title).toBe('a');
+  });
+
+  it('promise：加载中不自动关闭；成功后换成结果并重新计时', async () => {
+    const toaster = createToaster({ duration: 1000 });
+    let finish!: (value: number) => void;
+    const result = toaster.promise(new Promise<number>((resolve) => (finish = resolve)), {
+      loading: { title: '上传中' },
+      success: (count) => ({ title: `已上传 ${count} 个` }),
+      error: { title: '失败' },
+    });
+    const [toast] = toaster.toasts;
+    expect([toast!.loading, toast!.closable]).toEqual([true, false]);
+    vi.advanceTimersByTime(60_000);
+    expect(toast!.closing).toBe(false);
+
+    finish(3);
+    await expect(result).resolves.toBe(3);
+    expect([toast!.title, toast!.tone, toast!.loading, toast!.closable]).toEqual([
+      '已上传 3 个',
+      'success',
+      false,
+      true,
+    ]);
+    vi.advanceTimersByTime(1000);
+    expect(toast!.closing).toBe(true);
+  });
+
+  it('promise：失败时换成错误色调，并照样抛出', async () => {
+    const toaster = createToaster();
+    const failure = new Error('断网');
+    const result = toaster.promise(Promise.reject(failure), {
+      loading: { title: '上传中' },
+      success: { title: '完成' },
+      error: (reason) => ({ title: (reason as Error).message }),
+    });
+    await expect(result).rejects.toBe(failure);
+    expect([toaster.toasts[0]!.title, toaster.toasts[0]!.tone]).toEqual(['断网', 'danger']);
+  });
+
+  it('快捷方法：色调与默认值；error 读屏立即播报，loading 不自动关闭、不能手动关', () => {
+    const toaster = createToaster({ duration: 1000 });
+    const ok = toaster.success('已保存', { description: '3 条' });
+    const failed = toaster.error('保存失败');
+    const busy = toaster.loading('正在导出');
+    const byId = (id: string) => toaster.toasts.find((toast) => toast.id === id)!;
+    expect(byId(ok)).toMatchObject({ tone: 'success', title: '已保存', description: '3 条' });
+    expect(byId(failed)).toMatchObject({ tone: 'danger', important: true });
+    expect(byId(busy)).toMatchObject({ loading: true, closable: false, countdown: null });
+    expect(toaster.warning('快到期了')).toBeTruthy();
+    expect(toaster.info('有新版本')).toBeTruthy();
+  });
+
+  it('同一个 id 只有一条：再 show 时换掉它（不合并），重新计时', () => {
+    const toaster = createToaster({ duration: 1000 });
+    toaster.loading('正在导出', { id: 'export' });
+    vi.advanceTimersByTime(5000);
+    const id = toaster.success('导出完成', { id: 'export' });
+    expect(id).toBe('export');
+    expect(toaster.toasts).toHaveLength(1);
+    expect(toaster.toasts[0]).toMatchObject({ tone: 'success', title: '导出完成' });
+    expect(toaster.toasts[0]!.loading).toBeUndefined();
+    expect(toaster.toasts[0]!.closable).toBeUndefined();
+    vi.advanceTimersByTime(1000);
+    expect(closing(toaster, 'export')).toBe(true);
+    // 离场中的同 id：移走，新的一条接着出现
+    toaster.info('再来一次', { id: 'export' });
+    expect(toaster.toasts).toHaveLength(1);
+    expect(closing(toaster, 'export')).toBe(false);
+  });
+
+  it('onClose：自动消失与被关闭的原因，只调用一次', () => {
+    const toaster = createToaster({ duration: 1000 });
+    const reasons: string[] = [];
+    toaster.show({ title: 'a', onClose: (reason) => reasons.push(`a:${reason}`) });
+    const b = toaster.show({ title: 'b', onClose: (reason) => reasons.push(`b:${reason}`) });
+    toaster.dismiss(b);
+    toaster.dismiss(b);
+    vi.advanceTimersByTime(1000);
+    expect(reasons).toEqual(['b:dismissed', 'a:timeout']);
+  });
+});
+
+describe('Toaster、ToastItem', () => {
+  it('区域是带名称的 landmark，列表礼貌播报；重要的通知立即播报；焦点在通知里时 Esc 关掉它', async () => {
+    const toaster = createToaster();
+    mount(() => <Toaster controller={toaster} />);
+    const saved = toaster.success('已保存');
+    toaster.error('发送失败');
+    await nextTick();
+    const region = document.querySelector<HTMLElement>('section[aria-label]')!;
+    expect(region.getAttribute('aria-label')).toBe('通知');
+    expect(region.querySelector('[aria-live="polite"]')).not.toBeNull();
+    const items = [...region.querySelectorAll<HTMLElement>('li')];
+    const item = (text: string) => items.find((element) => element.textContent?.includes(text))!;
+    expect(item('发送失败').getAttribute('aria-live')).toBe('assertive');
+    expect(item('已保存').hasAttribute('aria-live')).toBe(false);
+
+    item('已保存').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(closing(toaster, saved)).toBe(true);
+  });
+});

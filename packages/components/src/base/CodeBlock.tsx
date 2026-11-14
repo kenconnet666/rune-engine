@@ -1,0 +1,428 @@
+/**
+ * 代码块（pre > code）。高亮器经配置注入（createUi / Provider 的 highlighter，见 config/context.ts），
+ * 本组件不依赖 Shiki：没有高亮器、或没给语言时显示纯文本。
+ *
+ *   <CodeBlock code={source} lang="ts" />
+ *   <CodeBlock code={source} lang="ts" title="main.ts" lineNumbers highlightLines="2,4-5" maxLines={20} />
+ *
+ * - 高亮是异步的：先显示纯文本，结果到了再替换；等宽字体下两者排版相同，布局不跳动。
+ * - 长行在 ScrollArea 里横向滚动：浮层滚动条不占高度；滚动区域可聚焦（带焦点环），键盘也能滚动。
+ * - 复制按钮（CopyButton）在右上角，有标题时放在标题栏里；复制成功后经 aria-live 播报“已复制”。
+ * - 行号、行高亮、新增与删除的行：按行渲染（高亮结果按 <br> 拆行；代码里的 < 都已转义，拆分是安全的）；
+ *   都不用时整段写进 innerHTML，不为每行建节点。行号不可选中，复制的是 code 本身。
+ * - 长代码：maxLines 之外折叠，底部的按钮展开或收起。
+ */
+import { ChevronDown } from '@lucide/icons';
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import type { VNodeChild } from 'vue';
+import { useComponent } from '../config/components';
+import { useConfig, useLang } from '../config/context';
+import type { PartLayer } from '../config/styles';
+import { hasContent, mergeAttrs, mergePartProps, type PartProps } from '../utils/props';
+import { focusRingStyles } from '../utils/style/styles';
+import { disclosureStyles } from '../utils/style/transitions';
+import { ScrollArea, type ScrollAreaProps } from '../layout/ScrollArea';
+import { ButtonBase, type ButtonBaseProps } from './ButtonBase';
+import { CopyButton, type CopyButtonProps } from './CopyButton';
+import { Icon, type IconProps } from './Icon';
+import { t } from '../config/theme/tokens';
+import { relativeFontSizes } from '../utils/style/typography';
+
+/** 行号的写法：`'1,3-5'` 或 `[1, 3, 4, 5]`（从 1 开始） */
+export type LineSpec = string | readonly number[];
+
+/** CodeBlock 的档位：createUi / Provider 的 components.CodeBlock.defaults 可以给默认值（如全站显示行号） */
+export interface CodeBlockOptions {
+  /** 长行自动换行，而不是横向滚动 */
+  wrap?: boolean;
+  /** 显示复制按钮，默认 true */
+  copyable?: boolean;
+  /** 显示行号 */
+  lineNumbers?: boolean;
+  /** 超过这么多行时折叠，底部的按钮展开；不写时不折叠 */
+  maxLines?: number;
+  /** 嵌在卡片、标签页这类已经有外框的容器里：去掉自己的边框、圆角和底色 */
+  flush?: boolean;
+}
+
+/** 未声明的属性落到 pre 上；原生的 title 属性（悬停提示）让给标题栏 */
+export interface CodeBlockProps extends PartProps<'pre', 'title'>, CodeBlockOptions {
+  /** 代码文本 */
+  code: string;
+  /** 语言（如 ts、vue、bash），交给高亮器；不写时不高亮，高亮器不认识的语言也按纯文本显示 */
+  lang?: string;
+  /**
+   * 高亮：false 时先按纯文本显示，改成 true 时才交给高亮器。看不见的代码（收起的示例源码）可以等要显示时再高亮，
+   * 页面打开时不必一次高亮全部
+   * @default true
+   */
+  highlight?: boolean;
+  /** 标题栏：通常是文件名；有标题时复制按钮放在标题栏里 */
+  title?: VNodeChild;
+  /** 强调的行：`'2,4-5'` */
+  highlightLines?: LineSpec;
+  /** 新增的行（diff）：绿色底 */
+  addedLines?: LineSpec;
+  /** 删除的行（diff）：红色底 */
+  removedLines?: LineSpec;
+  /** 内层 code 元素的部件属性 */
+  propsCode?: PartProps<'code'>;
+  /** 外层（包着标题栏、pre 与复制按钮的 div）的部件属性 */
+  propsRoot?: PartProps<'div'>;
+  /** 标题栏的部件属性 */
+  propsHeader?: PartProps<'div'>;
+  /** 标题栏里标题文字的部件属性 */
+  propsTitle?: PartProps<'span'>;
+  /** 代码区（包着滚动区域与右上角复制按钮的 div）的部件属性 */
+  propsBody?: PartProps<'div'>;
+  /** 按行渲染时每一行的部件属性 */
+  propsLine?: PartProps<'span'>;
+  /** 每行行号的部件属性 */
+  propsLineNumber?: PartProps<'span', 'aria-hidden'>;
+  /** 复制按钮的部件属性 */
+  propsCopy?: Partial<CopyButtonProps>;
+  /** 横向滚动区域（ScrollArea）的部件属性 */
+  propsScroll?: Partial<ScrollAreaProps>;
+  /** 展开、收起长代码的按钮的部件属性 */
+  propsExpand?: Partial<ButtonBaseProps>;
+  /** 展开按钮里箭头图标的部件属性；展开后的翻转由组件管理 */
+  propsExpandIcon?: Partial<IconProps>;
+}
+
+/** `'1,3-5'` → Set{1, 3, 4, 5}；数组原样收进集合 */
+export function parseLineSpec(spec: LineSpec | undefined): Set<number> {
+  if (spec == null) return new Set();
+  if (typeof spec !== 'string') return new Set(spec);
+  const lines = new Set<number>();
+  for (const part of spec.split(',')) {
+    const [from, to = from] = part.split('-').map((text) => Number(text.trim()));
+    if (!Number.isInteger(from) || !Number.isInteger(to)) continue;
+    for (let line = from!; line <= to!; line++) lines.add(line);
+  }
+  return lines;
+}
+
+/**
+ * CodeBlock 的配方（createUi / Provider 的 components.CodeBlock 按它定制）：root（外层 div）、header（标题栏）、title、
+ * body（代码区）、pre、code、line（按行渲染时的一行）、lineNumber。去掉外框（flush）、自动换行（wrap）是档位
+ */
+export const codeBlockRecipe = css.recipe({
+  name: 'CodeBlock',
+  parts: ['root', 'header', 'title', 'body', 'pre', 'code', 'line', 'lineNumber'],
+  base: {
+    // minWidth: 0：放在 grid / flex 里时外层不被最长的一行代码撑宽（滚动的是里面的 pre）
+    root: {
+      minWidth: 0,
+      borderWidth: '_xs',
+      borderStyle: 'solid',
+      borderColor: '_borderMuted',
+      borderRadius: '_md',
+      backgroundColor: '_surface',
+      overflow: 'hidden',
+    },
+    header: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '_sm',
+      minHeight: `max(${t.sizes.control}, ${t.sizes.minTarget})`,
+      paddingInlineStart: '_lg',
+      paddingInlineEnd: '_xs',
+      borderBottomWidth: '_xs',
+      borderBottomStyle: 'solid',
+      borderBottomColor: '_borderMuted',
+      backgroundColor: '_surfaceMuted',
+      color: '_textMuted',
+      fontFamily: '_mono',
+      fontSize: relativeFontSizes.xs,
+    },
+    title: {
+      flexGrow: 1,
+      minWidth: 0,
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    },
+    body: { position: 'relative' },
+    pre: {
+      boxSizing: 'border-box',
+      margin: 0,
+      paddingBlock: '_md',
+      paddingInline: '_lg',
+      color: '_text',
+      fontFamily: '_mono',
+      // 代码总是从左到右排：从右到左的页面里也不跟着镜像
+      direction: 'ltr',
+      // 代码字体的连字（=> 显示成 ⇒）会让照着抄的人看错，一律关掉
+      fontVariantLigatures: 'none',
+      // 相对周围文字略小：等宽字体的字面显得大；是比例不是字号档位
+      fontSize: '0.9em',
+      lineHeight: '_normal',
+      tabSize: 2,
+    },
+    // 继承 pre 的字体：浏览器默认给 code 设了 monospace 字号缩放
+    code: { fontFamily: 'inherit', fontSize: 'inherit' },
+    line: {
+      display: 'block',
+      minHeight: '1lh',
+      marginInline: `calc(-1 * ${t.space.lg})`,
+      paddingInline: '_lg',
+    },
+    lineNumber: {
+      display: 'inline-block',
+      minWidth: '2ch',
+      marginInlineEnd: '_lg',
+      color: '_codeComment',
+      textAlign: 'end',
+      userSelect: 'none',
+    },
+  },
+  variants: {
+    flush: { true: { root: { borderWidth: 0, borderRadius: 0, backgroundColor: 'transparent' } } },
+    wrap: { true: { pre: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } } },
+  },
+});
+
+/** CodeBlock 的部件（createUi / Provider 的 components.CodeBlock.styles 按它定制） */
+export type CodeBlockPart = (typeof codeBlockRecipe.parts)[number];
+type CodeBlockParts = Readonly<Record<CodeBlockPart, PartLayer>>;
+
+/** 随状态叠在部件层之后的样式：复制按钮的位置、按行渲染、标记的行、折叠，以及展开按钮 */
+const codeBlockStateStyles = css.create({
+  // 给复制按钮留出位置，第一行的末尾不被盖住
+  withCopy: {
+    paddingInlineEnd: `calc(${t.space.md} + max(${t.sizes.control}, ${t.sizes.minTarget}))`,
+  },
+  // 不透明的底色：横向滚动的长行从按钮下面经过时，字不和图标叠在一起；
+  // 按钮离外框还有一小段，四周再补一圈同色的底，长行不从这道缝里露出半个字
+  copy: {
+    position: 'absolute',
+    top: '_space.xs',
+    insetInlineEnd: '_space.xs',
+    backgroundColor: { default: '_surface', _hover: '_fill' },
+    boxShadow: `0 0 0 ${t.space.xs} ${t.colors.surface}`,
+  },
+  // 复制按钮（右上角或标题栏里）贴着外框，外框为圆角裁掉了溢出：焦点环画在里面
+  copyRing: { outlineOffset: `calc(-1 * ${t.borderWidths.sm})` },
+  collapsed: { overflowY: 'hidden' },
+  // 按行渲染时：code 至少与 pre 一样宽，行的底色铺满横向滚动的整行
+  lines: { display: 'inline-block', minWidth: '100%' },
+  highlighted: { backgroundColor: '_fill' },
+  added: { backgroundColor: '_codeInserted' },
+  removed: { backgroundColor: '_codeDeleted' },
+  expand: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '_xs',
+    width: '_full',
+    minHeight: `max(${t.sizes.control}, ${t.sizes.minTarget})`,
+    borderTopWidth: '_xs',
+    borderTopStyle: 'solid',
+    borderTopColor: '_borderMuted',
+    backgroundColor: { default: '_surfaceMuted', _hover: '_fill' },
+    color: '_textMuted',
+    fontSize: '_sm',
+  },
+});
+
+/** 按行拆开；结尾的换行不算新的一行（文件末尾通常有一个），不然行号会多出一行空的 */
+function splitLines(text: string, separator: string): string[] {
+  const lines = text.split(separator);
+  if (lines.length > 1 && lines.at(-1) === '') lines.pop();
+  return lines;
+}
+
+// 折叠后的高度按行数算，是任意值，用动态样式；单独一个 create，见 COMPONENTS.md §4
+/** CodeBlock 的动态样式：折叠后的最大高度 */
+const codeBlockDynamicStyles = css.create({
+  maxLines: (lines: number) => ({ maxHeight: `calc(${lines} * 1lh + 2 * 0.75em)` }),
+});
+
+/** 代码块：高亮、复制、标题栏、行号、行高亮、diff、长代码折叠 */
+export const CodeBlock = _component(
+  ({
+    code,
+    lang,
+    highlight = true,
+    title,
+    wrap,
+    copyable,
+    flush,
+    lineNumbers,
+    highlightLines,
+    addedLines,
+    removedLines,
+    maxLines,
+    propsCode,
+    propsRoot,
+    propsHeader,
+    propsTitle,
+    propsBody,
+    propsLine,
+    propsLineNumber,
+    propsCopy,
+    propsScroll,
+    propsExpand,
+    propsExpandIcon,
+    ...rest
+  }: CodeBlockProps) => {
+    const config = useConfig();
+    const labels = useLang();
+    const ui = useComponent(
+      codeBlockRecipe,
+      () => ({ wrap, copyable, lineNumbers, maxLines, flush }),
+      { wrap: false, copyable: true, lineNumbers: false, flush: false },
+    );
+    // 当前代码的高亮结果；代码或语言变了先清空，回到纯文本
+    let html = _state.raw<string | null>(null);
+    let expanded = _state(false);
+
+    _effect(() => {
+      const highlighter = config.highlighter;
+      html = null;
+      if (!highlighter || !lang || !highlight) return;
+      let stale = false;
+      highlighter(code, lang).then(
+        (result) => {
+          if (!stale) html = result;
+        },
+        (error: unknown) => console.error(`CodeBlock 高亮 ${lang} 代码失败，显示纯文本`, error),
+      );
+      return () => (stale = true);
+    });
+
+    const marks = _derived.by(() => ({
+      highlighted: parseLineSpec(highlightLines),
+      added: parseLineSpec(addedLines),
+      removed: parseLineSpec(removedLines),
+    }));
+    const lineCount = _derived(splitLines(code, '\n').length);
+    const marked = _derived(marks.highlighted.size + marks.added.size + marks.removed.size > 0);
+
+    /** 按行渲染：高亮结果按 <br> 拆，纯文本按换行拆 */
+    function renderLines(s: CodeBlockParts, lineNumbers: boolean) {
+      const lines = html == null ? splitLines(code, '\n') : splitLines(html, '<br>');
+      return lines.map((line, index) => {
+        const number = index + 1;
+        return (
+          <span
+            key={number}
+            {...mergeAttrs<'span'>(
+              {
+                ...s.line,
+                sx: [
+                  s.line.sx,
+                  marks.highlighted.has(number) && codeBlockStateStyles.highlighted,
+                  marks.added.has(number) && codeBlockStateStyles.added,
+                  marks.removed.has(number) && codeBlockStateStyles.removed,
+                ],
+              },
+              propsLine,
+            )}
+            data-diff={
+              marks.added.has(number) ? 'added' : marks.removed.has(number) ? 'removed' : undefined
+            }
+          >
+            {lineNumbers && (
+              <span
+                {...mergeAttrs<'span'>(s.lineNumber, propsLineNumber, {
+                  'aria-hidden': 'true',
+                })}
+              >
+                {number}
+              </span>
+            )}
+            {html == null ? line : <span innerHTML={line} />}
+          </span>
+        );
+      });
+    }
+
+    return () => {
+      const { options, parts: s } = ui();
+      const { copyable, lineNumbers, maxLines } = options;
+      const byLine = lineNumbers || marked;
+      const collapsible = maxLines != null && lineCount > maxLines;
+      const collapsed = collapsible && !expanded;
+      const codeProps = mergeAttrs<'code'>(
+        { ...s.code, sx: [s.code.sx, byLine && codeBlockStateStyles.lines] },
+        propsCode,
+      );
+      const copyButton = (inHeader: boolean) => (
+        <CopyButton
+          {...mergePartProps<CopyButtonProps>(
+            {
+              sx: [!inHeader && codeBlockStateStyles.copy, codeBlockStateStyles.copyRing],
+              size: 'sm',
+              tone: 'neutral',
+              value: code,
+            },
+            propsCopy,
+          )}
+        />
+      );
+      return (
+        <div {...mergeAttrs<'div'>(s.root, propsRoot)}>
+          {hasContent(title) && (
+            <div {...mergeAttrs<'div'>(s.header, propsHeader)}>
+              <span {...mergeAttrs<'span'>(s.title, propsTitle)}>{title}</span>
+              {copyable && copyButton(true)}
+            </div>
+          )}
+          <div {...mergeAttrs<'div'>(s.body, propsBody)}>
+            <ScrollArea axis="x" {...mergePartProps<ScrollAreaProps>({}, propsScroll)}>
+              <pre
+                {...mergeAttrs<'pre'>(
+                  {
+                    ...s.pre,
+                    sx: [s.pre.sx, copyable && title == null && codeBlockStateStyles.withCopy],
+                  },
+                  rest,
+                  {
+                    sx: collapsed && [
+                      codeBlockStateStyles.collapsed,
+                      codeBlockDynamicStyles.maxLines(maxLines!),
+                    ],
+                  },
+                )}
+                data-lang={lang}
+              >
+                {byLine ? (
+                  <code {...codeProps}>{renderLines(s, lineNumbers)}</code>
+                ) : html == null ? (
+                  <code {...codeProps}>{code}</code>
+                ) : (
+                  <code {...codeProps} innerHTML={html} />
+                )}
+              </pre>
+            </ScrollArea>
+            {copyable && title == null && copyButton(false)}
+          </div>
+          {collapsible && (
+            <ButtonBase
+              {...mergePartProps<ButtonBaseProps>(
+                // 外框裁掉溢出：焦点环画在按钮里面，画在外侧会整圈被裁掉
+                { sx: [focusRingStyles.inset, codeBlockStateStyles.expand] },
+                propsExpand,
+                {
+                  'aria-expanded': expanded,
+                  onClick: () => (expanded = !expanded),
+                },
+              )}
+            >
+              {expanded ? labels.codeCollapse : labels.codeExpand}
+              <Icon
+                {...mergePartProps<IconProps>(
+                  { icon: ChevronDown, sx: disclosureStyles.icon },
+                  propsExpandIcon,
+                  { sx: expanded && disclosureStyles.flip },
+                )}
+              />
+            </ButtonBase>
+          )}
+        </div>
+      );
+    };
+  },
+);

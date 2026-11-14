@@ -1,0 +1,811 @@
+/**
+ * 语言：地区、时间与组件文案平铺在一个对象里，组件里用 useLang() 读取：
+ *   lang.timeZone、lang.confirm、lang.paginationTotal(42)
+ *
+ * 命名：通用文案不加前缀；组件文案用组件名作前缀（selectEmpty），键入 lang.select 即可筛出。
+ * 需要插值的文案写成函数。
+ *
+ * 页面级的组件（主题编辑器、文档站组件）自带各语言的文案（messages.ts），不在这里逐条列出：
+ * 新增一种语言只翻这里的字段，它们没有这种语言时显示英文。
+ */
+import type { $ZodErrorMap } from 'zod/v4/core';
+import type { ChecklistStatuses } from '../../display/Checklist';
+import type { ConditionFieldType, ConditionOp } from '../../input/condition';
+import type { ConditionMode } from '../../input/ConditionBuilder';
+import type { PeopleType } from '../../input/people';
+import type { DateSegmentType } from '../../date/date-segments';
+import type { DateRangePreset } from '../../utils/data/date';
+import type { DiagramMessages } from '../../diagram/messages';
+import type { DocsKitMessages } from '../../docs-kit/messages';
+import type { PatternsMessages } from '../../patterns/messages';
+import type { ThemeCustomizerMessages } from '../../theme-customize/messages';
+import { withoutUndefined } from '../../utils/data/object';
+
+/** 文字方向 */
+export interface Directions {
+  /** 从左到右：中文、英文等 */
+  ltr: unknown;
+  /** 从右到左：阿拉伯文、希伯来文等；方向相关的样式与图标随之镜像 */
+  rtl: unknown;
+}
+
+/** 小时制 */
+export interface HourCycles {
+  /** 12 小时制，带上午/下午 */
+  h12: unknown;
+  /** 24 小时制，0–23 */
+  h23: unknown;
+}
+
+/** 一个错误码的文案：固定的文字，或按错误带的参数（params）写出 */
+export type ErrorCodeText = string | ((params: Readonly<Record<string, unknown>>) => string);
+
+/** 一种语言的全部配置：地区格式与界面文案平铺在一个对象里（COMPONENTS.md §6.3） */
+export interface Lang {
+  // ───────── 地区与格式 ─────────
+
+  /** BCP 47 语言标签，决定数字、日期等 Intl 格式化规则，如 `'zh-CN'` */
+  readonly code: string;
+  /** 文字方向 */
+  readonly direction: keyof Directions;
+  /** 时区，如 `'Asia/Shanghai'`；不写时使用浏览器时区 */
+  readonly timeZone?: string;
+  /**
+   * 日历系统，如 `'gregory'`（公历）、`'japanese'`（和历）。Intl 格式化都认；日期组件的网格与运算用
+   * @internationalized/date，它不支持的（如 `'chinese'` 农历）按公历排
+   */
+  readonly calendar: string;
+  /** 一周的第一天，0 表示周日；不写时按地区惯例 */
+  readonly firstDayOfWeek?: number;
+  /** 12 或 24 小时制；不写时按地区惯例 */
+  readonly hourCycle?: keyof HourCycles;
+  /** 金额的默认币种，如 `'CNY'` */
+  readonly currency: string;
+
+  // ───────── 通用文案 ─────────
+
+  /** 确认按钮，默认“确定” */
+  readonly confirm: string;
+  /** 取消按钮，默认“取消” */
+  readonly cancel: string;
+  /** 关闭按钮（弹层、标签）的无障碍名称，默认“关闭” */
+  readonly close: string;
+  /** 可以点开看大图的图片的名称：`('支架照片')` → “查看大图：支架照片” */
+  readonly imagePreview: (alt: string) => string;
+  /** 图片加载失败时的文字，默认“图片加载失败” */
+  readonly imageError: string;
+  /** 请求失败、又没有可用的错误文案时的文字，默认“请求失败，请稍后重试” */
+  readonly requestFailed: string;
+  /**
+   * 业务错误码的文案（见 utils/request/error-message.ts）：码 → 文字，要填参数的写成函数。自带请求层（`http.`）与
+   * query（`query.`）的；flow-ui、应用按自己的命名空间补，defineLang 与自带的合并：
+   * `defineLang(zhCN, { errorCodes: { 'app.quota-exceeded': '额度不足' } })`
+   */
+  readonly errorCodes: Readonly<Record<string, ErrorCodeText>>;
+  /** 放大按钮（图片预览、地图、裁剪图片共用），默认“放大” */
+  readonly zoomIn: string;
+  /** 缩小按钮（图片预览、地图、裁剪图片共用），默认“缩小” */
+  readonly zoomOut: string;
+  /** 第几张（图片预览的计数、轮播每一张与页点的名称）：`(2, 5)` → “第 2 张，共 5 张” */
+  readonly slideCounter: (index: number, total: number) => string;
+  /** 回到初始的大小、位置与方向（图片预览、裁剪图片共用），默认“还原” */
+  readonly resetView: string;
+  /** 裁剪图片：区域的名称，默认“裁剪图片” */
+  readonly cropLabel: string;
+  /** 裁剪图片：操作说明（读屏），默认“拖动移动图片，滚轮或 + − 缩放，方向键微调” */
+  readonly cropHint: string;
+  /** 裁剪图片：缩放滑块的名称，默认“缩放” */
+  readonly cropZoom: string;
+  /** 图片预览（Lightbox）的名称，默认“图片预览” */
+  readonly lightboxLabel: string;
+  /** 图片预览：向左旋转，默认“向左旋转” */
+  readonly lightboxRotateLeft: string;
+  /** 图片预览：向右旋转，默认“向右旋转” */
+  readonly lightboxRotateRight: string;
+  /** 图片预览：下载，默认“下载” */
+  readonly lightboxDownload: string;
+  /** 图片预览：上一张，默认“上一张” */
+  readonly lightboxPrevious: string;
+  /** 图片预览：下一张，默认“下一张” */
+  readonly lightboxNext: string;
+  /** 描述列表里复制一项的值的按钮：`('订单号')` → “复制订单号” */
+  readonly descriptionsCopy: (label: string) => string;
+  /** 字段对比的表头：字段、原值、新值、变化 */
+  readonly fieldCompareHeaders: readonly [string, string, string, string];
+  /** 字段对比里“从 A 改为 B”的“改为”（给读屏；画面上是箭头），默认“改为” */
+  readonly fieldCompareTo: string;
+  /** 字段对比没有改动时，默认“没有改动” */
+  readonly fieldCompareNone: string;
+  /** 时间线收起时展开其余几项的按钮：`(5)` → “展开其余 5 条” */
+  readonly timelineShowMore: (count: number) => string;
+  /** 时间线收起其余各项的按钮，默认“收起” */
+  readonly timelineShowLess: string;
+  /** 时间线一项里展开详情的按钮，默认“查看详情” */
+  readonly timelineDetails: string;
+  /** 提及的弹出列表的名称，默认“可以提及的人” */
+  readonly mentionsList: string;
+  /** 提及没有匹配的人时，默认“没有匹配的人” */
+  readonly mentionsEmpty: string;
+  /** 清单各项状态的文字（读屏、悬停说明） */
+  readonly checklistStatus: Readonly<Record<keyof ChecklistStatuses, string>>;
+  /** 清单一项的名称与状态：`('验收报告', '已完成')` → “验收报告已完成” */
+  readonly checklistItemState: (label: string, state: string) => string;
+  /** 清单只有图标时整组的说明：把各项连起来 */
+  readonly checklistIconsLabel: (parts: readonly string[]) => string;
+  /** 清单的汇总：`(2, 3)` → “已完成 2 / 3” */
+  readonly checklistSummary: (done: number, total: number) => string;
+  /** 图表的导出菜单按钮，默认“导出” */
+  readonly chartExport: string;
+  /** 导出菜单：图片，默认“导出图片（PNG）” */
+  readonly chartExportImage: string;
+  /** 导出菜单：数据，默认“导出数据（CSV）” */
+  readonly chartExportData: string;
+  /** 图表没有名称时导出的文件名，默认“图表” */
+  readonly chartExportName: string;
+  /** 图表缩放的滑块的名称，默认“显示范围” */
+  readonly chartZoom: string;
+  /** 图表缩放后恢复全部，默认“显示全部” */
+  readonly chartZoomReset: string;
+  /** 地图的复位按钮，默认“复位” */
+  readonly chartZoomFit: string;
+  /** 地图拦下没按 Ctrl 的滚轮时的提示，默认“按住 Ctrl 滚动缩放地图” */
+  readonly chartZoomWheelHint: string;
+  /** 时间条图的数据表：系列的列名，默认“系列” */
+  readonly chartSeries: string;
+  /** 时间条图：开始的列名与提示框，默认“开始” */
+  readonly chartStart: string;
+  /** 时间条图：结束的列名与提示框，默认“结束” */
+  readonly chartEnd: string;
+  /** 时间条图的数据表：时长的列名，默认“时长” */
+  readonly chartDuration: string;
+  /** 时间条图：今天的标线，默认“今天” */
+  readonly chartToday: string;
+  /** 时间条图：一段的天数：`(12)` → “12 天” */
+  readonly chartDays: (days: number) => string;
+  /** 迷你图给读屏的概括：`(12, '40', '360', '40', '360')` → “12 个值，从 40 到 360，最低 40，最高 360” */
+  readonly sparklineSummary: (
+    count: number,
+    first: string,
+    last: string,
+    min: string,
+    max: string,
+  ) => string;
+  /** 清空输入的按钮，默认“清空” */
+  readonly clear: string;
+  /** 加载中提示，默认“加载中” */
+  readonly loading: string;
+  /** 移除（标签、已选项）的按钮名称，默认“移除” */
+  readonly remove: string;
+  /** 复制按钮的名称，默认“复制” */
+  readonly copy: string;
+  /** 复制成功后读屏播报的提示，默认“已复制” */
+  readonly copied: string;
+  /** 复制失败（没有剪贴板权限、不是安全上下文）时读屏播报的提示，默认“复制失败” */
+  readonly copyFailed: string;
+  /** 没有值时显示的占位（表格单元格、图表提示、描述列表），默认“—” */
+  readonly emptyValue: string;
+  /** 表单里该填的没有填（null、undefined、空字符串、空数组）时的错误，默认“必填”；schema 里自己写的提示优先 */
+  readonly formRequired: string;
+  /** 错误汇总的标题：`(3)` → “有 3 项需要修改” */
+  readonly formErrorSummary: (count: number) => string;
+  /** 错误汇总里的一项：`('邮箱', '格式不对')` → “邮箱：格式不对” */
+  readonly formErrorItem: (label: string, message: string) => string;
+  /** SchemaForm 的提交按钮，默认“提交” */
+  readonly formSubmit: string;
+  /** SchemaForm 的重置按钮，默认“重置” */
+  readonly formReset: string;
+  /** SchemaForm 列表字段加一行的按钮：`('联系人')` → “添加联系人” */
+  readonly formAddRow: (label: string) => string;
+  /** SchemaForm 列表字段删一行的按钮：`('联系人', 2)` → “删除第 2 个联系人” */
+  readonly formRemoveRow: (label: string, index: number) => string;
+  /** 明细表里一行的说明（格子里控件的读屏标签：“单价（第 2 个明细）”） */
+  readonly formRowLabel: (label: string, index: number) => string;
+  /** 明细表操作列的表头（只给读屏） */
+  readonly formRowActions: string;
+  /** 表单页签那一排的读屏名 */
+  readonly formTabs: string;
+  /** 只读视图（SchemaView）里开关、复选框打开时的值 */
+  readonly formValueTrue: string;
+  /** 只读视图里开关、复选框关着时的值 */
+  readonly formValueFalse: string;
+  /** 只读视图里没有值时显示的 */
+  readonly formValueEmpty: string;
+  /** 其余校验错误的文案：取 zod 自带的语言包（`zod/v4/locales` 的 localeError）；schema 里自己写的提示优先 */
+  readonly formIssues: $ZodErrorMap;
+  /** 未保存离开时确认对话框的标题，默认“离开这个页面？” */
+  readonly leaveTitle: string;
+  /** 未保存离开时确认对话框的说明，默认“有未保存的修改，离开后会丢失。” */
+  readonly leaveDescription: string;
+  /** 未保存离开时确认对话框的确认按钮，默认“离开” */
+  readonly leaveConfirm: string;
+
+  // ───────── 组件文案 ─────────
+
+  /** 通知区域（Toaster）的无障碍名称，默认“通知” */
+  readonly toasterLabel: string;
+  /** 外链（target=_blank）给读屏的提示，默认“（在新窗口打开）” */
+  readonly linkNewWindow: string;
+  /** 密码框里“显示密码”切换按钮的名称（按下状态由 aria-pressed 表示），默认“显示密码” */
+  readonly passwordShow: string;
+  /** 字数计数给读屏的说明：`(12, 100)` → “已输入 12 个字符，最多 100 个” */
+  readonly characterCount: (count: number, max?: number) => string;
+  /** 范围滑块里较小一端的滑块名称，默认“最小值” */
+  readonly sliderMin: string;
+  /** 范围滑块里较大一端的滑块名称，默认“最大值” */
+  readonly sliderMax: string;
+  /** 角标计数给读屏的说明：`(5)` → “5 条新消息” */
+  readonly indicatorCount: (count: number) => string;
+  /** 角标小圆点给读屏的说明，默认“有新消息” */
+  readonly indicatorDot: string;
+  /** 头像组折叠的人数：`(3)` → “还有 3 人” */
+  readonly avatarMore: (count: number) => string;
+  /** 数字输入框“减少”按钮的名称，默认“减少” */
+  readonly numberDecrement: string;
+  /** 数字输入框“增加”按钮的名称，默认“增加” */
+  readonly numberIncrement: string;
+  /** 组合框下拉箭头（显示全部选项）的名称，默认“显示选项” */
+  readonly comboboxToggle: string;
+  /** 表格表头“全选”勾选框的名称，默认“全选” */
+  readonly tableSelectAll: string;
+  /** DataTable：单选时勾选列的标题（只给读屏），默认“选择” */
+  readonly tableSelectColumn: string;
+  /** 表格每行勾选框的名称，默认“选择第 n 行” */
+  readonly tableSelectRow: (row: number) => string;
+  /** 表格列宽调整手柄的名称，默认“调整“列名”的列宽” */
+  readonly tableResizeColumn: (column: string) => string;
+  /** 表格没有数据时的提示，默认“暂无数据” */
+  readonly tableEmpty: string;
+  /** 表格合计行第一列的文字，默认“合计” */
+  readonly tableSummary: string;
+  /** 批量操作栏里已选的行数：`(3)` → “已选 3 项” */
+  readonly tableSelectedCount: (count: number) => string;
+  /** 选项列表：输入搜索词后给读屏播报的结果条数，默认“{count} 个选项” */
+  readonly listResultCount: (count: number) => string;
+  /** 远程选项（Select、Combobox、TreeSelect 的 load）、滚动加载的列表（InfiniteListStatus）加载失败时的提示，默认“加载失败，请重试” */
+  readonly listLoadFailed: string;
+  /** 滚动加载的列表取完了（InfiniteListStatus），默认“没有更多了” */
+  readonly listNoMore: string;
+  /** 批量操作栏里取消全部选择的按钮，默认“取消选择” */
+  readonly tableClearSelection: string;
+  /** 详情列的列标题（只给读屏），默认“详情” */
+  readonly tableDetails: string;
+  /** 展开详情的按钮的名称（展开与否由 aria-expanded 表示），默认“行名 的详情” */
+  readonly tableRowDetails: (row: string) => string;
+  /** 表头筛选按钮的名称：`('状态', true)` → “筛选“状态”（已筛选）” */
+  readonly tableFilterColumn: (column: string, active: boolean) => string;
+  /** 表头筛选里的搜索框、关键字输入框的名称，默认“搜索” */
+  readonly tableFilterSearch: string;
+  /** 表头筛选里清空这一列筛选的按钮，默认“清除筛选” */
+  readonly tableFilterClear: string;
+  /** 列菜单按钮的名称：`('金额')` → ““金额”列的操作” */
+  readonly tableColumnMenu: (column: string) => string;
+  /** 列菜单：升序，默认“升序” */
+  readonly tableSortAscending: string;
+  /** 列菜单：降序，默认“降序” */
+  readonly tableSortDescending: string;
+  /** 列菜单：取消这一列的排序，默认“取消排序” */
+  readonly tableSortClear: string;
+  /** 多列排序时列标题上的次序（只给读屏）：`(2, '升序')` → “第 2 排序，升序” */
+  readonly tableSortPriority: (priority: number, direction: string) => string;
+  /** 列菜单：固定在开头，默认“固定在开头” */
+  readonly tablePinStart: string;
+  /** 列菜单：固定在结尾，默认“固定在结尾” */
+  readonly tablePinEnd: string;
+  /** 列菜单：取消固定，默认“取消固定” */
+  readonly tableUnpin: string;
+  /** 列菜单：往前移一列，默认“向前移” */
+  readonly tableMoveBackward: string;
+  /** 列菜单：往后移一列，默认“向后移” */
+  readonly tableMoveForward: string;
+  /** 列菜单：隐藏这一列，默认“隐藏这一列” */
+  readonly tableHideColumn: string;
+  /** 列设置（显示哪些列、顺序）的按钮与弹层标题，默认“列设置” */
+  readonly tableColumnSettings: string;
+  /** 列设置里的“重置”：回到列定义，默认“重置” */
+  readonly tableColumnSettingsReset: string;
+  /** 图表没有数据时的提示，默认“暂无数据” */
+  readonly chartEmpty: string;
+  /** 图表的数据表（给读屏）里类目那一列的表头，默认“类目” */
+  readonly chartCategory: string;
+  /** 环形图数据表的“数值”一列，默认“数值” */
+  readonly chartValue: string;
+  /** 环形图数据表与提示框的“占比”，默认“占比” */
+  readonly chartShare: string;
+  /** 环形图中间总数下面的说明，默认“合计” */
+  readonly chartTotal: string;
+  /** 桑基图、弦图数据表里“流向”一列，默认“流向” */
+  readonly chartFlow: string;
+  /** 一条流向的写法：`('官网', '注册')` → “官网 → 注册” */
+  readonly chartFlowLabel: (source: string, target: string) => string;
+  /** 瀑布图里往上走的一步，默认“增加” */
+  readonly chartIncrease: string;
+  /** 瀑布图里往下走的一步，默认“减少” */
+  readonly chartDecrease: string;
+  /** 瀑布图数据表与提示框的“变动”，默认“变动” */
+  readonly chartChange: string;
+  /** 瀑布图数据表与提示框的“累计”，默认“累计” */
+  readonly chartCumulative: string;
+  /** 漏斗图：比上一环节的转化率，默认“环节转化” */
+  readonly chartStepRate: string;
+  /** 漏斗图：比第一环节的转化率，默认“总转化” */
+  readonly chartOverallRate: string;
+  /** 漏斗图数据表里“环节”一列，默认“环节” */
+  readonly chartStage: string;
+  /** 网络图数据表里“连接”一列，默认“连接” */
+  readonly chartLink: string;
+  /** 网络图提示框：一个节点连着几个节点，默认“连接 n 个” */
+  readonly chartDegree: (count: number) => string;
+  /** 树形表格展开按钮的名称（展开与否由 aria-expanded 表示），默认“行名 的子项” */
+  readonly treeToggle: (row: string) => string;
+  /** 分栏的分隔条的名称，默认“调整分栏” */
+  readonly splitterResize: string;
+  /** 分栏收起一侧的按钮，默认“收起” */
+  readonly splitterCollapse: string;
+  /** 分栏展开一侧的按钮，默认“展开” */
+  readonly splitterExpand: string;
+  /** 选择文件区域的提示，默认“点击或拖放文件到这里” */
+  readonly fileDrop: string;
+  /** 文件超过大小上限时的错误，默认“文件不能超过 上限” */
+  readonly fileTooLarge: (max: string) => string;
+  /** 文件类型不在 accept 里时的错误，默认“不支持这种文件类型” */
+  readonly fileTypeRejected: string;
+  /** 上传失败时的提示，默认“上传失败” */
+  readonly uploadFailed: string;
+  /** 上传完成时的提示，默认“已上传” */
+  readonly uploadDone: string;
+  /** 重新上传按钮的名称，默认“重新上传 文件名” */
+  readonly uploadRetry: (file: string) => string;
+  /** 移除文件按钮的名称，默认“移除 文件名” */
+  readonly uploadRemove: (file: string) => string;
+  /** 图片墙里选文件的那一格，默认“添加图片” */
+  readonly uploadAddImage: string;
+  /** 可以粘贴时的提示，默认“也可以粘贴图片” */
+  readonly uploadPasteHint: string;
+  /** 拖动排序把手的名称，默认“移动 项名” */
+  readonly sortableHandle: (item: string) => string;
+  /** 拖动排序把手的操作说明（aria-describedby），默认“按空格拿起，用方向键移动，再按空格放下，Esc 取消” */
+  readonly sortableInstructions: string;
+  /** 拿起时的播报，默认“已拿起 项名，在第 n 位，共 m 项” */
+  readonly sortableGrabbed: (item: string, position: number, total: number) => string;
+  /** 移动后的播报，默认“项名 移到第 n 位，共 m 项” */
+  readonly sortableMoved: (item: string, position: number, total: number) => string;
+  /** 放下时的播报，默认“已放下 项名，在第 n 位，共 m 项” */
+  readonly sortableDropped: (item: string, position: number, total: number) => string;
+  /** 取消时的播报，默认“已取消，项名 回到第 n 位” */
+  readonly sortableCancelled: (item: string, position: number) => string;
+  /** 分组拖动排序把手的操作说明，默认“按空格拿起，上下方向键在组内移动、左右方向键换组，再按空格放下，Esc 取消” */
+  readonly sortableGroupInstructions: string;
+  /** 分组时拿起的播报，默认“已拿起 项名，在 组名 第 n 位” */
+  readonly sortableGroupGrabbed: (item: string, group: string, position: number) => string;
+  /** 分组时落点变了的播报；不能放时带上原因 */
+  readonly sortableOver: (
+    item: string,
+    group: string,
+    position: number,
+    reason: string | null,
+  ) => string;
+  /** 分组时放下的播报，默认“已把 项名 放到 组名 第 n 位” */
+  readonly sortableGroupDropped: (item: string, group: string, position: number) => string;
+  /** 分组时取消的播报，默认“已取消，项名 回到 组名 第 n 位” */
+  readonly sortableGroupCancelled: (item: string, group: string, position: number) => string;
+  /** 放到不能放的组、弹回时的播报 */
+  readonly sortableRejected: (item: string, reason: string) => string;
+  /** 错误边界接住错误后的标题，默认“这块内容出错了” */
+  readonly errorTitle: string;
+  /** 错误边界的重试按钮，默认“重试” */
+  readonly errorRetry: string;
+  /** 结果页的常见状态（403、404、500）的默认标题与说明 */
+  readonly resultStatus: Readonly<
+    Record<'403' | '404' | '500', { readonly title: string; readonly description: string }>
+  >;
+  /** 评分的一档（单选项的名称），默认“3 星”“3.5 星” */
+  readonly ratingStar: (value: number) => string;
+  /** 只读评分的读法，默认“4.5 星，满分 5 星”；没有评分时 value 为 null，默认“未评分” */
+  readonly ratingSummary: (value: number | null, count: number) => string;
+  /** 回到顶部按钮的名称，默认“回到顶部” */
+  readonly backToTop: string;
+  /** JsonViewer：对象、数组收起时的项数，默认“{count} 项” */
+  readonly jsonItems: (count: number) => string;
+  /** JsonViewer：搜索框的提示，默认“搜索键或值” */
+  readonly jsonSearch: string;
+  /** JsonViewer：全部展开，默认“全部展开” */
+  readonly jsonExpandAll: string;
+  /** JsonViewer：全部收起，默认“全部收起” */
+  readonly jsonCollapseAll: string;
+  /** JsonViewer：复制选中项的值，默认“复制值” */
+  readonly jsonCopyValue: string;
+  /** JsonViewer：复制选中项的路径，默认“复制路径” */
+  readonly jsonCopyPath: string;
+  /** JsonViewer：没有选中项时路径栏的提示，默认“选中一项后可以复制它的值与路径” */
+  readonly jsonPathHint: string;
+  /** ColorPicker：饱和度与明度的色板（读屏），默认“饱和度与明度” */
+  readonly colorArea: string;
+  /** ColorPicker：色板当前的位置：`(80, 45)` → “饱和度 80%，明度 45%” */
+  readonly colorAreaValue: (saturation: number, brightness: number) => string;
+  /** ColorPicker：色相滑块，默认“色相” */
+  readonly colorHue: string;
+  /** ColorPicker：不透明度滑块，默认“不透明度” */
+  readonly colorAlpha: string;
+  /** ColorPicker：从屏幕上取色（吸管），默认“从屏幕取色” */
+  readonly colorEyeDropper: string;
+  /** ColorPicker：颜色值的写法，默认“格式” */
+  readonly colorFormat: string;
+  /** ColorPicker：预设的颜色，默认“预设颜色” */
+  readonly colorPresets: string;
+  /** ColorPicker：最近用过的颜色，默认“最近使用” */
+  readonly colorRecent: string;
+  /** Carousel：区域的默认名称，默认“轮播” */
+  readonly carousel: string;
+  /** Carousel：上一张，默认“上一张” */
+  readonly carouselPrevious: string;
+  /** Carousel：下一张，默认“下一张” */
+  readonly carouselNext: string;
+  /** Carousel：暂停自动播放，默认“暂停自动播放” */
+  readonly carouselPause: string;
+  /** Carousel：继续自动播放，默认“开始自动播放” */
+  readonly carouselPlay: string;
+  /** SignaturePad：签名区域的默认名称，默认“签名” */
+  readonly signature: string;
+  /** SignaturePad：还没签时区域里的提示，默认“在此处签名” */
+  readonly signaturePlaceholder: string;
+  /** SignaturePad：撤销上一笔，默认“撤销上一笔” */
+  readonly signatureUndo: string;
+  /** SignaturePad：清空，默认“清空签名” */
+  readonly signatureClear: string;
+  /** SignaturePad：读屏念的状态，默认“已签名” */
+  readonly signatureSigned: string;
+  /** SignaturePad：读屏念的状态（只读时也显示），默认“未签名” */
+  readonly signatureEmpty: string;
+  /** 二维码图片的默认名称（读屏），默认“二维码” */
+  readonly qrCode: string;
+  /** 二维码已过期（status="expired"），默认“二维码已过期” */
+  readonly qrExpired: string;
+  /** 已过期时的刷新按钮，默认“刷新” */
+  readonly qrRefresh: string;
+  /** 已扫描、等手机上确认（status="scanned"），默认“已扫描，请在手机上确认” */
+  readonly qrScanned: string;
+  /** 截断文字的展开按钮，默认“展开” */
+  readonly ellipsisExpand: string;
+  /** 截断文字的收起按钮，默认“收起” */
+  readonly ellipsisCollapse: string;
+  /** 进度的目标值（读屏念在进度后面），默认“目标 80%” */
+  readonly progressTarget: (value: string) => string;
+  /** 引导的“上一步”按钮，默认“上一步” */
+  readonly tourPrevious: string;
+  /** 引导的“下一步”按钮，默认“下一步” */
+  readonly tourNext: string;
+  /** 引导最后一步的按钮，默认“完成” */
+  readonly tourFinish: string;
+  /** 跳过引导的按钮，默认“跳过” */
+  readonly tourSkip: string;
+  /** 引导的步数，默认“n / m” */
+  readonly tourProgress: (current: number, total: number) => string;
+  /** 下拉框没有选项时的提示，默认“没有选项” */
+  readonly selectEmpty: string;
+  /** 下拉框未选择时的占位文字，默认“请选择” */
+  readonly selectPlaceholder: string;
+  /** 下拉框里搜索框的占位文字与名称，默认“搜索” */
+  readonly selectSearch: string;
+  /** 下拉框搜索没有结果时的提示，默认“没有匹配的选项” */
+  readonly selectNoMatch: string;
+  /** 下拉框可新建时的那一项：`('报废件')` → “新建“报废件”” */
+  readonly selectCreate: (text: string) => string;
+  /** 多选的已选内容，读屏念给用户：`(['A', 'B'])` → “A、B” */
+  readonly selectSummary: (labels: readonly string[]) => string;
+  /** 多选折起的标签数：`(3)` → “+3” */
+  readonly selectMoreTags: (count: number) => string;
+  /** 分页的总条数，默认“共 1,286 条”（按语言加千分位） */
+  readonly paginationTotal: (total: number) => string;
+  /** 分页栏的当前范围：`(21, 40, 1286)` → “第 21–40 条，共 1,286 条” */
+  readonly paginationRange: (from: number, to: number, total: number) => string;
+  /** 分页导航的无障碍名称，默认“分页” */
+  readonly pagination: string;
+  /** 每页条数选择里的一项：`(20)` → “20 条/页” */
+  readonly pageSizeOption: (size: number) => string;
+  /** 每页条数选择的名称，默认“每页条数” */
+  readonly pageSizeLabel: string;
+  /** 跳页输入框前的文字，默认“跳至” */
+  readonly pageJumpBefore: string;
+  /** 跳页输入框后的文字，默认“页” */
+  readonly pageJumpAfter: string;
+  /** 跳页输入框的名称，默认“跳到第几页” */
+  readonly pageJumpLabel: string;
+  /** 右键菜单（ContextMenu）的默认名称，默认“更多操作” */
+  readonly contextMenuLabel: string;
+  /** 上一页按钮的名称，默认“上一页” */
+  readonly previousPage: string;
+  /** 下一页按钮的名称，默认“下一页” */
+  readonly nextPage: string;
+  /** 页码按钮的名称，默认“第 n 页” */
+  readonly pageLabel: (page: number) => string;
+  /** 树没有节点时的提示，默认“暂无数据” */
+  readonly treeEmpty: string;
+  /** 标签页的关闭按钮：`('订单')` → “关闭 订单” */
+  readonly tabClose: (label: string) => string;
+  /** 新建标签页的按钮，默认“新建标签页” */
+  readonly tabAdd: string;
+  /** 列出全部标签页的菜单按钮，默认“全部标签页” */
+  readonly tabList: string;
+  /** 标签栏往前滚的按钮，默认“往前滚” */
+  readonly tabScrollPrevious: string;
+  /** 标签栏往后滚的按钮，默认“往后滚” */
+  readonly tabScrollNext: string;
+  /** 移动了一个标签页（读屏播报）：`('订单', 2, 5)` → “订单移到第 2 个，共 5 个” */
+  readonly tabMoved: (label: string, position: number, total: number) => string;
+  /** 横向导航里收起来的项的菜单按钮，默认“更多” */
+  readonly navBarMore: string;
+  /** 浮动按钮组（速拨）的主按钮没写名称时的名称，默认“更多操作” */
+  readonly floatButtonMore: string;
+  /** 树搜索没有匹配时的提示，默认“没有匹配的节点” */
+  readonly treeNoMatch: string;
+  /** 树里移动了一个节点（读屏播报）：`('预算团队', '财务部', 2)` → “预算团队移到财务部下第 2 位”；放到第一层时 parent 为 undefined */
+  readonly treeMoved: (item: string, parent: string | undefined, position: number) => string;
+  /** 穿梭框左边的默认标题，默认“可选” */
+  readonly transferSource: string;
+  /** 穿梭框右边的默认标题，默认“已选” */
+  readonly transferTarget: string;
+  /** 移到另一边的按钮名称：`('已选')` → “移到已选” */
+  readonly transferMoveTo: (title: string) => string;
+  /** 一边的全选框名称：`('可选')` → “全选可选” */
+  readonly transferSelectAll: (title: string) => string;
+  /** 一边勾上了几项：`(2, 10)` → “2 / 10” */
+  readonly transferCount: (checked: number, total: number) => string;
+  /** 移动之后的播报：`(3, '已选')` → “已把 3 项移到已选” */
+  readonly transferMoved: (count: number, title: string) => string;
+  /** 条件组的满足方式：全部满足、任一满足、都不满足、不全满足 */
+  readonly conditionModes: Readonly<Record<ConditionMode, string>>;
+  /** 满足方式选择框的名称，默认“满足方式” */
+  readonly conditionMode: string;
+  /** 组里第二条起的连接词：全部满足时默认“且” */
+  readonly conditionAnd: string;
+  /** 组里第二条起的连接词：任一满足时默认“或” */
+  readonly conditionOr: string;
+  /** 比较方式的文字：eq → “等于”、between → “介于” */
+  readonly conditionOperators: Readonly<Record<ConditionOp, string>>;
+  /** 按字段类型改说法的比较方式：日期的 lt → “早于”，选项的 in → “是其中之一” */
+  readonly conditionTypeOperators: Readonly<
+    Partial<Record<ConditionFieldType, Readonly<Partial<Record<ConditionOp, string>>>>>
+  >;
+  /** 是否型字段的“是” */
+  readonly conditionTrue: string;
+  /** 是否型字段的“否” */
+  readonly conditionFalse: string;
+  /** 介于的两个输入框之间的字，默认“至” */
+  readonly conditionTo: string;
+  /** 摘要里的范围：`('1', '9')` → “1 至 9”，只有一端时“1 以上”“9 以下” */
+  readonly conditionRange: (low: string, high: string) => string;
+  /** 摘要里几个值之间的分隔，默认“、” */
+  readonly conditionValueSeparator: string;
+  /** 摘要里全部满足的连接，默认“，且 ” */
+  readonly conditionAndJoiner: string;
+  /** 摘要里任一满足的连接，默认“，或 ” */
+  readonly conditionOrJoiner: string;
+  /** 摘要里取反的前缀，默认“不满足：” */
+  readonly conditionNotPrefix: string;
+  /** 字段选择框的名称与占位，默认“字段” */
+  readonly conditionField: string;
+  /** 比较方式选择框的名称，默认“比较方式” */
+  readonly conditionOperator: string;
+  /** 值输入的名称：`('金额')` → “金额的值” */
+  readonly conditionValue: (field: string) => string;
+  /** 添加一条比较的按钮，默认“添加条件” */
+  readonly conditionAddRule: string;
+  /** 添加一组的按钮，默认“添加条件组” */
+  readonly conditionAddGroup: string;
+  /** 删除一条比较的按钮名称，默认“删除条件” */
+  readonly conditionRemoveRule: string;
+  /** 删除一组的按钮名称，默认“删除条件组” */
+  readonly conditionRemoveGroup: string;
+  /** 一条条件也没有时的提示，默认“还没有条件” */
+  readonly conditionEmpty: string;
+  /** 组的名称（读屏），默认“条件组” */
+  readonly conditionGroup: string;
+  /** 一条比较的名称（读屏）：`(2)` → “条件 2” */
+  readonly conditionRule: (index: number) => string;
+  /** 人员选择器的类型：人员、部门、角色，加上接入方扩展的（PeopleTypes） */
+  readonly peopleTypes: Readonly<Record<PeopleType, string>>;
+  /** 选择器的搜索框占位与名称，默认“搜索人员、部门、角色” */
+  readonly peopleSearch: string;
+  /** 切换组织架构、角色、最近几页的那组按钮的名称，默认“浏览方式” */
+  readonly peoplePages: string;
+  /** “组织架构”页 */
+  readonly peopleOrg: string;
+  /** “角色”页 */
+  readonly peopleRoles: string;
+  /** “最近”页：最近选过的 */
+  readonly peopleRecent: string;
+  /** 组织架构最上层在面包屑里的名字，默认“全部” */
+  readonly peopleRoot: string;
+  /** 部门的“下级”按钮 */
+  readonly peopleChildren: string;
+  /** “下级”按钮的完整名称，要包含按钮上看得见的字（读屏与语音控制按它找按钮）：`('采购部')` → “下级：采购部” */
+  readonly peopleOpen: (name: string) => string;
+  /** 已选几个：`(3)` → “已选 3”，有上限时 `(3, 5)` → “已选 3 / 5” */
+  readonly peopleCount: (count: number, max?: number) => string;
+  /** 已选列表的名称，默认“已选” */
+  readonly peopleSelected: string;
+  /** 移除一项的按钮名称：`('林晓')` → “移除林晓” */
+  readonly peopleRemove: (name: string) => string;
+  /** 全选当前列表 */
+  readonly peopleSelectAll: string;
+  /** 这一层没有内容、最近没有选过 */
+  readonly peopleEmpty: string;
+  /** 搜索没有结果 */
+  readonly peopleNoResult: string;
+  /** 还没有选的提示 */
+  readonly peopleNothingSelected: string;
+  /** 选择器字段的占位与对话框的标题，默认“选择人员” */
+  readonly peoplePlaceholder: string;
+  /** 面包屑导航的无障碍名称，默认“面包屑” */
+  readonly breadcrumbs: string;
+  /** 面包屑折叠按钮（打开被折叠各级的菜单）的名称，默认“显示被折叠的路径” */
+  readonly breadcrumbsExpand: string;
+  /** 步骤的状态给读屏的文字，接在标题后面：`('complete')` → “（已完成）”；当前步骤由 aria-current 念出，不用它 */
+  readonly stepState: (state: 'complete' | 'upcoming' | 'error') => string;
+
+  // ───────── 日期组件 ─────────
+
+  /** 日历“上个月”按钮，默认“上个月” */
+  readonly calendarPreviousMonth: string;
+  /** 日历“下个月”按钮，默认“下个月” */
+  readonly calendarNextMonth: string;
+  /** 月份视图“上一年”按钮，默认“上一年” */
+  readonly calendarPreviousYear: string;
+  /** 月份视图“下一年”按钮，默认“下一年” */
+  readonly calendarNextYear: string;
+  /** 季度面板的标题：`(2026)` → “2026年” */
+  readonly calendarYear: (year: number) => string;
+  /** 季度面板里一格的文字：`(4)` → “四季度” / “Q4” */
+  readonly calendarQuarter: (quarter: number) => string;
+  /** 整页月历里一天有几项日程（读屏念在日期后面）：`(3)` → “3 项日程” */
+  readonly calendarBoardCount: (count: number) => string;
+  /** 整页月历里收起的日程：`(2)` → “还有 2 项” */
+  readonly calendarBoardMore: (count: number) => string;
+  /** 年份视图“上一个十年”按钮，默认“上一个十年” */
+  readonly calendarPreviousDecade: string;
+  /** 年份视图“下一个十年”按钮，默认“下一个十年” */
+  readonly calendarNextDecade: string;
+  /** 标题按钮（切到月份视图）的名称：`('2026年10月')` → “选择月份：2026年10月” */
+  readonly calendarChooseMonth: (current: string) => string;
+  /** 标题按钮（切到年份视图）的名称：`('2026年')` → “选择年份：2026年” */
+  readonly calendarChooseYear: (current: string) => string;
+  /** 周数一列的表头，默认“周” */
+  readonly calendarWeek: string;
+  /** 周数给读屏的说明：`(43)` → “第 43 周” */
+  readonly calendarWeekNumber: (week: number) => string;
+  /** 今天那一格的读屏名称：`('2026年10月20日星期二')` → “今天，2026年10月20日星期二” */
+  readonly calendarToday: (date: string) => string;
+  /** 区间选了开始、等着选结束时给读屏的提示，默认“请选择结束日期” */
+  readonly calendarPickEnd: string;
+  /** 日期选择器打开日历的按钮，默认“选择日期” */
+  readonly datePickerOpen: string;
+  /** 时间选择器打开列表的按钮，默认“选择时间” */
+  readonly timePickerOpen: string;
+  /** 区间开始那组分段的名称，默认“开始日期” */
+  readonly dateRangeStart: string;
+  /** 区间结束那组分段的名称，默认“结束日期” */
+  readonly dateRangeEnd: string;
+  /** 快捷选项那一组的名称，默认“快捷选项” */
+  readonly dateRangePresets: string;
+  /** 日期选择器旁边快捷选项那一组的名称，默认“快捷选项” */
+  readonly datePickerPresets: string;
+  /** 选季度时日历下方“今天”按钮的文字，默认“本季度” */
+  readonly datePickerThisQuarter: string;
+  /** 快捷区间的名字 */
+  readonly dateRangePreset: Readonly<Record<DateRangePreset, string>>;
+  /** 选“现在”的按钮（时间、日期时间选择器），默认“此刻” */
+  readonly timePickerNow: string;
+  /** 还没填的段给读屏的取值，默认“未填写” */
+  readonly dateFieldEmpty: string;
+  /** 分段的占位文字 */
+  readonly dateFieldPlaceholders: Readonly<Partial<Record<DateSegmentType, string>>>;
+  /** 季度、周输入框的排法：`{year}`、`{quarter}`、`{week}` 是各段，其余是照原样显示的文字 */
+  readonly dateFieldPeriodPatterns: Readonly<{ quarter: string; week: string }>;
+
+  // ───────── 3D ─────────
+
+  /** 模型查看器加载中给读屏的提示，默认“正在加载模型” */
+  readonly modelViewerLoading: string;
+  /** 模型加载失败时显示，默认“模型加载失败” */
+  readonly modelViewerError: string;
+
+  // ───────── 内容页与应用外壳：代码块、标题锚点、目录、导航、搜索、主题切换、取色、翻页 ─────────
+
+  /** 长代码折叠时展开的按钮，默认“展开全部” */
+  readonly codeExpand: string;
+  /** 展开后收起长代码的按钮，默认“收起” */
+  readonly codeCollapse: string;
+  /** 标题旁的锚点链接名称，默认“链接到本节” */
+  readonly headingAnchor: string;
+  /** 跳到正文的链接，默认“跳到正文” */
+  readonly skipToContent: string;
+  /** 页内目录的名称，默认“本页目录” */
+  readonly tableOfContents: string;
+  /** 抽屉宽度调整手柄的名称，默认“调整抽屉宽度” */
+  readonly drawerResize: string;
+  /** 搜索面板与搜索按钮的名称，默认“搜索” */
+  readonly searchLabel: string;
+  /** 搜索框的占位文字，默认“搜索文档” */
+  readonly searchPlaceholder: string;
+  /** 搜索没有结果，默认“没有找到相关内容” */
+  readonly searchEmpty: string;
+  /** 主题：亮色，默认“亮色” */
+  readonly themeLight: string;
+  /** 主题偏好：跟随系统（createThemePreference 的 'system'），默认“跟随系统” */
+  readonly themeSystem: string;
+  /** 主题：暗色，默认“暗色” */
+  readonly themeDark: string;
+  /** 主题：纸张，默认“纸张” */
+  readonly themePaper: string;
+  /** 主题：午夜，默认“午夜” */
+  readonly themeMidnight: string;
+  /** 主题：高对比，默认“高对比” */
+  readonly themeHighContrast: string;
+  /** 主题：高对比暗色，默认“高对比暗色” */
+  readonly themeHighContrastDark: string;
+  /** 主题：森林，默认“森林” */
+  readonly themeForest: string;
+  /** 主题：柠檬，默认“柠檬” */
+  readonly themeLemon: string;
+  /** 主题：樱花，默认“樱花” */
+  readonly themeSakura: string;
+  /** 主题：喜庆，默认“喜庆” */
+  readonly themeFestive: string;
+  /** 主题：赛博朋克，默认“赛博朋克” */
+  readonly themeCyberpunk: string;
+  /** 主题：大屏，默认“大屏” */
+  readonly themeBigScreen: string;
+  /** 主题：薰衣草，默认“薰衣草” */
+  readonly themeLavender: string;
+  /** 主题：余烬，默认“余烬” */
+  readonly themeEmber: string;
+  /** 主题：墨白，默认“墨白” */
+  readonly themeMono: string;
+  /** 主题：青瓷，默认“青瓷” */
+  readonly themeCeladon: string;
+  /** ColorField 色块（打开取色器的按钮）的名称，默认“选择颜色” */
+  readonly colorPick: string;
+  /** 翻页导航（上一篇、下一篇）的名称，默认“翻页” */
+  readonly pagerLabel: string;
+  /** 上一篇（翻页导航），默认“上一篇” */
+  readonly pagerPrevious: string;
+  /** 下一篇（翻页导航），默认“下一篇” */
+  readonly pagerNext: string;
+
+  // ───────── 页面级组件自带的文案 ─────────
+
+  /**
+   * 改写或补上页面级组件的文案，按组件只写要改的字段：
+   * `{ messages: { docsKit: { name: '名前' } } }`。没写的取组件自带的表（同语种、再英文，见 messages.ts）
+   */
+  readonly messages?: { readonly [K in keyof LangMessages]?: Partial<LangMessages[K]> };
+}
+
+/** 自带文案的页面级组件：名字 → 它的文案 */
+export interface LangMessages {
+  /** 主题编辑器 ThemeCustomizer */
+  readonly themeCustomizer: ThemeCustomizerMessages;
+  /** 文档站组件 CodePreview、PropsTable（@rune-engine/components/docs-kit） */
+  readonly docsKit: DocsKitMessages;
+  /** 画布（@rune-engine/components/diagram）：Diagram、DiagramControls */
+  readonly diagram: DiagramMessages;
+  /** 页面组合（@rune-engine/components/patterns）：AppShell、FilterBar、NotificationCenter、KanbanBoard… */
+  readonly patterns: PatternsMessages;
+}
+
+/**
+ * 基于已有语言局部修改：`defineLang(zhCN, { selectEmpty: '暂无数据', timeZone: 'Asia/Tokyo' })`。
+ * errorCodes 与 messages 合并而不是整个替换：只写要加、要改的码和字段
+ */
+export function defineLang(base: Lang, given: Partial<Lang>): Lang {
+  // 值是 undefined 的键不表态（`{ currency: user.currency }` 还没取到时不把必填的币种盖成 undefined）
+  const overrides = withoutUndefined(given);
+  const errorCodes = { ...base.errorCodes, ...overrides.errorCodes };
+  if (!base.messages || !overrides.messages) return { ...base, ...overrides, errorCodes };
+  // 页面级组件的文案按组件合并：两边各改了同一个组件的不同字段时都保留
+  const messages: Record<string, object | undefined> = { ...base.messages };
+  for (const [name, fields] of Object.entries(overrides.messages)) {
+    messages[name] = { ...messages[name], ...fields };
+  }
+  return { ...base, ...overrides, errorCodes, messages };
+}

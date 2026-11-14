@@ -18,6 +18,8 @@ const ALLOWED = {
   // 舞台认识渲染那头的界面合成器的约定（render/ui-types，不碰显卡）；组件库建在舞台上
   '@rune-engine/stage': ['@rune-engine/render'],
   '@rune-engine/ui': ['@rune-engine/stage'],
+  // 从 vue-tsx-pro 复制来的组件库（见它的 UPSTREAM.md）；接上舞台之后再加依赖
+  '@rune-engine/components': [],
   '@rune-engine/input': [],
   '@rune-engine/audio': [],
   '@rune-engine/i18n': [],

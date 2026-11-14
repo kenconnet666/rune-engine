@@ -1,0 +1,450 @@
+/**
+ * 查询表格（列表页的整块）：查询栏（FilterBar）+ 工具栏（标题、自己的按钮、刷新、行高、列设置、全屏）+ 批量操作栏 + 数据表格 + 分页栏。
+ * 有查询栏时标题与工具栏并进查询栏的第一排：标题 常用条件 … 展开 重置 查询 │ 自己的按钮 刷新 行高 列设置 全屏，按钮都在这一排；
+ * 不常用的条件放进 moreFilters，点“展开”后排在第二排起。没有查询栏、或全屏（全屏的只有表格那一块）时，工具栏是表格上方单独的一行。
+ * fill 时整块占满到窗口底边（ViewportFill），行多了在表格里滚动，分页留在一屏里。
+ * 状态都在 useTableQuery 里（服务端分页、排序、条件）。同 Ant Design ProComponents 的 ProTable。
+ *
+ *   const tasks = useTableQuery(fetchTasks, { filters: { keyword: '', status: '' }, pageSize: 20 });
+ *   <QueryTable
+ *     query={tasks} columns={columns} getKey={(task) => task.id} title="任务台账" persistKey="tasks"
+ *     filters={(draft) => <Field label="关键字"><TextField _value={draft.keyword} /></Field>}
+ *     toolbar={<Button icon={Plus}>新建</Button>}
+ *   />
+ *
+ * - 查询栏的条件改的是草稿（draft），点“查询”（或回车）才交给 query.search；“重置”回到 blankFilters（不写时是一开始的条件）并查询。
+ * - 表头排序交给服务端（manualSort，写回 query.sort；multiSort 时按住 Shift 追加一列，写回 query.sorts），
+ *   表头筛选也交给服务端（manualFilter，写回 query.columnFilters；列的 filter 要写 options，否则只列出当前这页出现过的值），
+ *   分页栏绑定 query.page / pageSize / total。fetcher 用 tableParams(query, columns) 把这些写成接口的参数。
+ * - persistKey：列设置（显示、顺序、固定、列宽）与行高记在浏览器里，下次打开还是这样。
+ * - selectionMode 时勾选行，表格上方出现批量操作栏，batchActions 拿到已选的 key 给出按钮。
+ *
+ * 部件：Root（div）、FilterBar、Panel（工具栏与表格所在的区域，全屏的就是它）、Toolbar（div）、Title（div）、
+ * Table（DataTable）、SelectionBar、Pagination（PaginationBar）。
+ */
+import { Maximize, Minimize, RefreshCw, Rows3 } from '@lucide/icons';
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import { reactive, shallowRef, type Ref, type VNodeChild } from 'vue';
+import { Button, type ButtonProps } from '../base/Button';
+import { IconButton, type IconButtonProps } from '../base/IconButton';
+import { useLang } from '../config/context';
+import { useMessages } from '../config/lang/messages';
+import { Alert, type AlertProps } from '../feedback/Alert';
+import { PaginationBar, type PaginationBarProps } from '../navigation/PaginationBar';
+import { Menu, MenuRadioGroup, MenuRadioItem } from '../overlay/Menu';
+import { ColumnSettings, type ColumnSettingsProps } from '../table/ColumnSettings';
+import type { ColumnStickies, DataTableColumn } from '../table/columns';
+import { ViewportFill } from '../layout/ViewportFill';
+import { DataTable, type DataTableProps } from '../table/DataTable';
+import { SelectionBar, type SelectionBarProps } from '../table/SelectionBar';
+import type { DataTableDensities } from '../table/table-styles';
+import type { TablePage, TableQueryState } from '../table/use-table-query';
+import { cloneValue } from '../utils/data/clone';
+import { useFullscreen } from '../utils/dom/fullscreen';
+import { usePersistentState } from '../utils/dom/storage';
+import { mergeAttrs, mergePartProps, type PartProps } from '../utils/props';
+import { errorMessage } from '../utils/request/error-message';
+import { FilterBar, type FilterBarProps } from './FilterBar';
+import { patternsMessages } from './messages';
+import { partAttrs } from '../config/styles';
+
+/** QueryTable 接到查询上的 DataTable 属性：propsTable 里不能写 */
+export type QueryTableManaged =
+  | 'rows'
+  | 'columns'
+  | 'getKey'
+  | 'manualSort'
+  | 'multiSort'
+  | '_sort'
+  | '_sorts'
+  | 'manualFilter'
+  | '_filters'
+  | 'loading'
+  | 'density'
+  | 'selectionMode'
+  | '_selected'
+  | '_hiddenColumns'
+  | '_columnOrder'
+  | '_columnPins'
+  | '_columnWidths';
+
+/** 未声明的属性落到外层 div 上 */
+export interface QueryTableProps<T, Filters extends object> extends PartProps<'div'> {
+  /** 列表状态：useTableQuery 的返回值 */
+  query: TableQueryState<TablePage<T>, Filters>;
+  /** 列定义 */
+  columns: readonly DataTableColumn<T>[];
+  /** 行的 key */
+  getKey: (row: T, index: number) => string;
+  /** 表格的名称（工具栏起始边的标题，也是表格的 aria-label） */
+  title: string;
+  /** 查询栏的条件：拿到草稿，控件绑定它的字段（`_value={draft.keyword}`）；不写时没有查询栏 */
+  filters?: (draft: Filters) => VNodeChild;
+  /** 收起的条件（不常用的），点“展开”才显示 */
+  moreFilters?: (draft: Filters) => VNodeChild;
+  /** “重置”回到的条件；不写时是 query 一开始的条件 */
+  blankFilters?: Filters;
+  /** 占满到窗口底边（列表页的整页）：行多了在表格里滚动，分页一直在一屏里 */
+  fill?: boolean;
+  /** 工具栏上自己的按钮（新建、导出），在标题之后、内置按钮之前 */
+  toolbar?: VNodeChild;
+  /** 列设置与行高记在浏览器里的键（localStorage，自动加前缀）；不写时只在这次打开里有效 */
+  persistKey?: string;
+  /** 多列排序：按住 Shift 点列标题追加一列（同 DataTable 的 multiSort），排序写在 query.sorts */
+  multiSort?: boolean;
+  /** 勾选行：多选时表格上方出现批量操作栏 */
+  selectionMode?: DataTableProps<T>['selectionMode'];
+  /** 已选行的 key：父级写 _selected={keys} */
+  _selected?: string[];
+  /** 批量操作栏里的按钮：拿到已选的 key */
+  batchActions?: (keys: readonly string[]) => VNodeChild;
+  /** 查询栏（FilterBar）的部件属性 */
+  propsFilterBar?: Partial<FilterBarProps>;
+  /** 工具栏与表格所在区域的部件属性（全屏的就是它） */
+  propsPanel?: PartProps<'div'>;
+  /** 工具栏的部件属性 */
+  propsToolbar?: PartProps<'div'>;
+  /**
+   * 表格（DataTable）的部件属性：详情行、行的色调、resizable、columnMenu 等直接写在这里；
+   * 数据、排序、筛选、勾选与列设置由这里接到查询上，不能改
+   */
+  propsTable?: Partial<Omit<DataTableProps<T>, QueryTableManaged>>;
+  /** 列设置（ColumnSettings）的部件属性：弹出层、列表、勾选框、重置按钮 */
+  propsColumnSettings?: Partial<Omit<ColumnSettingsProps<T>, 'columns' | '_hidden' | '_order'>>;
+  /** 批量操作栏的部件属性 */
+  propsSelectionBar?: Partial<SelectionBarProps>;
+  /** 分页栏的部件属性 */
+  propsPagination?: Partial<PaginationBarProps>;
+  /** 加载失败时表格上方的提示条（Alert）的部件属性 */
+  propsError?: Partial<AlertProps>;
+  /** 工具栏内置按钮（刷新、行高、全屏）的部件属性 */
+  propsToolbarButton?: Partial<IconButtonProps>;
+  /** 加载出错时“重试”按钮的部件属性 */
+  propsRetry?: Partial<ButtonProps>;
+}
+
+/** 部件的标记（data-scope="query-table"） */
+const queryTablePart = (part: string) => partAttrs({ name: 'QueryTable' }, part);
+
+/** QueryTable 的样式：root、rootFill、panel、panelFullscreen、panelFill、toolbarRow、toolbar、title、tools */
+const queryTableStyles = css.create({
+  root: { display: 'flex', flexDirection: 'column', gap: '_md', minWidth: 0 },
+  panel: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '_sm',
+    minWidth: 0,
+    backgroundColor: '_surface',
+  },
+  // 全屏时铺满屏幕、四周留白，表格占满剩下的高度
+  panelFullscreen: { padding: '_lg', overflow: 'hidden' },
+  // fill 时外面的高度定了，整块与区域可以压矮，压不下的在表格里滚动
+  rootFill: { flexGrow: 1, minHeight: 0 },
+  panelFill: { minHeight: 0 },
+  // 没有查询栏或全屏时，表格上方单独一行：标题在起始边，按钮在结束边
+  toolbarRow: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '_sm' },
+  // 自己的按钮与内置按钮：在查询栏第一排的按钮区里（查询后面），或在单独那一行的结束边
+  toolbar: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '_sm',
+    minWidth: 0,
+    maxWidth: '100%',
+    marginInlineStart: 'auto',
+  },
+  title: { minWidth: 0, fontWeight: '_semibold', fontSize: '_lg' },
+  tools: { display: 'flex', alignItems: 'center', gap: '_xs' },
+});
+
+/** 存在浏览器里（给了 persistKey）或只在这次打开里有效的状态 */
+function settingRef<V>(key: string | undefined, name: string, initial: V): Ref<V> {
+  return key ? usePersistentState(`${key}:${name}`, initial) : shallowRef(initial);
+}
+
+/** 查询表格：查询栏 + 工具栏 + 表格 + 分页，状态来自 useTableQuery */
+export const QueryTable = _component(
+  <T, Filters extends object>({
+    query,
+    columns,
+    getKey,
+    title,
+    filters,
+    moreFilters,
+    blankFilters,
+    fill = false,
+    toolbar,
+    persistKey,
+    multiSort = false,
+    selectionMode,
+    _selected: selected = _bindable<string[]>([]),
+    batchActions,
+    propsFilterBar,
+    propsPanel,
+    propsToolbar,
+    propsTable,
+    propsColumnSettings,
+    propsSelectionBar,
+    propsPagination,
+    propsError,
+    propsToolbarButton,
+    propsRetry,
+    ...rest
+  }: QueryTableProps<T, Filters>) => {
+    const messages = useMessages('patterns', patternsMessages);
+    const lang = useLang();
+    // 查询栏改的是草稿：点“查询”才交给 query
+    // 用 cloneValue 不用 structuredClone：条件里的日期（CalendarDate）、Decimal 要保持原样
+    const initial = cloneValue(_untrack(query.filters));
+    const draft = reactive({ ...initial }) as Filters;
+    const key = _untrack(persistKey);
+    let hidden = _fromRef(settingRef<string[]>(key, 'hidden', []));
+    let order = _fromRef(settingRef<string[]>(key, 'order', []));
+    let pins = _fromRef(settingRef<Record<string, keyof ColumnStickies | null>>(key, 'pins', {}));
+    let widths = _fromRef(settingRef<Record<string, number>>(key, 'widths', {}));
+    let density = _fromRef(settingRef<keyof DataTableDensities>(key, 'density', 'standard'));
+    let panel = _state.raw<HTMLElement | null>(null);
+    const fullscreen = useFullscreen(() => panel);
+
+    function search() {
+      query.search(cloneValue(draft) as Filters);
+    }
+
+    function reset() {
+      Object.assign(draft, cloneValue(blankFilters ?? initial));
+      search();
+    }
+
+    const toolButton = (props: Partial<IconButtonProps>) =>
+      mergePartProps<IconButtonProps>(
+        { icon: RefreshCw, variant: 'ghost', tone: 'neutral', 'aria-label': '' },
+        propsToolbarButton,
+        props,
+      );
+
+    /** 工具栏：自己的按钮，再是刷新、行高、列设置、全屏 */
+    function renderToolbar() {
+      return (
+        <div
+          {...mergeAttrs<'div'>(
+            { sx: queryTableStyles.toolbar, ...queryTablePart('toolbar') },
+            propsToolbar,
+          )}
+        >
+          {toolbar}
+          {renderTools()}
+        </div>
+      );
+    }
+
+    function renderTools() {
+      return (
+        <div {...css.attrs(queryTableStyles.tools)} {...queryTablePart('tools')}>
+          <IconButton
+            {...toolButton({
+              icon: RefreshCw,
+              'aria-label': messages.queryTableRefresh,
+              onClick: () => void query.refresh(),
+            })}
+          />
+          <Menu
+            placement="bottom-end"
+            trigger={(props) => (
+              <IconButton
+                {...toolButton({ icon: Rows3, 'aria-label': messages.queryTableDensity })}
+                {...props}
+              />
+            )}
+          >
+            <MenuRadioGroup
+              _value={density}
+              onUpdate:_value={(value: string) => (density = value as keyof DataTableDensities)}
+            >
+              <MenuRadioItem value="compact">{messages.queryTableDensityCompact}</MenuRadioItem>
+              <MenuRadioItem value="standard">{messages.queryTableDensityStandard}</MenuRadioItem>
+              <MenuRadioItem value="comfortable">
+                {messages.queryTableDensityComfortable}
+              </MenuRadioItem>
+            </MenuRadioGroup>
+          </Menu>
+          <ColumnSettings
+            {...mergePartProps<ColumnSettingsProps<T>>(
+              {
+                columns,
+                propsTrigger: propsToolbarButton,
+                changed: Object.keys(pins).length > 0 || Object.keys(widths).length > 0,
+              },
+              propsColumnSettings,
+              {
+                onReset: () => {
+                  pins = {};
+                  widths = {};
+                },
+              },
+            )}
+            _hidden={hidden}
+            _order={order}
+          />
+          {fullscreen.supported && (
+            <IconButton
+              {...toolButton({
+                icon: fullscreen.active ? Minimize : Maximize,
+                'aria-label': fullscreen.active
+                  ? messages.queryTableExitFullscreen
+                  : messages.queryTableFullscreen,
+                'aria-pressed': fullscreen.active,
+                onClick: () => void fullscreen.toggle(),
+              })}
+            />
+          )}
+        </div>
+      );
+    }
+
+    return () => {
+      const root = renderRoot();
+      return fill ? <ViewportFill>{root}</ViewportFill> : root;
+    };
+
+    function renderRoot() {
+      return (
+        <div
+          {...mergeAttrs<'div'>(
+            {
+              sx: [queryTableStyles.root, fill && queryTableStyles.rootFill],
+              ...queryTablePart('root'),
+            },
+            rest,
+          )}
+        >
+          {filters && (
+            <FilterBar
+              {...mergePartProps<Partial<FilterBarProps>>(
+                // 一页上可能有几个查询栏：各有名称，search 地标才分得清
+                { 'aria-label': messages.queryTableSearch(title) },
+                propsFilterBar,
+                {
+                  onSearch: search,
+                  onReset: reset,
+                  more: moreFilters?.(draft),
+                  // 全屏的只有表格那一块（查询栏不在里面）：那时工具栏回到表格上方
+                  start: fullscreen.active ? undefined : (
+                    <div {...css.attrs(queryTableStyles.title)} {...queryTablePart('title')}>
+                      {title}
+                    </div>
+                  ),
+                  end: fullscreen.active ? undefined : renderToolbar(),
+                },
+              )}
+            >
+              {filters(draft)}
+            </FilterBar>
+          )}
+          <div
+            {...mergeAttrs<'div'>(
+              {
+                sx: [
+                  queryTableStyles.panel,
+                  fill && queryTableStyles.panelFill,
+                  fullscreen.active && queryTableStyles.panelFullscreen,
+                ],
+                ...queryTablePart('panel'),
+              },
+              propsPanel,
+              { ref: _toRef(panel) },
+            )}
+          >
+            {(!filters || fullscreen.active) && (
+              <div {...css.attrs(queryTableStyles.toolbarRow)} {...queryTablePart('toolbarRow')}>
+                <div {...css.attrs(queryTableStyles.title)} {...queryTablePart('title')}>
+                  {title}
+                </div>
+                {renderToolbar()}
+              </div>
+            )}
+            {selectionMode === 'multiple' && (
+              <SelectionBar
+                {...mergePartProps<SelectionBarProps>(
+                  { count: selected.length },
+                  propsSelectionBar,
+                  {
+                    count: selected.length,
+                    onClear: () => (selected = []),
+                  },
+                )}
+              >
+                {batchActions?.(selected)}
+              </SelectionBar>
+            )}
+            {/* 加载失败：按错误码说明原因（网络、权限、条件写错），保留上一次的行，给一个重试 */}
+            {query.error !== undefined && (
+              <Alert
+                {...mergePartProps<Partial<AlertProps>>(
+                  {
+                    tone: 'danger',
+                    live: 'assertive',
+                    action: (
+                      <Button
+                        {...mergePartProps<ButtonProps>(
+                          { size: 'sm', variant: 'outline', tone: 'danger' },
+                          propsRetry,
+                          { onClick: () => void query.refresh() },
+                        )}
+                      >
+                        {messages.queryTableRetry}
+                      </Button>
+                    ),
+                  },
+                  propsError,
+                )}
+              >
+                {errorMessage(query.error, lang)}
+              </Alert>
+            )}
+            <DataTable
+              {...mergePartProps<Partial<DataTableProps<T>>>(
+                {
+                  'aria-label': title,
+                  flexible: fill || fullscreen.active,
+                  resizable: true,
+                  columnMenu: true,
+                  // 加载失败时没有行不等于没有数据：不写“暂无数据”
+                  ...(query.error !== undefined && { propsEmpty: { title: lang.listLoadFailed } }),
+                },
+                propsTable,
+              )}
+              rows={query.rows as T[]}
+              columns={columns}
+              getKey={getKey}
+              manualSort
+              multiSort={multiSort}
+              _sort={query.sort}
+              _sorts={query.sorts}
+              manualFilter
+              _filters={query.columnFilters}
+              // 加载提示只有表格的骨架一处：刷新、查询按钮不再各自转圈
+              loading={query.loading}
+              density={density}
+              selectionMode={selectionMode}
+              _selected={selected}
+              _hiddenColumns={hidden}
+              _columnOrder={order}
+              _columnPins={pins}
+              _columnWidths={widths}
+            />
+            <PaginationBar
+              {...mergePartProps<Partial<PaginationBarProps>>(
+                { propsPagination: { 'aria-label': messages.queryTablePagination(title) } },
+                propsPagination,
+              )}
+              _page={query.page}
+              _pageSize={query.pageSize}
+              total={query.total}
+            />
+          </div>
+        </div>
+      );
+    }
+  },
+);

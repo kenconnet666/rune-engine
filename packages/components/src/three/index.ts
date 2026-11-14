@@ -1,0 +1,77 @@
+/**
+ * 3D 与 WebGL 效果（子路径 `@rune-engine/components/three`；three 是可选的 peer 依赖，用到才安装）：
+ *
+ *   import { ThreeCanvas, useThemeColors } from '@rune-engine/components/three';
+ *
+ * 主入口不导入 three，没用到 3D 的应用不会打包它。不依赖 three 的卡片效果是 Card 的 effect（倾斜、聚光、流光）。
+ */
+export {
+  AURORA_PALETTE,
+  AuroraBackground,
+  type AuroraBackgroundProps,
+} from './background/AuroraBackground';
+export { MeshGradient, type MeshGradientProps } from './background/MeshGradient';
+export {
+  SHADER_PALETTE,
+  ShaderBackground,
+  type ShaderBackgroundProps,
+} from './background/ShaderBackground';
+export { EffectSurface, type EffectProps, type EffectSurfaceProps } from './core/EffectSurface';
+export { ThreeCanvas, type ThreeCanvasProps } from './core/ThreeCanvas';
+export { disposeMaterial, disposeObject } from './core/dispose';
+export { createOrbit, type Orbit, type OrbitOptions } from './core/orbit';
+export {
+  acquireContext,
+  activeThreeContexts,
+  releaseContext,
+  resolveThreeQuality,
+  retryWaiting,
+  setMaxThreeContexts,
+  type ContextHolder,
+  type ResolvedThreeQuality,
+  type ThreeQualities,
+  type ThreeQuality,
+} from './core/quality';
+export {
+  useThree,
+  type ThreeContext,
+  type ThreeController,
+  type ThreeFrame,
+  type ThreeOptions,
+  type ThreeSceneHandle,
+  type ThreeSize,
+  type ThreeStatus,
+} from './core/renderer';
+export { shaderChunks, THEME_PALETTE_SIZE } from './core/shaders';
+export {
+  createThemeColorSet,
+  readThemeColor,
+  useThemeColors,
+  type ThemeColorOptions,
+  type ThemeColors,
+  type ThemeColorSet,
+  type ThemeColorSources,
+} from './core/theme-colors';
+export {
+  Confetti,
+  CONFETTI_PALETTE,
+  type ConfettiOrigin,
+  type ConfettiProps,
+} from './effects/Confetti';
+export { PARTICLE_PALETTE, ParticleField, type ParticleFieldProps } from './effects/ParticleField';
+export {
+  WAVE_GRID_PALETTE,
+  WaveGrid,
+  type WaveGridProps,
+  type WaveGridTypes,
+} from './effects/WaveGrid';
+export {
+  Globe,
+  latLngToVector,
+  type GeoPoint,
+  type GlobeArc,
+  type GlobeMarker,
+  type GlobeProps,
+} from './globe/Globe';
+export { LAND_BITS, LAND_HEIGHT, LAND_WIDTH } from './globe/land';
+export { ModelViewer, type ModelViewerProps, type ModelViewerStatuses } from './model/ModelViewer';

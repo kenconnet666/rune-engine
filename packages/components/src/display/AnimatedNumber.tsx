@@ -1,0 +1,153 @@
+/**
+ * 会滚动的数字（span）：值变化时从旧值过渡到新值（useTween），按当前语言格式化，等宽数字不抖动。
+ * 统计卡片的数值、金额、百分比、计数器。
+ *
+ *   <AnimatedNumber value={revenue} format={{ style: 'currency' }} />
+ *   <AnimatedNumber value={0.123} format={{ style: 'percent', maximumFractionDigits: 1 }} trend prefix="较上周 " />
+ *
+ * 读屏只读终值：滚动中的数字对读屏隐藏，旁边有一份隐藏的终值文字。需要播报变化时在外层加 aria-live。
+ * 值可以是 number、bigint 或 Decimal：过渡的中间帧按浮点数算，停下时与读屏的终值按原值格式化，不丢精度。
+ */
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import type { VNodeChild } from 'vue';
+import { VisuallyHidden, type VisuallyHiddenProps } from '../base/VisuallyHidden';
+import { useFormat, type NumericFormat } from '../config/lang/format';
+import { compareNumeric, numericText, toNumber, type NumericValue } from '../utils/data/numeric';
+import { useTween, type TweenOptions } from '../utils/motion/tween';
+import { dataAttrs, hasContent, mergeAttrs, mergePartProps, type PartProps } from '../utils/props';
+import { toneStyles, type TextTone } from '../utils/style/typography';
+import { partAttrs } from '../config/styles';
+
+/** 未声明的属性落到外层 span 上；原生的 prefix 属性（RDFa）让给前缀内容 */
+export interface AnimatedNumberProps extends PartProps<'span', 'prefix'> {
+  /** 数值：number、bigint 或 Decimal */
+  value: NumericValue;
+  /**
+   * 格式：金额 `{ style: 'currency' }`（币种默认取语言包）、百分比 `{ style: 'percent' }`、
+   * 以万为单位 `{ scale: 10_000, maximumFractionDigits: 2 }`
+   */
+  format?: NumericFormat;
+  /** 过渡的时长档位，默认 lg */
+  duration?: TweenOptions['duration'];
+  /** 挂载时从这个值滚到 value；不给时直接显示 value */
+  from?: NumericValue;
+  /** 按正负着色：正数成功色、负数危险色（涨跌）；data-trend 写 up / down / flat */
+  trend?: boolean;
+  /** 文字色调；给了 trend 时由正负决定 */
+  tone?: TextTone;
+  /** 数字前的内容（如“¥”以外的说明文字、图标） */
+  prefix?: VNodeChild;
+  /** 数字后的内容（如单位“人”） */
+  suffix?: VNodeChild;
+  /** 前缀的部件属性 */
+  propsPrefix?: PartProps<'span'>;
+  /** 后缀的部件属性 */
+  propsSuffix?: PartProps<'span'>;
+  /** 滚动中的数字（对读屏隐藏）的部件属性 */
+  propsValue?: PartProps<'span', 'aria-hidden'>;
+  /** 给读屏的终值文字的部件属性 */
+  propsLabel?: Partial<VisuallyHiddenProps>;
+}
+
+/** 部件的标记（data-scope="animated-number"） */
+const animatedNumberPart = (part: string) => partAttrs({ name: 'AnimatedNumber' }, part);
+
+/** AnimatedNumber 的样式：root */
+const animatedNumberStyles = css.create({
+  // 等宽数字：滚动时宽度不跳
+  root: { fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' },
+});
+
+/** 终值的小数位数：滚动中的值按它取整，整数不会滚出一串小数 */
+function decimals(value: NumericValue) {
+  return Math.min(20, numericText(value).split('.')[1]?.length ?? 0);
+}
+
+/** 会滚动的数字：值变化时过渡，读屏只读终值 */
+export const AnimatedNumber = _component(
+  ({
+    value,
+    format,
+    duration = 'lg',
+    from,
+    trend = false,
+    tone,
+    prefix,
+    suffix,
+    propsPrefix,
+    propsSuffix,
+    propsValue,
+    propsLabel,
+    ...rest
+  }: AnimatedNumberProps) => {
+    const formatter = useFormat();
+    let root: HTMLElement | null = null;
+    // 时长按自己所在的主题范围读（子树里可能覆盖了主题）
+    const start = _untrack(from);
+    const tween = useTween(() => toNumber(value), {
+      duration: _untrack(duration),
+      from: start == null ? undefined : toNumber(start),
+      scope: () => root,
+    });
+
+    const text = (number: NumericValue) => formatter.number(number, format);
+
+    /** 过渡中当前显示的文字 */
+    const shownText = () => {
+      // 停在终值时按原值格式化：bigint、Decimal 不经过浮点数
+      if (tween.current === toNumber(value)) return text(value);
+      const places = 10 ** decimals(value);
+      return text(Math.round(tween.current * places) / places);
+    };
+    // 过渡中每帧直接改文字，不为一个数字重新渲染整个组件；渲染里只取当前值、不追踪
+    let valueElement = _state.raw<HTMLElement | null>(null);
+    _effect(() => {
+      const shown = shownText();
+      if (valueElement) valueElement.textContent = shown;
+    });
+
+    return () => {
+      const sign = compareNumeric(value, 0);
+      const direction = sign > 0 ? 'up' : sign < 0 ? 'down' : 'flat';
+      const color = trend
+        ? ({ up: 'success', down: 'danger', flat: tone } as const)[direction]
+        : tone;
+      return (
+        <span
+          {...mergeAttrs<'span'>(
+            {
+              sx: [animatedNumberStyles.root, color && toneStyles[color]],
+              ...animatedNumberPart('root'),
+            },
+            rest,
+            { ref: (element: unknown) => (root = element as HTMLElement | null) },
+          )}
+          data-trend={trend ? direction : undefined}
+        >
+          {hasContent(prefix) && (
+            <span {...mergeAttrs<'span'>(dataAttrs(animatedNumberPart('prefix')), propsPrefix)}>
+              {prefix}
+            </span>
+          )}
+          <span
+            {...mergeAttrs<'span'>(dataAttrs(animatedNumberPart('value')), propsValue, {
+              'aria-hidden': true,
+              ref: _toRef(valueElement),
+            })}
+          >
+            {_untrack(shownText())}
+          </span>
+          <VisuallyHidden {...mergePartProps<VisuallyHiddenProps>({}, propsLabel)}>
+            {text(value)}
+          </VisuallyHidden>
+          {hasContent(suffix) && (
+            <span {...mergeAttrs<'span'>(dataAttrs(animatedNumberPart('suffix')), propsSuffix)}>
+              {suffix}
+            </span>
+          )}
+        </span>
+      );
+    };
+  },
+);

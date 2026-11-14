@@ -5,3 +5,5 @@ games/miwang/server/site/
 **/generated/
 coverage/
 **/.wrangler/
+# 组件库的地图数据（TopoJSON，上游生成的）：不重排
+packages/components/src/maps/*.json

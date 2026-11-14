@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    "jsxImportSource": "@zerodep-dev/vue-tsx-pro-tsx",
+    "types": ["node", "@zerodep-dev/vue-tsx-pro-tsx/runes"],
+    // 复制过来的十万行是按没有这一项写的：先照原样编过，之后改到哪里收紧到哪里
+    "noUncheckedIndexedAccess": false
+  },
+  // 以点开头的目录（各分类的 .test）不会被 src 匹配，要单独列出
+  "include": ["src", "src/**/.test/**/*", "*.config.ts"]
+}

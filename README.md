@@ -59,6 +59,8 @@ packages/            引擎，不知道任何具体游戏
   runtime            把线程接起来：消息通道、画布尺寸、主机的计时循环、存在浏览器里的小东西
   stage              舞台：一张画布加画在画布里的几层界面，和画面同一帧合成（见 docs/interface.md）；不认识具体的组件
   ui                 游戏用的界面组件（TSX 编译与样式引擎、属性合并的约定用 vue-tsx-pro 的）；图标用 lucide
+  components         组件库：从 vue-tsx-pro 复制来、在这边分叉着改，目标是整套能画进画布（见它的 UPSTREAM.md）；
+                     游戏之后换到它上面，packages/ui 到时候删掉
   i18n               多语言：当前语言、各语言的文案、跟着语言走的数字与日期写法
   assets-build       构建时的素材处理：地理数据 → 地区网格
 games/miwang/        《迷惘》

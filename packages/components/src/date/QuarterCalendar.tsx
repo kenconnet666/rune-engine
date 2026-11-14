@@ -1,0 +1,346 @@
+/**
+ * 季度面板：一年一页的四个季度（季度报表、考核周期），翻页换年；选一个季度，或选一段区间（先开始、再结束）。
+ * DatePicker、DateRangePicker 的 granularity="quarter" 弹出的就是它，也可以单独放在页面上。
+ *
+ *   <QuarterCalendar _value={quarter} aria-label="考核季度" />               // '2026-Q4'
+ *   <QuarterCalendar mode="range" _value={range} aria-label="对比区间" />    // { start: '2026-Q1', end: '2026-Q3' }
+ *
+ * 外观与 Calendar 的月份视图一致（同一个配方 calendarRecipe，components.Calendar 的定制也作用在这里）：一行四格，
+ * 区间连成一条，本季度带描边。
+ * 焦点在当前季度上（roving tabindex）：←→ 移动（到头时换年；从右到左排版时反过来），Home / End 到第一、第四季度，
+ * Page Up / Down 换年，Enter / 空格选中；区间选到一半时悬停预览，Esc 取消。整段在 min–max 之外的季度不可用。
+ *
+ * 部件：Root（div，role="group"）、Header、Previous、Next（IconButton）、Heading、Grid（table）、Cell、CellButton。
+ */
+import { ChevronLeft, ChevronRight } from '@lucide/icons';
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import { nextTick, useId, watch } from 'vue';
+import { buttonBaseStyles } from '../base/button-core';
+import { IconButton, type IconButtonProps } from '../base/IconButton';
+import { VisuallyHidden, visuallyHiddenStyles } from '../base/VisuallyHidden';
+import { useLang } from '../config/context';
+import { toIsoQuarter, type DateRange } from '../utils/data/date';
+import { isRtl } from '../utils/dom/direction';
+import { mergeAttrs, mergePartProps, type PartProps } from '../utils/props';
+import { focusRingStyles } from '../utils/style/styles';
+import { interactionTransitions } from '../utils/style/transitions';
+import { useComponent } from '../config/components';
+import { calendarRecipe, calendarStateStyles } from './CalendarView';
+import { isPeriodDisabled } from './DateField';
+import { toDateLimits, useDateLocale, type DateInput } from './date-locale';
+
+/** 未声明的属性落到根元素上（aria-label 等） */
+export interface QuarterCalendarProps extends PartProps<'div', 'role'> {
+  /** 选一个季度（默认），或选一段区间 */
+  mode?: 'single' | 'range';
+  /** 单选时是 'YYYY-Qn'，区间时是 `{ start, end }`：父级写 _value={x}；没有时 null */
+  _value?: string | DateRange<string> | null;
+  /** 最早可选的日期：整个季度都早于它时不可用 */
+  min?: DateInput;
+  /** 最晚可选的日期：整个季度都晚于它时不可用 */
+  max?: DateInput;
+  /** 不可用：不能翻页、不能选 */
+  disabled?: boolean;
+  /** 只读：能翻页、移动焦点，不能改选择 */
+  readonly?: boolean;
+  /** 选好了（单选选了一个，区间选了结束）：日期选择器据此关闭弹层 */
+  onPick?: () => void;
+  /** 上一年按钮的部件属性 */
+  propsPrevious?: Omit<Partial<IconButtonProps>, 'disabled' | 'onClick'>;
+  /** 下一年按钮的部件属性 */
+  propsNext?: Omit<Partial<IconButtonProps>, 'disabled' | 'onClick'>;
+  /** 页头（翻页按钮与年份那一行）的部件属性 */
+  propsHeader?: PartProps<'div'>;
+  /** 年份标题的部件属性 */
+  propsHeading?: PartProps<'span'>;
+  /** 网格（table）的部件属性；角色、名称与键盘由组件管理 */
+  propsGrid?: PartProps<'table', 'role' | 'aria-label' | 'aria-multiselectable'>;
+  /** 每一格（td）的部件属性；可以是函数，按季度（'YYYY-Qn'）给 */
+  propsCell?: QuarterCellPart | ((quarter: string) => QuarterCellPart | undefined);
+  /** 每一格里的按钮的部件属性；可以是函数，按季度（'YYYY-Qn'）给 */
+  propsCellButton?:
+    QuarterCellButtonPart | ((quarter: string) => QuarterCellButtonPart | undefined);
+}
+
+/** QuarterCalendar 一格（td）的部件属性：角色、选中与不可用由组件管理 */
+export type QuarterCellPart = PartProps<'td', 'role' | 'aria-selected' | 'aria-disabled'>;
+
+/** QuarterCalendar 一格里按钮的部件属性：焦点顺序与不可用由组件管理 */
+export type QuarterCellButtonPart = PartProps<'button', 'type' | 'tabindex' | 'aria-disabled'>;
+
+const quarterKey = (year: number, quarter: number) =>
+  `${String(year).padStart(4, '0')}-Q${quarter}`;
+const yearOf = (key: string) => Number(key.slice(0, 4));
+const quarterOf = (key: string) => Number(key.slice(6));
+/** 两个季度排好序（'YYYY-Qn' 按字符串比较就是先后） */
+const ordered = (a: string, b: string): DateRange<string> =>
+  a <= b ? { start: a, end: b } : { start: b, end: a };
+
+/** 季度面板：四个季度一页，单选或区间 */
+export const QuarterCalendar = _component(
+  ({
+    mode = 'single',
+    _value: value = _bindable<string | DateRange<string> | null>(null),
+    min,
+    max,
+    disabled = false,
+    readonly = false,
+    onPick,
+    propsPrevious,
+    propsNext,
+    propsHeader,
+    propsHeading,
+    propsGrid,
+    propsCell,
+    propsCellButton,
+    ...rest
+  }: QuarterCalendarProps) => {
+    const lang = useLang();
+    const ui = useComponent(calendarRecipe, () => ({}));
+    const locale = useDateLocale();
+    const hintId = useId();
+    const limits = _derived(toDateLimits(locale, { min, max }));
+    const current = () => toIsoQuarter(locale.today());
+    const chosen = () => (value == null ? null : typeof value === 'string' ? value : value.start);
+    // 一开始显示已选（没有时是本季度）那一年，焦点也在它上面
+    let focused = _state(chosen() ?? current());
+    let year = _state(_untrack(yearOf(focused)));
+    // 区间：选了开始、还没选结束时的开始，与悬停的季度（预览）
+    let anchor = _state<string | null>(null);
+    let hovered = _state<string | null>(null);
+    let root = _state.raw<HTMLElement | null>(null);
+    // 父级从外面改了值（快捷按钮、重置）：翻到它那一年，焦点也过去（同 Calendar）
+    // 默认停在本季度时：水合后“今天”从服务端渲染的那天换成真实的，用户还没动过就跟过去
+    watch(current, (next, previous) => {
+      if (chosen() != null || focused !== previous) return;
+      focused = next;
+      year = yearOf(next);
+    });
+    watch(chosen, (key) => {
+      if (key == null || key === focused) return;
+      focused = key;
+      year = yearOf(key);
+    });
+
+    const off = (key: string) => isPeriodDisabled(key, 'quarter', limits, locale);
+    const range = (): DateRange<string> | null => {
+      if (mode !== 'range') return null;
+      if (anchor) return ordered(anchor, hovered ?? anchor);
+      return value != null && typeof value !== 'string' ? value : null;
+    };
+
+    function pick(key: string) {
+      if (disabled || readonly || off(key)) return;
+      focused = key;
+      if (mode === 'single') {
+        value = key;
+        onPick?.();
+        return;
+      }
+      if (!anchor) {
+        anchor = key;
+        hovered = key;
+        return;
+      }
+      value = ordered(anchor, key);
+      anchor = null;
+      hovered = null;
+      onPick?.();
+    }
+
+    /** 焦点移到 key（换到它那一年），再把 DOM 焦点交过去 */
+    function moveTo(key: string) {
+      focused = key;
+      year = yearOf(key);
+      if (anchor) hovered = key;
+      void nextTick(() => root?.querySelector<HTMLElement>('[data-focused]')?.focus());
+    }
+
+    function onKeydown(event: KeyboardEvent) {
+      if (disabled || event.altKey || event.ctrlKey || event.metaKey) return;
+      const quarter = quarterOf(focused);
+      const at = yearOf(focused);
+      const forward = root && isRtl(root) ? 'ArrowLeft' : 'ArrowRight';
+      const backward = forward === 'ArrowRight' ? 'ArrowLeft' : 'ArrowRight';
+      const step = (delta: number) => {
+        const index = at * 4 + quarter - 1 + delta;
+        moveTo(quarterKey(Math.floor(index / 4), (index % 4) + 1));
+      };
+      switch (event.key) {
+        case forward:
+          step(1);
+          break;
+        case backward:
+          step(-1);
+          break;
+        case 'Home':
+          moveTo(quarterKey(at, 1));
+          break;
+        case 'End':
+          moveTo(quarterKey(at, 4));
+          break;
+        case 'PageUp':
+          moveTo(quarterKey(at - 1, quarter));
+          break;
+        case 'PageDown':
+          moveTo(quarterKey(at + 1, quarter));
+          break;
+        case 'Escape':
+          // 取消选到一半的区间；没有时交给弹层关闭
+          if (!anchor) return;
+          anchor = null;
+          hovered = null;
+          break;
+        default:
+          return;
+      }
+      event.preventDefault();
+    }
+
+    return () => {
+      const s = ui().parts;
+      const preview = range();
+      const today = current();
+      const heading = String(year);
+      return (
+        <div
+          {...mergeAttrs<'div'>(s.root, rest, {
+            ref: _toRef(root),
+            role: 'group',
+            ...locale.rootAttrs(),
+          })}
+          data-view="quarter"
+          data-disabled={disabled || undefined}
+        >
+          <div {...mergeAttrs<'div'>(s.header, propsHeader)}>
+            <IconButton
+              {...mergePartProps<IconButtonProps>(
+                {
+                  icon: ChevronLeft,
+                  'aria-label': lang.calendarPreviousYear,
+                  propsIcon: { flipInRtl: true },
+                },
+                propsPrevious,
+                { disabled, onClick: () => (year -= 1) },
+              )}
+            />
+            <span
+              {...mergeAttrs<'span'>(
+                { ...s.heading, sx: [s.heading.sx, calendarStateStyles.headingStatic] },
+                propsHeading,
+              )}
+            >
+              {lang.calendarYear(year)}
+            </span>
+            <IconButton
+              {...mergePartProps<IconButtonProps>(
+                {
+                  icon: ChevronRight,
+                  'aria-label': lang.calendarNextYear,
+                  propsIcon: { flipInRtl: true },
+                },
+                propsNext,
+                { disabled, onClick: () => (year += 1) },
+              )}
+            />
+          </div>
+          <table
+            {...mergeAttrs<'table'>(
+              { ...s.grid, sx: [s.grid.sx, calendarStateStyles.periodGrid] },
+              propsGrid,
+              {
+                role: 'grid',
+                'aria-label': lang.calendarYear(year),
+                'aria-multiselectable': mode === 'range' || undefined,
+                onKeydown,
+              },
+            )}
+          >
+            <tbody>
+              <tr>
+                {[1, 2, 3, 4].map((quarter) => {
+                  const key = quarterKey(year, quarter);
+                  const disabledHere = disabled || off(key);
+                  const inRange = preview != null && key >= preview.start && key <= preview.end;
+                  const ends = preview != null && (key === preview.start || key === preview.end);
+                  const selected = mode === 'range' ? inRange : value === key;
+                  const isFocused = key === focused || (yearOf(focused) !== year && quarter === 1);
+                  return (
+                    <td
+                      key={key}
+                      {...mergeAttrs<'td'>(
+                        {
+                          ...s.cell,
+                          sx: [
+                            s.cell.sx,
+                            inRange && calendarStateStyles.inRange,
+                            preview != null &&
+                              key === preview.start &&
+                              calendarStateStyles.rangeStart,
+                            preview != null && key === preview.end && calendarStateStyles.rangeEnd,
+                          ],
+                        },
+                        typeof propsCell === 'function' ? propsCell(key) : propsCell,
+                        {
+                          role: 'gridcell',
+                          'aria-selected': selected,
+                          'aria-disabled': disabledHere || undefined,
+                        },
+                      )}
+                    >
+                      <button
+                        {...mergeAttrs<'button'>(
+                          {
+                            ...s.cellButton,
+                            sx: [
+                              buttonBaseStyles.root,
+                              interactionTransitions.colors,
+                              s.cellButton.sx,
+                              calendarStateStyles.periodButton,
+                              focusRingStyles.tight,
+                              key === today && calendarStateStyles.today,
+                              inRange && !ends && calendarStateStyles.middle,
+                              (mode === 'range' ? ends : selected) && calendarStateStyles.selected,
+                              disabledHere && calendarStateStyles.disabled,
+                            ],
+                          },
+                          typeof propsCellButton === 'function'
+                            ? propsCellButton(key)
+                            : propsCellButton,
+                          {
+                            type: 'button',
+                            tabindex: isFocused ? 0 : -1,
+                            'aria-disabled': disabledHere || undefined,
+                            // 选区间选到一半时的提示：与使用方自己写的说明拼在一起
+                            'aria-describedby': anchor ? hintId : undefined,
+                            onClick: () => pick(key),
+                            onFocus: () => (focused = key),
+                            onPointerenter: () => anchor && (hovered = key),
+                          },
+                        )}
+                        data-quarter={key}
+                        data-focused={isFocused || undefined}
+                        data-selected={selected || undefined}
+                        data-disabled={disabledHere || undefined}
+                      >
+                        <span {...css.attrs(visuallyHiddenStyles.hidden)}>
+                          {lang.dateFieldPeriodPatterns.quarter
+                            .replace('{year}', String(year))
+                            .replace('{quarter}', String(quarter))}
+                        </span>
+                        <span aria-hidden="true">{lang.calendarQuarter(quarter)}</span>
+                      </button>
+                    </td>
+                  );
+                })}
+              </tr>
+            </tbody>
+          </table>
+          <VisuallyHidden aria-live="polite">{heading}</VisuallyHidden>
+          {anchor && <VisuallyHidden id={hintId}>{lang.calendarPickEnd}</VisuallyHidden>}
+        </div>
+      );
+    };
+  },
+);

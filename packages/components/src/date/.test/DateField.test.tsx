@@ -1,0 +1,322 @@
+// DateField、TimeField：段的顺序与读屏属性、逐段输入与自动跳段（焦点跟过去）、填全才写回、超出范围显示出错、清空、表单值、中英文
+import { describe, expect, it, vi } from 'vitest';
+import { nextTick } from 'vue';
+import { Provider } from '../../config/Provider';
+import { enUS } from '../../config/lang/en-US';
+import { Field } from '../../form/Field';
+import { Form } from '../../form/Form';
+import { useForm } from '../../form/useForm';
+import { mount } from '../../utils/.test/mount';
+import { DateField } from '../DateField';
+import { TimeField } from '../TimeField';
+
+const segments = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLElement>('[role="spinbutton"]'),
+];
+const segment = (root: HTMLElement, type: string) =>
+  root.querySelector<HTMLElement>(`[data-type="${type}"]`)!;
+const text = (root: HTMLElement) => root.querySelector('[role="group"]')!.textContent;
+
+/** 在焦点段输入（beforeinput，同真实浏览器与软键盘） */
+async function type(chars: string) {
+  for (const char of chars) {
+    document.activeElement!.dispatchEvent(
+      new InputEvent('beforeinput', {
+        inputType: 'insertText',
+        data: char,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await nextTick();
+    await nextTick();
+  }
+}
+async function press(key: string) {
+  document.activeElement!.dispatchEvent(
+    new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }),
+  );
+  await nextTick();
+  await nextTick();
+}
+
+describe('DateField', () => {
+  it('zh-CN 年/月/日：每段 role="spinbutton"，名称是“字段名 + 段名”，没填的段念“未填写”', () => {
+    const root = mount(() => (
+      <Field label="生日">
+        <DateField />
+      </Field>
+    ));
+    const [year, month] = segments(root);
+    expect(segments(root).map((item) => item.dataset.type)).toEqual(['year', 'month', 'day']);
+    expect(text(root)).toBe('年/月/日');
+    const label = root.querySelector('label')!;
+    expect(year!.getAttribute('aria-labelledby')).toBe(`${label.id} ${year!.id}`);
+    expect(year!.getAttribute('aria-label')).toBe('年');
+    expect(month!.getAttribute('aria-valuetext')).toBe('未填写');
+    expect([month!.getAttribute('aria-valuemin'), month!.getAttribute('aria-valuemax')]).toEqual([
+      '1',
+      '12',
+    ]);
+    expect(month!.getAttribute('inputmode')).toBe('numeric');
+    expect(month!.getAttribute('contenteditable')).toBe('true');
+  });
+
+  it('逐段输入：满了自动跳段、焦点跟过去；填全才写回 ISO', async () => {
+    let value = _state<string | null>(null);
+    const root = mount(() => <DateField _value={value} aria-label="日期" />);
+    segment(root, 'year').focus();
+    await type('2026');
+    expect(document.activeElement).toBe(segment(root, 'month'));
+    await type('3');
+    expect(document.activeElement).toBe(segment(root, 'day'));
+    expect(value).toBeNull();
+    await type('15');
+    expect(value).toBe('2026-03-15');
+    expect(text(root)).toBe('2026/03/15');
+  });
+
+  it('输入法：组合中的文字不进段（取消不了），组合结束时按上屏的文字输入（全角数字照样认）', async () => {
+    let value = _state<string | null>(null);
+    const root = mount(() => <DateField _value={value} aria-label="日期" />);
+    segment(root, 'year').focus();
+    const composing = new InputEvent('beforeinput', {
+      inputType: 'insertCompositionText',
+      data: '２０２６',
+      bubbles: true,
+      cancelable: true,
+    });
+    document.activeElement!.dispatchEvent(composing);
+    await nextTick();
+    expect(composing.defaultPrevented).toBe(false);
+    expect(text(root)).not.toContain('2026');
+    // happy-dom 的 CompositionEvent 不收 data：自己补上
+    const end = new CompositionEvent('compositionend', { bubbles: true });
+    Object.defineProperty(end, 'data', { value: '２０２６' });
+    document.activeElement!.dispatchEvent(end);
+    await nextTick();
+    await nextTick();
+    expect(text(root)).toContain('2026');
+    expect(document.activeElement).toBe(segment(root, 'month'));
+  });
+
+  it('指针点在某一段上由浏览器聚焦那一段；点在分隔符、外壳空白处时焦点去第一个没填的段', () => {
+    const root = mount(() => <DateField aria-label="日期" />);
+    const down = (target: Element) => {
+      const event = new PointerEvent('pointerdown', { bubbles: true, cancelable: true });
+      target.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    segment(root, 'year').focus();
+    // 点“月”：不拦，焦点不被抢回“年”
+    expect(down(segment(root, 'month'))).toBe(false);
+    expect(document.activeElement).toBe(segment(root, 'year'));
+    segment(root, 'day').focus();
+    const literal = segment(root, 'year').nextElementSibling!;
+    expect(literal.getAttribute('role')).not.toBe('spinbutton');
+    expect(down(literal)).toBe(true);
+    expect(document.activeElement).toBe(segment(root, 'year'));
+  });
+
+  it('↑↓ 加减并回绕；Backspace 删空后写回 null', async () => {
+    let value = _state<string | null>('2026-12-31');
+    const root = mount(() => <DateField _value={value} aria-label="日期" />);
+    segment(root, 'month').focus();
+    await press('ArrowUp');
+    expect(value).toBe('2026-01-31');
+    segment(root, 'day').focus();
+    await press('Backspace');
+    await press('Backspace');
+    expect(value).toBeNull();
+    expect(segment(root, 'day').getAttribute('aria-valuetext')).toBe('未填写');
+  });
+
+  it('外部改值时各段跟着变', async () => {
+    let value = _state<string | null>('2026-10-20');
+    const root = mount(() => <DateField _value={value} aria-label="日期" />);
+    value = '2027-01-02';
+    await nextTick();
+    expect(text(root)).toBe('2027/01/02');
+    value = null;
+    await nextTick();
+    expect(text(root)).toBe('年/月/日');
+  });
+
+  it('超出 min / max、不可选的日期：外壳显示出错，各段 aria-invalid', () => {
+    const root = mount(() => (
+      <DateField
+        _value="2026-10-20"
+        max="2026-10-01"
+        aria-label="日期"
+        propsRoot={{ class: 'shell' }}
+      />
+    ));
+    expect(root.querySelector('.shell')!.hasAttribute('data-invalid')).toBe(true);
+    expect(segment(root, 'day').getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('min / max 带时间时同一天里比时分；只给日期时那一整天都可选', () => {
+    const shell = (props: { min?: string; max?: string }) =>
+      mount(() => (
+        <DateField
+          _value="2026-10-20T08:30"
+          granularity="minute"
+          aria-label="开始时间"
+          propsRoot={{ class: 'shell' }}
+          {...props}
+        />
+      )).querySelector('.shell')!;
+    expect(shell({ min: '2026-10-20T09:00' }).hasAttribute('data-invalid')).toBe(true);
+    expect(shell({ max: '2026-10-20T08:30:00' }).hasAttribute('data-invalid')).toBe(false);
+    expect(shell({ max: '2026-10-20T08:00' }).hasAttribute('data-invalid')).toBe(true);
+    expect(shell({ min: '2026-10-20', max: '2026-10-20' }).hasAttribute('data-invalid')).toBe(
+      false,
+    );
+  });
+
+  it('清空按钮、隐藏的表单值', async () => {
+    let value = _state<string | null>('2026-10-20');
+    const root = mount(() => (
+      <DateField _value={value} clearable name="birthday" aria-label="生日" />
+    ));
+    expect(root.querySelector<HTMLInputElement>('input[type=hidden]')!.value).toBe('2026-10-20');
+    root.querySelector<HTMLButtonElement>('button')!.click();
+    await nextTick();
+    expect(value).toBeNull();
+    expect(root.querySelector('input[type=hidden]')).toBeNull();
+  });
+
+  it('en-US 月/日/年；granularity="month" 只有年月；"minute" 加上时分与上午下午', () => {
+    const en = mount(() => (
+      <Provider lang={enUS}>
+        <DateField _value="2026-10-20" aria-label="Date" />
+        <DateField granularity="month" _value="2026-10" aria-label="Month" />
+        <DateField granularity="minute" _value="2026-10-20T14:30" aria-label="At" />
+      </Provider>
+    ));
+    const groups = [...en.querySelectorAll('[role="group"]')].map((group) => group.textContent);
+    expect(groups).toEqual(['10/20/2026', '10/2026', '10/20/2026, 2:30 PM']);
+  });
+
+  it('zh-CN 的年月：结尾的“月”也是分隔符，要留着', () => {
+    const root = mount(() => <DateField granularity="month" _value="2026-10" aria-label="账期" />);
+    expect(text(root)).toBe('2026年10月');
+  });
+
+  it('zh-CN 空的年、年月：后面已经跟着“年”“月”时占位是横线，不显示成“年年”', () => {
+    const year = mount(() => <DateField granularity="year" aria-label="完成年度" />);
+    expect(text(year)).toBe('––年');
+    const month = mount(() => <DateField granularity="month" aria-label="账期" />);
+    expect(text(month)).toBe('––年––月');
+    // 年/月/日 之间是斜杠：仍用单位字作占位
+    const day = mount(() => <DateField aria-label="日期" />);
+    expect(text(day)).toBe('年/月/日');
+  });
+
+  it('不可用：段不能聚焦、不可编辑；整组 aria-disabled（标签的 for 指向这一组）', () => {
+    const root = mount(() => <DateField disabled aria-label="日期" />);
+    expect(
+      segments(root).every((item) => item.tabIndex === -1 && !item.hasAttribute('contenteditable')),
+    ).toBe(true);
+    expect(root.querySelector('[role="group"]')!.getAttribute('aria-disabled')).toBe('true');
+  });
+});
+
+describe('TimeField', () => {
+  it('zh-CN 24 小时制：打 1430 得到 14:30', async () => {
+    let value = _state<string | null>(null);
+    const root = mount(() => <TimeField _value={value} aria-label="时间" />);
+    expect(text(root)).toBe('时:分');
+    segment(root, 'hour').focus();
+    await type('1430');
+    expect(value).toBe('14:30');
+  });
+
+  it('en-US 12 小时制：打 a / p 切换上午下午，值仍是 24 小时制', async () => {
+    let value = _state<string | null>('09:15');
+    const root = mount(() => (
+      <Provider lang={enUS}>
+        <TimeField _value={value} aria-label="Time" />
+      </Provider>
+    ));
+    expect(text(root)).toBe('9:15 AM');
+    segment(root, 'dayPeriod').focus();
+    await type('p');
+    expect(value).toBe('21:15');
+  });
+
+  it('秒、min / max', () => {
+    const root = mount(() => (
+      <TimeField
+        granularity="second"
+        _value="18:30:05"
+        max="18:00"
+        aria-label="时间"
+        propsRoot={{ class: 'shell' }}
+      />
+    ));
+    expect(text(root)).toBe('18:30:05');
+    expect(root.querySelector('.shell')!.hasAttribute('data-invalid')).toBe(true);
+  });
+  it('在表单里：打了一半时表单重置，各段清空；Enter 写回并提交表单', async () => {
+    const form = useForm({ initial: { due: null as string | null } });
+    const submitted: unknown[] = [];
+    const root = mount(() => (
+      <Form controller={form} onSubmit={(event: Event) => submitted.push(event)}>
+        <form.Field name="due" label="截止">
+          <DateField _value={form.values.due} />
+        </form.Field>
+      </Form>
+    ));
+    segment(root, 'year').focus();
+    await type('2026');
+    expect(text(root)).toBe('2026/月/日');
+    form.reset();
+    await nextTick();
+    await nextTick();
+    expect(text(root)).toBe('年/月/日');
+
+    const onSubmit = vi.fn();
+    const plain = mount(() => (
+      <form onSubmit={(event: Event) => (event.preventDefault(), onSubmit())}>
+        <DateField _value="2026-10-20" aria-label="日期" />
+      </form>
+    ));
+    segment(plain, 'day').focus();
+    await press('Enter');
+    expect(onSubmit).toHaveBeenCalledOnce();
+
+    // 不可用的日期框：段点一下仍能拿到焦点，Enter 不提交表单
+    const off = mount(() => (
+      <form onSubmit={(event: Event) => (event.preventDefault(), onSubmit())}>
+        <DateField _value="2026-10-20" disabled aria-label="日期" />
+      </form>
+    ));
+    segment(off, 'day').focus();
+    await press('Enter');
+    expect(onSubmit).toHaveBeenCalledOnce();
+  });
+
+  it('季度、周：按语言包的排法显示（“2026年第4季度”），逐段输入写回 ISO 形式', async () => {
+    let quarter = _state<string | null>('2026-Q4');
+    let week = _state<string | null>(null);
+    const root = mount(() => (
+      <>
+        <DateField granularity="quarter" _value={quarter} aria-label="季度" />
+        <DateField granularity="week" _value={week} aria-label="周" />
+      </>
+    ));
+    const [quarterGroup, weekGroup] = [...root.querySelectorAll<HTMLElement>('[role="group"]')];
+    expect(quarterGroup!.textContent).toBe('2026年第4季度');
+    expect(segment(quarterGroup!, 'quarter').getAttribute('aria-valuemax')).toBe('4');
+    segment(quarterGroup!, 'quarter').focus();
+    await type('2');
+    expect(quarter).toBe('2026-Q2');
+    segment(weekGroup!, 'year').focus();
+    await type('2026');
+    await type('43');
+    expect(week).toBe('2026-W43');
+    // 2026 年只有 53 周：输入 54 时从 5 重新开始
+    expect(segment(weekGroup!, 'week').getAttribute('aria-valuemax')).toBe('53');
+  });
+});

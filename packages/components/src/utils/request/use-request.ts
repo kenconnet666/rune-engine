@@ -1,0 +1,205 @@
+/**
+ * 一个请求的状态（参考 TanStack Query、alova 的 useWatcher）：只采用最后一次的结果，发新请求时取消上一次，
+ * 参数变化防抖，重新请求时保留旧数据（表格不闪成空的）。
+ *
+ *   const http = useHttp();
+ *   const users = useRequest(
+ *     ({ keyword, page }, signal) => http.request<Page<User>>({ url: '/users', query: { keyword, page }, signal }),
+ *     { params: () => ({ keyword, page }), debounce: 300 },
+ *   );
+ *   users.data?.rows; users.loading; users.error; users.refresh();
+ *
+ * 结果可以经 cache 选项存进 IndexedDB、localStorage（@zerodep-dev/storage 的 createCache）：
+ *
+ *   const cache = createCache(indexedDbDriver({ name: 'app' }), { ttl: 60_000, stale: 86_400_000 });
+ *   useRequest(fetchCities, {
+ *     params: () => province,
+ *     cache: { store: cache, key: (p) => `cities:${p}`, tags: () => ['t_city'] },   // 标上依赖的表
+ *   });
+ *   // t_city 改了（kit 的失效推送、或自己保存后）：await cache.invalidateTag('t_city')，正显示着的这个请求自动重新请求
+ *
+ * 只在浏览器里自动请求：服务端渲染时 data 留空，等页面在浏览器里接管后再请求。
+ * 一开始就请求时 loading 从 true 开始，服务端也按“加载中”渲染：水合时两边一致，浏览器接着发请求。
+ */
+import { onScopeDispose, shallowRef, watch } from 'vue';
+import { sameValue } from '../data/equality';
+import { isAbortError } from './http';
+
+/** 请求结果的缓存：@zerodep-dev/storage 的 createCache 满足这个形状（按形状对接，组件库不依赖它） */
+export interface RequestCache {
+  /** 缓存的值；fresh 为 false 是过期但还能先显示的 */
+  read(key: string): Promise<{ value: unknown; fresh: boolean } | undefined>;
+  /** 写回请求的结果；tags 是这条依赖的东西（后端的表名），按它失效 */
+  set(key: string, value: unknown, options?: { tags?: readonly string[] }): Promise<void>;
+  /**
+   * 缓存的键失效或被别处改了时回调（keys 为 undefined 表示全清了）；返回取消收听。
+   * 按标签失效时 tags 是这些标签，keys 可能是空的（结果已经显示、还没写进缓存）
+   */
+  watch?(
+    listener: (keys: readonly string[] | undefined, tags?: readonly string[]) => void,
+  ): () => void;
+}
+
+/** useRequest 的选项 */
+export interface RequestOptions<P, T> {
+  /** 请求参数：读到的响应式值变了、且内容确实不同时重新请求；不写时只在开始与 refresh 时请求 */
+  params?: () => P;
+  /** 参数变了以后等多久再请求（毫秒），默认 0；refresh 不等 */
+  debounce?: number;
+  /** 一开始就请求，默认 true；false 时等调用 refresh（或参数变化） */
+  immediate?: boolean;
+  /** 重新请求时保留上一次的数据，默认 true；false 时请求一开始就清空 */
+  keepPrevious?: boolean;
+  /**
+   * 自动请求的开关（弹层打开时才请求这类）：为 false 时 immediate 与参数变化都不请求，refresh 照常。
+   * 变回 true 时不自动补一次，需要时调用 refresh
+   */
+  enabled?: () => boolean;
+  /**
+   * 结果的缓存（先显示旧值、后台刷新）：有缓存先显示；新鲜的不再请求（refresh 照样请求），过期的接着请求、到了替换并写回。
+   * key 由参数算出，不同参数各存各的；tags 是写回时标上的标签（依赖的表）。缓存读写出错时当作没有缓存，命中新鲜缓存时不调 onSuccess。
+   * 当前参数的键失效了（本页或别的标签页）自动再请求一次；别的标签页写进了新值时直接用它，不再请求。
+   * 依赖的标签失效时总是重新请求，取消进行中的（那次可能是改动之前发的）
+   */
+  cache?: {
+    store: RequestCache;
+    key: (params: P) => string;
+    tags?: (params: P) => readonly string[];
+  };
+  /** 成功后调用 */
+  onSuccess?: (data: T, params: P) => void;
+  /** 失败后调用（取消的不算） */
+  onError?: (error: unknown, params: P) => void;
+}
+
+/** useRequest 的返回值 */
+export interface RequestState<T> {
+  /** 最后一次成功的结果 */
+  readonly data: T | undefined;
+  /** 最后一次失败的原因；成功后清空 */
+  readonly error: unknown;
+  /** 正在请求（防抖等待时还不算） */
+  readonly loading: boolean;
+  /** 按当前参数立即请求（缓存新鲜也请求），取消进行中的；返回结果，失败或被后来的请求顶掉时为 undefined */
+  refresh(): Promise<T | undefined>;
+  /** 取消进行中的请求与等着的防抖 */
+  cancel(): void;
+  /** 直接改数据（乐观更新、本地删掉一行），不发请求 */
+  mutate(data: T | undefined): void;
+}
+
+/** 请求的状态（在 setup 里调用；见文件开头） */
+export function useRequest<T, P = undefined>(
+  fetcher: (params: P, signal: AbortSignal) => Promise<T>,
+  options: RequestOptions<P, T> = {},
+): RequestState<T> {
+  const { params, cache, debounce = 0, immediate = true, keepPrevious = true } = options;
+  const data = shallowRef<T>();
+  const error = shallowRef<unknown>();
+  const starts = immediate && options.enabled?.() !== false;
+  const loading = shallowRef(starts);
+  let controller: AbortController | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  // 每次请求一个编号：结果回来时不是最后一次的就丢掉（fetcher 没理会 signal 时也不会覆盖）
+  let latest = 0;
+  const readParams = () => params?.() as P;
+  // 上一次请求（或开始时）的参数：参数变了但与它相同时不再请求（refresh 之后侦听器又看到同一组参数）
+  let last = params ? readParams() : undefined;
+
+  function cancel() {
+    clearTimeout(timer);
+    latest++;
+    controller?.abort();
+    controller = undefined;
+    loading.value = false;
+  }
+
+  /** 读缓存；没配缓存时 undefined（不 await，没缓存的请求照旧同步发出） */
+  function readCache(current: P) {
+    return cache?.store.read(cache.key(current)).catch(() => undefined);
+  }
+
+  async function run(current: P, force = false): Promise<T | undefined> {
+    cancel();
+    last = current;
+    const id = latest;
+    const own = (controller = new AbortController());
+    loading.value = true;
+    if (!keepPrevious) data.value = undefined;
+    try {
+      const reading = readCache(current);
+      const cached = reading && (await reading);
+      if (id !== latest) return undefined;
+      if (cached) {
+        data.value = cached.value as T;
+        // 上一个参数留下的错误不再作数：不然界面上数据与错误同时出现
+        error.value = undefined;
+        if (cached.fresh && !force) return cached.value as T;
+      }
+      const result = await fetcher(current, own.signal);
+      if (id !== latest) return undefined;
+      data.value = result;
+      error.value = undefined;
+      if (cache) {
+        const tags = cache.tags?.(current);
+        void cache.store
+          .set(cache.key(current), result, tags ? { tags } : undefined)
+          .catch(() => undefined);
+      }
+      options.onSuccess?.(result, current);
+      return result;
+    } catch (reason) {
+      if (id !== latest || isAbortError(reason)) return undefined;
+      error.value = reason;
+      options.onError?.(reason, current);
+      return undefined;
+    } finally {
+      if (id === latest) {
+        loading.value = false;
+        controller = undefined;
+      }
+    }
+  }
+
+  if (params) {
+    watch(readParams, (next) => {
+      if (options.enabled?.() === false) return;
+      if (sameValue(next, last)) return;
+      last = next;
+      clearTimeout(timer);
+      if (debounce > 0) timer = setTimeout(() => void run(next), debounce);
+      else void run(next);
+    });
+  }
+  if (starts && typeof window !== 'undefined') {
+    void run(readParams());
+  }
+  if (cache?.store.watch && typeof window !== 'undefined') {
+    // 不强制：失效了缓存里没有、照常请求；别的标签页刚写进新值时直接读到它。还没请求过（immediate: false）的不管
+    const stop = cache.store.watch((keys, tags) => {
+      if (latest === 0 || options.enabled?.() === false) return;
+      const current = readParams();
+      // 依赖的标签失效了：数据确实变了，必须重新请求。这时缓存里还是新鲜的，是失效前发出的请求刚写回的，不能信
+      const own = cache.tags?.(current);
+      if (tags?.some((tag) => own?.includes(tag))) void run(current, true);
+      else if (!keys || keys.includes(cache.key(current))) void run(current);
+    });
+    onScopeDispose(stop);
+  }
+  onScopeDispose(cancel);
+
+  return {
+    get data() {
+      return data.value;
+    },
+    get error() {
+      return error.value;
+    },
+    get loading() {
+      return loading.value;
+    },
+    refresh: () => run(readParams(), true),
+    cancel,
+    mutate: (value) => (data.value = value),
+  };
+}

@@ -1,0 +1,145 @@
+// 主题偏好：记住选择、跟随系统、其他标签页同步；防闪烁脚本；createUi 的 paintDocument
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createApp, nextTick } from 'vue';
+import { createUi } from '../createUi';
+import { darkTheme } from '../theme/dark';
+import { lightTheme } from '../theme/light';
+import { paperTheme } from '../theme/paper';
+import { themeBootScript } from '../theme/boot';
+import { createThemePreference } from '../theme/preference';
+
+const themes = { light: lightTheme, dark: darkTheme, paper: paperTheme };
+const KEY = 'test-theme';
+
+/** 系统要求增强对比度（测试环境的 matchMedia 只认这一条） */
+function stubMoreContrast() {
+  const real = globalThis.matchMedia;
+  vi.stubGlobal('matchMedia', (query: string) =>
+    query === '(prefers-contrast: more)'
+      ? { matches: true, media: query, addEventListener() {}, removeEventListener() {} }
+      : real(query),
+  );
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  localStorage.clear();
+  const root = document.documentElement;
+  root.removeAttribute('style');
+  root.removeAttribute('class');
+  delete root.dataset.theme;
+});
+
+describe('createUi 接管服务端写的主题类', () => {
+  it('换到别的主题时不留下服务端主题的类；页面根元素上别的类不动', () => {
+    const ui = createUi({ theme: darkTheme });
+    const server = createUi({ theme: lightTheme }).documentAttrs().html;
+    const root = document.documentElement;
+    root.className = `host ${server.class}`;
+    root.dataset.themeClasses = server['data-theme-classes']!;
+    createApp({ render: () => null }).use(ui);
+    expect(root.classList.contains('host')).toBe(true);
+    expect(root.dataset.themeClasses).toBeUndefined();
+    const { html } = ui.documentAttrs();
+    const expected = [...html.class!.split(' '), 'host'].sort();
+    expect([...root.classList].sort()).toEqual(expected);
+  });
+});
+
+describe('createThemePreference', () => {
+  it('没记过时跟随系统；切换后记住，下次创建沿用', async () => {
+    const first = createThemePreference({ themes, storageKey: KEY });
+    expect([first.preference, first.name]).toEqual(['system', 'light']);
+    await first.set('paper');
+    expect([first.preference, first.theme]).toEqual(['paper', paperTheme]);
+    expect(localStorage.getItem(KEY)).toBe('paper');
+    expect(createThemePreference({ themes, storageKey: KEY }).name).toBe('paper');
+  });
+
+  it('记的主题已经没有了时用 fallback；不认识的名字报错', () => {
+    localStorage.setItem(KEY, 'sepia');
+    const preference = createThemePreference({ themes, storageKey: KEY, fallback: 'dark' });
+    expect(preference.name).toBe('dark');
+    expect(() => preference.set('sepia' as 'dark')).toThrow('没有名为 sepia 的主题');
+  });
+
+  it('系统要求增强对比度时，跟随系统改用 system.contrast 的一套；没给 contrast 时照旧', () => {
+    stubMoreContrast();
+    const system = {
+      light: 'light',
+      dark: 'dark',
+      contrast: { light: 'paper', dark: 'dark' },
+    } as const;
+    expect(createThemePreference({ themes, storageKey: KEY, system }).name).toBe('paper');
+    expect(createThemePreference({ themes, storageKey: KEY }).name).toBe('light');
+  });
+
+  it('其他标签页改了偏好：跟着变', () => {
+    const preference = createThemePreference({ themes, storageKey: KEY });
+    localStorage.setItem(KEY, 'dark');
+    window.dispatchEvent(new StorageEvent('storage', { key: KEY }));
+    expect(preference.name).toBe('dark');
+  });
+});
+
+describe('themeBootScript', () => {
+  const colors = {
+    light: { background: '#fcfcfd', text: '#1c2024', colorScheme: 'light' as const },
+    dark: { background: '#111113', text: '#edeef0', colorScheme: 'dark' as const },
+    paper: { background: '#f5efdf', text: '#3b2f20', colorScheme: 'light' as const },
+  };
+
+  it('按记住的偏好写好底色、文字色、配色方案与 data-theme', () => {
+    localStorage.setItem(KEY, 'paper');
+    // oxlint-disable-next-line no-implied-eval -- 要验证的就是生成的脚本文本
+    new Function(themeBootScript({ themes: colors, storageKey: KEY }))();
+    const root = document.documentElement;
+    expect(root.dataset.theme).toBe('paper');
+    expect(root.style.backgroundColor).toBe('#f5efdf');
+    expect(root.style.colorScheme).toBe('light');
+  });
+
+  it('没记过时跟随系统（测试环境是亮色）', () => {
+    // oxlint-disable-next-line no-implied-eval -- 要验证的就是生成的脚本文本
+    new Function(themeBootScript({ themes: colors, storageKey: KEY }))();
+    expect(document.documentElement.dataset.theme).toBe('light');
+  });
+
+  it('系统要求增强对比度时用 system.contrast 的一套，与 createThemePreference 一致', () => {
+    stubMoreContrast();
+    const system = {
+      light: 'light',
+      dark: 'dark',
+      contrast: { light: 'paper', dark: 'dark' },
+    } as const;
+    // oxlint-disable-next-line no-implied-eval -- 要验证的就是生成的脚本文本
+    new Function(themeBootScript({ themes: colors, storageKey: KEY, system }))();
+    expect(document.documentElement.dataset.theme).toBe('paper');
+  });
+});
+
+describe('createUi 的 paintDocument', () => {
+  it('接手防闪烁脚本写的行内颜色，主题写在页面根元素上', async () => {
+    const root = document.documentElement;
+    root.style.backgroundColor = '#f5efdf';
+    const app = createApp({ render: () => null });
+    app.use(createUi({ theme: paperTheme, paintDocument: true }));
+    app.mount(document.createElement('div'));
+    await nextTick();
+    expect(root.style.backgroundColor).toBe('');
+    expect(root.dataset.theme).toBe('paper');
+    expect(root.classList.length).toBeGreaterThan(0);
+    app.unmount();
+  });
+
+  it('不传主题时用默认主题，body 照样去掉外边距', async () => {
+    const app = createApp({ render: () => null });
+    app.use(createUi({ paintDocument: true }));
+    app.mount(document.createElement('div'));
+    await nextTick();
+    expect(document.documentElement.classList.length).toBeGreaterThan(0);
+    expect(document.body.classList.length).toBeGreaterThan(0);
+    app.unmount();
+    expect(document.body.classList.length).toBe(0);
+  });
+});

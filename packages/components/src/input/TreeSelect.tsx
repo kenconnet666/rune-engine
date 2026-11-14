@@ -1,0 +1,564 @@
+/**
+ * 树形下拉选择：触发框同 Select，弹出的是一棵树（组织机构、产品结构、物料分类）。单选选一个节点，多选勾选（父子联动）。
+ *
+ *   <TreeSelect
+ *     items={orgs}
+ *     getKey={(org) => org.id}
+ *     getLabel={(org) => org.name}
+ *     getChildren={(org) => org.children}
+ *     _value={orgId}
+ *     searchable
+ *   />
+ *   <TreeSelect … selectionMode="multiple" _value={teamIds} />   勾选：勾上父节点就是整枝
+ *   <TreeSelect … selectionMode="multiple" checkedStrategy="child" maxTagCount="responsive" />
+ *
+ * - 单选：点节点或 Enter 选中并关闭；多选：空格或点勾选框，勾上父节点会勾上它的子孙，子节点全勾上时父节点也勾上。
+ *   value 按 checkedStrategy 放勾上的节点：全部（默认）、整枝时只放父节点、只放叶子（checkedByStrategy）。
+ * - 多选的标签同 Select（SelectedTags）：排在触发按钮前面，可移除（取消整枝），maxTagCount 收起，Backspace 移除最后一个。
+ *   标签只列最上层的整枝（勾上了“研发中心”就不再列它下面的每个组）；checkedStrategy="child" 时列叶子。
+ * - searchable：弹出层顶部的搜索框，按节点文字过滤，命中节点的祖先一起显示并展开；↓ 从搜索框进到树里。
+ *   给 load 时由服务端搜索：打开时与输入停下 300 ms 后按搜索词请求，返回命中的节点连同祖先，结果全部展开
+ *   （remote-items.ts，同 Select）；自己管请求时写 _search={keyword}、filter={false}。
+ * - 打开后焦点在树上（或搜索框里），键盘同 Tree；Esc 关闭并把焦点还给触发按钮。懒加载同 Tree 的 loadChildren。
+ * - 已选节点的文字从已加载的树里找，远程搜索换掉的按见过的文字显示；从没见过的（懒加载还没取回来）显示成 key。
+ *
+ * 部件：Root（外壳）、Tags（多选时的那排标签）、Tag、Trigger（button，主元素）、Value、Clear、Chevron、Popover、
+ * Search（TextField）、Tree。
+ */
+import { ChevronDown, Search } from '@lucide/icons';
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import { useId, watch } from 'vue';
+import type { PresetIconButtonProps } from '../base/CloseButton';
+import { buttonBaseStyles } from '../base/button-core';
+import { Icon, type IconProps } from '../base/Icon';
+import type { TagProps } from '../base/Tag';
+import { visuallyHiddenStyles } from '../base/VisuallyHidden';
+import { useLang } from '../config/context';
+import { Tree, type TreeProps } from '../display/Tree';
+import { useFieldControl } from '../form/Field';
+import { FormValue } from '../form/FormValue';
+import { selectedValues, type SelectionModes } from '../utils/data/selection';
+import {
+  checkedByStrategy,
+  indexTree,
+  toggleChecked,
+  type CheckStrategies,
+} from '../utils/data/tree';
+import {
+  anchoredPanelSx,
+  floatingStyles,
+  useAnchoredPopover,
+  type FloatingPlacement,
+} from '../utils/dom/floating';
+import { isComposingKey } from '../utils/dom/hotkeys';
+import { openSetter, type OpenChangeProps } from '../utils/dom/open-change';
+import { mergeAttrs, mergePartProps, type PartProps } from '../utils/props';
+import { disclosureStyles } from '../utils/style/transitions';
+import {
+  controlClear,
+  controlIcon,
+  controlParts,
+  clickOnShell,
+  focusOnShell,
+  useControlAppearance,
+  type ControlIconOptions,
+  type ControlOptions,
+} from './control';
+import { listPopoverStyles } from './ListPopover';
+import { useRemoteItems } from './remote-items';
+import { selectPart, selectStyles, type SelectManaged } from './Select';
+import { SelectedTags, type SelectedTagsProps } from './SelectedTags';
+import { TextField, type TextFieldProps } from './TextField';
+
+/** 未声明的属性落到触发按钮（主元素）上，外壳用 propsRoot */
+export interface TreeSelectProps<T>
+  extends PartProps<'button', SelectManaged>, ControlOptions, ControlIconOptions, OpenChangeProps {
+  /** 顶层节点；有 load 时是第一次加载之前的树（编辑页放上已选节点的那一枝） */
+  items?: readonly T[];
+  /** 节点的 key，整棵树里唯一：也是选中后写回的值 */
+  getKey: (node: T) => string;
+  /** 节点的文字 */
+  getLabel: (node: T) => string;
+  /** 子节点；叶子或还没加载时 undefined */
+  getChildren: (node: T) => readonly T[] | undefined;
+  /** 有没有子节点（懒加载时子节点还没取回来也算有） */
+  hasChildren?: (node: T) => boolean;
+  /** 展开还没有子节点的节点时取回来（返回 Promise 时显示加载中） */
+  loadChildren?: (node: T) => Promise<unknown> | void;
+  /** 不能选的节点（只能展开，如只能选到部门、不能选公司时） */
+  isDisabled?: (node: T) => boolean;
+  /** 单选（默认）或多选（勾选，父子联动） */
+  selectionMode?: keyof SelectionModes;
+  /** 单选时是选中节点的 key（没有时 null），多选时是勾上的节点（按 checkedStrategy）：父级写 _value={x} */
+  _value?: string | string[] | null;
+  /**
+   * 多选时 value 里放哪些勾上的节点（同 Ant Design 的 showCheckedStrategy）：all 全部（默认）；
+   * parent 父节点全勾上时只放父节点（提交“整个部门”）；child 只放叶子（提交“具体的人”）
+   */
+  checkedStrategy?: keyof CheckStrategies;
+  /** 多选时触发框里最多显示几个标签，其余收进“+N”；'responsive' 时排成一行、按宽度放 */
+  maxTagCount?: number | 'responsive';
+  /** 没有选择时显示的文字，默认取语言包（请选择） */
+  placeholder?: string;
+  /** 是否打开：父级可以写 _open={x} */
+  _open?: boolean;
+  /** 弹出位置，默认 bottom-start */
+  placement?: FloatingPlacement;
+  /** 有选择时显示清空按钮 */
+  clearable?: boolean;
+  /** 弹出层顶部带搜索框，按节点文字过滤 */
+  searchable?: boolean;
+  /** 搜索时怎样算命中；默认节点文字包含输入（忽略大小写与重音）。false 时不在本地过滤（服务端按 search 过滤） */
+  filter?: false | ((node: T, query: string) => boolean);
+  /** 搜索框里的文字：打开时清空；父级写 _search={x} 拿到它（自己发请求时） */
+  _search?: string;
+  /** 远程搜索：打开时与搜索词停下 300 ms 后调用，返回命中的节点连同祖先（顶层节点），结果代替 items */
+  load?: (query: string, signal: AbortSignal) => Promise<readonly T[]>;
+  /** 表单提交时的 name（用隐藏的 input） */
+  name?: string;
+  /** 不可用 */
+  disabled?: boolean;
+  /** 只读：能聚焦、能看到已选的内容，不能打开、不能清空 */
+  readonly?: boolean;
+  /** 必填 */
+  required?: boolean;
+  /** 校验未通过 */
+  invalid?: boolean;
+  /** 外壳的部件属性 */
+  propsRoot?: PartProps<'div'>;
+  /** 已选内容那一层的部件属性 */
+  propsValue?: PartProps<'span'>;
+  /** 多选时每个标签的部件属性 */
+  propsTag?: Partial<TagProps>;
+  /** 多选时那排标签的部件属性 */
+  propsTags?: Partial<SelectedTagsProps>;
+  /** 清空按钮的部件属性 */
+  propsClear?: Partial<PresetIconButtonProps>;
+  /** 下拉箭头的部件属性 */
+  propsChevron?: Partial<IconProps>;
+  /** 弹出层的部件属性 */
+  propsPopover?: PartProps<'div', 'id' | 'popover'>;
+  /** 搜索框的部件属性（searchable 时） */
+  propsSearch?: Partial<TextFieldProps>;
+  /** 树的部件属性 */
+  propsTree?: Partial<TreeProps<T>>;
+}
+
+/** TreeSelect 的样式：tree */
+const treeSelectStyles = css.create({
+  // 树的滚动区域占满弹出层剩下的高度（最大高度由定位写在弹出层上）
+  tree: { flexGrow: 1, minHeight: 0 },
+  // 弹出层比触发框窄时也放得下几层缩进
+  panel: { minWidth: '16em' },
+});
+
+/** 树形下拉选择：触发框 + 弹出的树，单选或勾选，可搜索 */
+export const TreeSelect = _component(
+  <T,>({
+    items = [],
+    getKey,
+    getLabel,
+    getChildren,
+    hasChildren,
+    loadChildren,
+    isDisabled,
+    selectionMode = 'single',
+    checkedStrategy = 'all',
+    maxTagCount,
+    _value: value = _bindable<string | string[] | null>(null),
+    _open: open = _bindable(false),
+    onOpenChange,
+    placeholder,
+    placement = 'bottom-start',
+    clearable = false,
+    searchable = false,
+    filter,
+    _search: search = _bindable(''),
+    load,
+    name,
+    variant,
+    size,
+    radius,
+    disabled,
+    readonly,
+    required,
+    invalid,
+    id,
+    icon,
+    propsRoot,
+    propsIcon,
+    propsValue,
+    propsTag,
+    propsTags,
+    propsClear,
+    propsChevron,
+    propsPopover,
+    propsSearch,
+    propsTree,
+    ...rest
+  }: TreeSelectProps<T>) => {
+    const lang = useLang();
+    const treeId = useId();
+    const appearance = useControlAppearance(() => ({ variant, size, radius }));
+    const control = useFieldControl(() => ({ id, invalid, required, disabled, readonly }));
+    const multiple = () => selectionMode === 'multiple';
+    const remote = useRemoteItems({
+      load: () => load,
+      query: () => search,
+      open: () => open,
+      items: () => items,
+      key: (node) => getKey(node),
+    });
+    let expanded = _state<string[]>([]);
+    let shell = _state.raw<HTMLElement | null>(null);
+    let trigger = _state.raw<HTMLElement | null>(null);
+    let panel = _state.raw<HTMLElement | null>(null);
+    const setOpen = openSetter(
+      () => open,
+      (next) => (open = next),
+      () => onOpenChange,
+    );
+
+    // 已加载的整棵树：key → 节点与父节点，查已选的文字、搜索时找祖先都用它
+    const nodes = _derived.by(() => {
+      const map = new Map<string, { node: T; parent: string | undefined }>();
+      const visit = (level: readonly T[], parent: string | undefined) => {
+        for (const node of level) {
+          const key = getKey(node);
+          map.set(key, { node, parent });
+          visit(getChildren(node) ?? [], key);
+        }
+      };
+      visit(remote.items(), undefined);
+      return map;
+    });
+    // 见过的节点文字：远程搜索换掉了已选的节点，触发框里仍显示它的文字
+    const seenLabels = new Map<string, string>();
+    watch(
+      () => nodes,
+      (map) => {
+        for (const [key, { node }] of map) seenLabels.set(key, getLabel(node));
+      },
+      { immediate: true },
+    );
+
+    // 本地搜索交给 Tree 的 filter（命中的节点与祖先、展开祖先、命中的加粗）；
+    // 有 load 或 filter={false} 时结果已经是服务端筛好的，不再过滤
+    const treeFilter = () => {
+      const text = search.trim();
+      if (!searchable || !text || load || filter === false) return undefined;
+      return filter ? (node: T) => filter(node, text) : text;
+    };
+    // 服务端搜索的结果全部展开（只有命中的节点与它们的祖先）；清空搜索回到自己展开的状态
+    const remoteResults = () => !!load && !!search.trim();
+    const shownExpanded = () => (remoteResults() ? [...nodes.keys()] : expanded);
+
+    const values = () => selectedValues(value);
+    // 勾选联动要看到折叠着的节点
+    const index = _derived.by(() =>
+      indexTree(remote.items(), { getKey: (node) => getKey(node), getChildren }),
+    );
+    /** 按取法整理勾上的节点：已加载的按树的顺序与父子关系，还没加载（或远程搜索换掉了）的原样跟在后面 */
+    const byStrategy = (keys: readonly string[], strategy: keyof CheckStrategies) => [
+      ...checkedByStrategy(index, keys, strategy),
+      ...keys.filter((key) => !index.parents.has(key)),
+    ];
+    /** 勾选变了（树、移除标签）：按 checkedStrategy 写回，还没加载的已选节点保留 */
+    const setChecked = (checked: readonly string[]) => {
+      const unknown = values().filter((key) => !index.parents.has(key));
+      value = [...checkedByStrategy(index, checked, checkedStrategy), ...unknown];
+    };
+    /** 触发框里显示的节点：多选时只列最上层的整枝（父节点也勾上了的不重复列），child 时列叶子 */
+    const displayKeys = () =>
+      multiple()
+        ? byStrategy(values(), checkedStrategy === 'child' ? 'child' : 'parent')
+        : values();
+
+    /** 移除一个标签：取消整枝 */
+    function remove(key: string) {
+      setChecked(toggleChecked(index, values(), key));
+    }
+    const labelOf = (key: string) => {
+      const found = nodes.get(key);
+      return found ? getLabel(found.node) : (seenLabels.get(key) ?? key);
+    };
+
+    function show(event?: Event) {
+      search = '';
+      // 打开时展开已选节点的祖先：已选的看得见
+      const ancestors = new Set(expanded);
+      for (const key of values()) {
+        for (let at = nodes.get(key)?.parent; at !== undefined; at = nodes.get(at)?.parent) {
+          ancestors.add(at);
+        }
+      }
+      expanded = [...ancestors];
+      setOpen(true, 'trigger', event);
+    }
+
+    function clear() {
+      value = multiple() ? [] : null;
+      trigger?.focus();
+    }
+
+    const { onToggle } = useAnchoredPopover(
+      () => ({
+        open,
+        anchor: shell,
+        panel,
+        floating: { placement, matchWidth: true, fitHeight: true },
+        restoreFocus: false,
+      }),
+      { close: (reason, event) => setOpen(false, reason, event) },
+    );
+
+    // 打开后焦点进搜索框或树；关闭时焦点还在弹层里（Esc、选中、点外面）就还给触发按钮
+    function onPanelToggle(event: ToggleEvent) {
+      onToggle(event);
+      if (event.newState === 'open') {
+        const target = searchable
+          ? panel?.querySelector<HTMLElement>('input[type="search"]')
+          : panel?.querySelector<HTMLElement>('[role="tree"]');
+        target?.focus();
+        return;
+      }
+      const active = document.activeElement;
+      if (!active || active === document.body || panel?.contains(active)) trigger?.focus();
+    }
+
+    function onTriggerKeydown(event: KeyboardEvent) {
+      const state = control();
+      if (state.disabled || state.readonly) return;
+      // 多选：Backspace 移除最后一个标签（同 Select）
+      if (event.key === 'Backspace' && multiple()) {
+        event.preventDefault();
+        const last = displayKeys().at(-1);
+        if (last !== undefined) remove(last);
+        return;
+      }
+      if (!open && (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ')) {
+        event.preventDefault();
+        show(event);
+      }
+    }
+
+    // 搜索框里 ↓ 进到树；Tab 关闭后照常移到下一个
+    function onSearchKeydown(event: KeyboardEvent) {
+      // 输入法组合中的 ↓ 是选候选，不进到树里
+      if (isComposingKey(event)) return;
+      if (event.key === 'Tab') {
+        setOpen(false, 'focus', event);
+        return;
+      }
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        panel?.querySelector<HTMLElement>('[role="tree"]')?.focus();
+      }
+    }
+
+    /** 树的属性（单选、多选共用）：本地搜索时带上 filter */
+    const treeProps = (labelledBy: string | undefined) =>
+      mergePartProps<TreeProps<T>>(
+        {
+          items: remote.items(),
+          getKey,
+          getLabel,
+          getChildren,
+          hasChildren,
+          filter: treeFilter(),
+          loadChildren,
+          loading: remote.loading() !== false,
+          empty: remote.failure() ?? (search.trim() ? lang.selectNoMatch : undefined),
+          isDisabled,
+          propsScrollArea: { sx: treeSelectStyles.tree },
+          'aria-labelledby': labelledBy,
+          'aria-label': labelledBy ? undefined : rest['aria-label'],
+        },
+        propsTree,
+        { id: treeId },
+      );
+
+    // 单选：选中就关闭（树的 selected 里已按 select 关过；父级改 value 时也关，不通知）
+    watch(
+      () => value,
+      () => {
+        if (!multiple() && open) open = false;
+      },
+    );
+
+    return () => {
+      const state = control();
+      const s = controlParts(appearance(), state);
+      const off = state.disabled;
+      const locked = off || state.readonly;
+      const shownKeys = displayKeys();
+      // 多选：触发按钮前面一排标签，按钮里只留给读屏的文字（同 Select）
+      const tagged = multiple() && shownKeys.length > 0;
+      const shown =
+        shownKeys.length === 0 ? (
+          <span {...css.attrs(selectStyles.placeholder)} {...selectPart('placeholder')}>
+            {placeholder ?? lang.selectPlaceholder}
+          </span>
+        ) : tagged ? (
+          <span {...css.attrs(visuallyHiddenStyles.hidden)}>
+            {lang.selectSummary(shownKeys.map(labelOf))}
+          </span>
+        ) : (
+          labelOf(shownKeys[0]!)
+        );
+      return (
+        <>
+          <div
+            {...mergeAttrs<'div'>({ ...s.root, sx: [s.root.sx, selectStyles.root] }, propsRoot, {
+              ref: _toRef(shell),
+              onPointerdown: off ? undefined : focusOnShell(() => trigger),
+              onClick:
+                off || state.readonly
+                  ? undefined
+                  : clickOnShell(
+                      () => trigger,
+                      (event) => (open ? setOpen(false, 'trigger', event) : show(event)),
+                    ),
+            })}
+            data-state={open ? 'open' : 'closed'}
+            data-invalid={state.invalid || undefined}
+            data-disabled={off || undefined}
+            data-readonly={state.readonly || undefined}
+          >
+            {controlIcon(s, icon, propsIcon)}
+            {tagged && (
+              <SelectedTags
+                {...mergePartProps<SelectedTagsProps>(
+                  {
+                    tags: shownKeys.map((key) => ({ value: key, label: labelOf(key) })),
+                    maxTagCount,
+                    onRemove: locked ? undefined : remove,
+                    propsTag,
+                  },
+                  propsTags,
+                )}
+              />
+            )}
+            <button
+              {...mergeAttrs<'button'>(
+                {
+                  sx: [
+                    buttonBaseStyles.root,
+                    selectStyles.trigger,
+                    tagged && selectStyles.triggerBehindTags,
+                  ],
+                },
+                rest,
+                {
+                  ref: _toRef(trigger),
+                  id: state.id,
+                  type: 'button',
+                  role: 'combobox',
+                  disabled: off,
+                  'aria-haspopup': 'tree',
+                  'aria-expanded': open,
+                  'aria-controls': treeId,
+                  'aria-invalid': state.invalid || undefined,
+                  'aria-required': state.required || undefined,
+                  'aria-readonly': state.readonly || undefined,
+                  'aria-describedby': state.describedBy,
+                  onClick: (event: MouseEvent) => {
+                    trigger?.focus();
+                    if (locked) return;
+                    if (open) setOpen(false, 'trigger', event);
+                    else show(event);
+                  },
+                  onKeydown: onTriggerKeydown,
+                },
+              )}
+            >
+              <span
+                {...mergeAttrs<'span'>(
+                  { sx: selectStyles.value, ...selectPart('value') },
+                  propsValue,
+                )}
+              >
+                {shown}
+              </span>
+            </button>
+            {clearable && shownKeys.length > 0 && !locked && controlClear(s, propsClear, clear)}
+            <Icon
+              {...mergePartProps<IconProps>(
+                {
+                  ...s.icon,
+                  icon: ChevronDown,
+                  sx: [s.icon.sx, disclosureStyles.icon, open && disclosureStyles.flip],
+                },
+                propsChevron,
+              )}
+            />
+            <FormValue name={name} value={values()} disabled={state.disabled} />
+          </div>
+          <div
+            {...mergeAttrs<'div'>(
+              {
+                sx: [
+                  anchoredPanelSx(appearance().size),
+                  floatingStyles.scrollPanel,
+                  listPopoverStyles.panel,
+                  treeSelectStyles.panel,
+                ],
+              },
+              propsPopover,
+              { ref: _toRef(panel), popover: 'auto', onToggle: onPanelToggle },
+            )}
+          >
+            {searchable && (
+              <div {...css.attrs(listPopoverStyles.header)}>
+                <TextField
+                  {...mergePartProps<TextFieldProps>(
+                    {
+                      icon: Search,
+                      variant: 'soft',
+                      placeholder: lang.selectSearch,
+                      'aria-label': lang.selectSearch,
+                      propsRoot: { sx: selectStyles.search },
+                    },
+                    propsSearch,
+                  )}
+                  type="search"
+                  _value={search}
+                  aria-controls={treeId}
+                  onKeydown={onSearchKeydown}
+                />
+              </div>
+            )}
+            {open &&
+              (multiple() ? (
+                <Tree
+                  {...treeProps(state.labelledBy)}
+                  checkable
+                  _checked={[...values()]}
+                  onUpdate:_checked={(next: string[]) => setChecked(next)}
+                  _expanded={shownExpanded()}
+                  onUpdate:_expanded={(next: string[]) =>
+                    (expanded = remoteResults() ? expanded : next)
+                  }
+                />
+              ) : (
+                <Tree
+                  {...treeProps(state.labelledBy)}
+                  selectionMode="single"
+                  _selected={[...values()]}
+                  onUpdate:_selected={(next: string[]) => {
+                    if (next.length) value = next[0];
+                    setOpen(false, 'select');
+                  }}
+                  _expanded={shownExpanded()}
+                  onUpdate:_expanded={(next: string[]) =>
+                    (expanded = remoteResults() ? expanded : next)
+                  }
+                />
+              ))}
+          </div>
+        </>
+      );
+    };
+  },
+);
