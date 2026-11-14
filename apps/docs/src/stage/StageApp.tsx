@@ -2,9 +2,13 @@
  * 文档站的最外面：整站放在一个舞台里（引擎的 stage 包）。站点本身（App.tsx，从上游复制来的）不知道这件事——
  * 它在舞台的 hud 层里，那一层是个铺满窗口、自己滚动的盒子。
  *
+ * 上游的站点是整个文档在滚，原生滚动条藏起来、换成组件库的浮层滚动条（PageScrollbar，盯的是文档）。
+ * 这边滚的是盒子，所以盒子用组件库的 ScrollArea：同样是原生滚动、浮层滚动条，样子和上游的一致。
+ *
  * 摆法是 canvas 时接上只画界面的渲染线程，画面接上之后整站搬进画布；是 dom 时什么都不接，就是普通网页。
  * 右下角有个开关可以换（StageSwitch）。
  */
+import { ScrollArea } from '@rune-engine/components';
 import { Stage } from '@rune-engine/stage';
 import { runUiRenderer } from '@rune-engine/stage/ui-renderer';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
@@ -18,7 +22,7 @@ import { StageSwitch } from './StageSwitch';
 const styles = css.create({
   stage: { position: 'fixed', inset: 0 },
   // 站点原来是整个文档在滚；现在滚的是这个盒子（舞台的层自己不接收指针，这里打开）
-  page: { position: 'absolute', inset: 0, overflow: 'auto', pointerEvents: 'auto' },
+  page: { position: 'absolute', inset: 0, pointerEvents: 'auto' },
 });
 
 export const StageApp = _component(() => {
@@ -42,9 +46,17 @@ export const StageApp = _component(() => {
         if (stageMode === 'canvas') runUiRenderer(stage);
       }}
     >
-      <div ref={_toRef(page)} {...css.attrs(styles.page)}>
+      <ScrollArea
+        sx={styles.page}
+        // 和上游整页的滚动条一样：滚动时出现，停下后淡出
+        type="scroll"
+        hideDelay={800}
+        // 页面本身不该是一个 Tab 停靠点（上游整页滚动时也不是）
+        focusable={false}
+        propsViewport={{ ref: (element) => (page = element as HTMLElement | null) }}
+      >
         <App />
-      </div>
+      </ScrollArea>
       <StageSwitch />
     </Stage>
   );
