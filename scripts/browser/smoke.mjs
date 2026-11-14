@@ -213,10 +213,16 @@ try {
   await page.waitFor(`${measure('lockdown')}?.dataset.level === '3'`, { what: '封锁开到了全力' });
   await done('措施：分档开了一项，再用预案一次设到位');
 
-  // 换到守方之前电脑替守方管着，可能已经把队伍派到这里了：那就不用再派
+  // 换到守方之前电脑替守方管着：队伍可能已经在这里（不用再派），也可能三支都派去了别处
+  // （没有待命的，“派应急队来这里”按不动：从指挥面板把第一支调过来）
   if (!(await page.evaluate(hasButton('召回这里的应急队')))) {
-    await page.waitFor(canPress('派应急队来这里'), { what: '有待命的应急队' });
-    await page.clickButton('派应急队来这里');
+    if (await page.evaluate(canPress('派应急队来这里'))) {
+      await page.clickButton('派应急队来这里');
+    } else {
+      await page.evaluate(
+        `document.querySelector('[data-team="0"] [aria-label="派到选中的地区"]').click()`,
+      );
+    }
   }
   await page.waitFor(
     `document.querySelector('[data-mark="team"]') && ${hasButton('召回这里的应急队')}`,

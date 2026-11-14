@@ -81,6 +81,22 @@ describe('技能', () => {
     expect(state.modifiers).toEqual([]);
   });
 
+  it('用技能、换性状只扣它自己的价钱：剩下的点数留着，接着攒、接着用', () => {
+    const state = createState(testConfig({ ...steady, pointsPerDay: 0.5 }));
+    state.points = 31;
+    applyCommand(state, ATTACKER, { type: 'skill', skill: 'veil' });
+    expect(state.points).toBe(25);
+    applyCommand(state, ATTACKER, { type: 'evolve', trait: 'stealth' });
+    expect(state.points).toBe(19);
+    // 接着攒：过几天只多不少
+    run(state, 4);
+    expect(state.points).toBeGreaterThanOrEqual(21);
+    // 剩下的还能接着用在别的技能上
+    const before = state.points;
+    applyCommand(state, ATTACKER, { type: 'skill', skill: 'surge', region: 0 });
+    expect(state.points).toBe(before - 5);
+  });
+
   it('点数不够、没有这个技能、守方来下命令：都不生效', () => {
     const state = createState(testConfig(steady));
     state.points = 2;
