@@ -62,7 +62,7 @@ const report = (message: RenderReport) => self.postMessage(message);
 
 /** 画在画布里的界面：主线程拍下来的各层由它贴到每一帧上（地图画完之后） */
 const ui = createUiCompositor({
-  onNeedImages: () => report({ type: 'ui-request' }),
+  report,
   // 界面一块块显现时的亮边：用界面的信号色（橙）
   glow: [0.9, 0.6, 0.2],
 });

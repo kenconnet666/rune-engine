@@ -10,6 +10,7 @@ import { runUiRenderer } from '@rune-engine/stage/ui-renderer';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { App } from '../App';
+import { reportRenderStats } from './frame-rate';
 import { stageMode } from './mode';
 import { StageSwitch } from './StageSwitch';
 
@@ -20,8 +21,10 @@ const styles = css.create({
 export const StageApp = _component(() => () => (
   <Stage
     sx={styles.stage}
+    // 整页都是界面，没有别的画面要让：重拍只跟着渲染线程的节奏走
+    pixelBudget={2000}
     onReady={(stage) => {
-      if (stageMode === 'canvas') runUiRenderer(stage);
+      if (stageMode === 'canvas') runUiRenderer(stage, { onStats: reportRenderStats });
     }}
   >
     <App />

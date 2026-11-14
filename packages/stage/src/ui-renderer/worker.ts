@@ -13,8 +13,11 @@ let size: { width: number; height: number } | undefined;
 let handle:
   ((message: Exclude<UiRendererControl, { type: 'init' | 'resize' }>) => void) | undefined;
 
-async function init({ canvas, glow }: Extract<UiRendererControl, { type: 'init' }>) {
-  const ui = createUiCompositor({ onNeedImages: () => report({ type: 'ui-request' }), glow });
+/** 帧率隔多久报一次（毫秒） */
+const STATS_MS = 500;
+
+async function init({ canvas, glow, stats }: Extract<UiRendererControl, { type: 'init' }>) {
+  const ui = createUiCompositor({ report, glow });
   handle = (message) => ui.handle(message);
   renderer = await createUiRenderer({
     canvas,
@@ -24,8 +27,23 @@ async function init({ canvas, glow }: Extract<UiRendererControl, { type: 'init' 
     onError: (message) => report({ type: 'error', message }),
   });
   if (size) renderer.resize(size.width, size.height);
+  let last = 0;
+  let since = 0;
+  let frames = 0;
+  let worstMs = 0;
   const frame = (now: number) => {
     renderer?.render(now);
+    if (stats) {
+      if (last > 0) worstMs = Math.max(worstMs, now - last);
+      last = now;
+      frames++;
+      if (now - since >= STATS_MS) {
+        if (since > 0) report({ type: 'stats', fps: (frames * 1000) / (now - since), worstMs });
+        since = now;
+        frames = 0;
+        worstMs = 0;
+      }
+    }
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);

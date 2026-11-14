@@ -55,6 +55,18 @@ export const PLAIN_MATERIAL: UiMaterial = {
 };
 
 /** 主线程 → 渲染线程 */
+/**
+ * 渲染线程 → 主线程：界面这条线上要回的话。使用方原样转给舞台（stage.receive）或者界面采集（receive）
+ */
+export type UiReport =
+  /** 贴图都没了（刚接上显卡、设备重建了）：请把各层重新拍一遍 */
+  | { readonly type: 'ui-request' }
+  /**
+   * 这几层新来的画面画上了。采集跟着它走：一层发出去的画面还没画上就先不拍下一张——
+   * 渲染线程（显卡）一秒能画几张，界面里的动画就一秒更新几张，不多拍、也不用定死一个上限
+   */
+  | { readonly type: 'ui-drawn'; readonly layers: readonly number[] };
+
 export type UiMessage =
   /** 界面画布交给渲染线程（只发一次，在所有画面之前） */
   | { readonly type: 'ui-canvas'; readonly canvas: OffscreenCanvas }
@@ -71,7 +83,7 @@ export type UiMessage =
       readonly pixelRatio: number;
       /**
        * 这是一层**滚动层**：拍下来的是整份内容（可以很高），画面上只露出这么大的一块（CSS 像素），
-       * 露出哪一块看 ui-scroll。渲染线程每帧只把露出来的那块画成像素——滚动不用重拍，代价跟这一块的面积走
+       * 露出哪一块看 ui-scroll。渲染线程只把露出来的那块（和上下多备的几格）画成像素——滚动不用重拍，代价跟这一块的面积走
        */
       readonly view?: { readonly width: number; readonly height: number };
     }

@@ -8,11 +8,15 @@
  * 有自己画面的（游戏的地图）不用它：把合成器接到自己的渲染线程里（render 包的 createUiCompositor）。
  */
 import type { StageHandle } from '../Stage.tsx';
-import type { UiRendererControl, UiRendererReport } from './messages.ts';
+import type { UiRendererControl, UiRendererReport, UiRendererStats } from './messages.ts';
+
+export type { UiRendererStats };
 
 export interface UiRendererRunOptions {
   /** 一块块显现时亮边的颜色（RGB，各 0–1） */
   glow?: readonly [number, number, number];
+  /** 渲染线程的帧率，半秒报一次（给了才报） */
+  onStats?: (stats: UiRendererStats) => void;
   onError?: (message: string) => void;
 }
 
@@ -32,7 +36,11 @@ export function runUiRenderer(stage: StageHandle, options: UiRendererRunOptions 
         stage.setLive(false);
         break;
       case 'ui-request':
-        stage.refresh();
+      case 'ui-drawn':
+        stage.receive(data);
+        break;
+      case 'stats':
+        options.onStats?.(data);
         break;
       case 'error':
         (options.onError ?? console.error)(data.message);
@@ -52,7 +60,9 @@ export function runUiRenderer(stage: StageHandle, options: UiRendererRunOptions 
   observer.observe(canvas, { box: 'device-pixel-content-box' });
 
   const offscreen = canvas.transferControlToOffscreen();
-  send({ type: 'init', canvas: offscreen, glow: options.glow }, [offscreen]);
+  send({ type: 'init', canvas: offscreen, glow: options.glow, stats: Boolean(options.onStats) }, [
+    offscreen,
+  ]);
   stage.connect(send);
 
   return () => {

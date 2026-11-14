@@ -34,4 +34,10 @@ export {
 } from './ui-compositor.ts';
 export { createUiRenderer, type UiRenderer, type UiRendererOptions } from './ui-renderer.ts';
 export type { FrameLayer } from './frame-layer.ts';
-export { PLAIN_MATERIAL, type ElementImage, type UiMaterial, type UiMessage } from './ui-types.ts';
+export {
+  PLAIN_MATERIAL,
+  type ElementImage,
+  type UiMaterial,
+  type UiMessage,
+  type UiReport,
+} from './ui-types.ts';

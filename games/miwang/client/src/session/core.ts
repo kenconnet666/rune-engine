@@ -16,6 +16,7 @@ import {
 } from '@rune-engine/net';
 import { observeCanvasSize } from '@rune-engine/runtime';
 import { shallowRef, watchEffect, type ShallowRef } from 'vue';
+import type { UiReport } from '@rune-engine/render/ui-types';
 import type { GameRecording, RenderControl, RenderReport } from '../messages.ts';
 import { palette } from '../palette.ts';
 import type { RoomInfo } from './room.ts';
@@ -95,8 +96,8 @@ export interface RenderLink {
   send(message: RenderControl, transfer?: Transferable[]): void;
   /** 渲染线程报告指针停在、点在哪个地区上；地图控制器接上它 */
   onRegion: ((region: number, picked: boolean) => void) | null;
-  /** 渲染线程那头界面的贴图没了，要重新拍一遍；舞台接上它 */
-  onUiRequest: (() => void) | null;
+  /** 渲染线程在界面这条线上回的话（贴图没了要重拍、哪几层画上了）；舞台接上它 */
+  onUi: ((report: UiReport) => void) | null;
 }
 
 /** GameSession 里两种身份做法一样的那些成员 */
@@ -146,7 +147,7 @@ export function createCore(canvas: HTMLCanvasElement, opponent: 'ai' | 'human'):
   });
   const toRender = (message: RenderControl, transfer: Transferable[] = []) =>
     render.postMessage(message, transfer);
-  const renderLink: RenderLink = { send: toRender, onRegion: null, onUiRequest: null };
+  const renderLink: RenderLink = { send: toRender, onRegion: null, onUi: null };
   render.onmessage = ({ data }: MessageEvent<RenderReport>) => {
     if (data.type === 'error' || data.type === 'lost') {
       renderError.value = data.message;
@@ -155,7 +156,7 @@ export function createCore(canvas: HTMLCanvasElement, opponent: 'ai' | 'human'):
       renderError.value = null;
       renderLive.value = true;
     } else if (data.type === 'region') renderLink.onRegion?.(data.region, data.picked);
-    else if (data.type === 'ui-request') renderLink.onUiRequest?.();
+    else if (data.type === 'ui-request' || data.type === 'ui-drawn') renderLink.onUi?.(data);
     else if (data.type === 'stats') console.info('渲染线程', data);
   };
   // 渲染线程里没接住的错（每帧的循环里抛出来的）：线程自己报不了，主线程这头接着——否则就是一张不再动的画面

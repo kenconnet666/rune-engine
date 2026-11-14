@@ -15,7 +15,12 @@
  *
  * 每一层自己不接收指针（点得到下面的画布），里面的面板、按钮各自打开——和以前界面层的约定一样。
  */
-import { PLAIN_MATERIAL, type UiMaterial, type UiMessage } from '@rune-engine/render/ui-types';
+import {
+  PLAIN_MATERIAL,
+  type UiMaterial,
+  type UiMessage,
+  type UiReport,
+} from '@rune-engine/render/ui-types';
 import {
   canvasUiSupported,
   createCanvasUi,
@@ -37,7 +42,7 @@ import { attachTips } from './tips.ts';
 
 export interface StageHandle {
   readonly canvas: HTMLCanvasElement;
-  /** 这个浏览器能不能把界面画进画布（不能的话 setLive、connect、refresh、material 都什么也不做） */
+  /** 这个浏览器能不能把界面画进画布（不能的话 setLive、connect、receive、material 都什么也不做） */
   readonly supported: boolean;
   /**
    * 渲染线程的画面接上了（true）：把界面搬进画布，交给它合成；画面断了（false）：搬回画布上面，照常显示。
@@ -46,8 +51,8 @@ export interface StageHandle {
   setLive(live: boolean): void;
   /** 接上渲染线程：拍下来的界面从 send 发出去 */
   connect(send: (message: UiMessage, transfer: Transferable[]) => void): void;
-  /** 渲染线程那头的贴图没了（刚起来、显卡设备重建了）：全部重拍一遍 */
-  refresh(): void;
+  /** 渲染线程回的话（render 包的 UiReport）原样交进来：贴图没了就重拍、哪几层画上了就接着拍 */
+  receive(report: UiReport): void;
   material(layer: StageLayerName, material: Partial<UiMaterial>, durationMs?: number): void;
   /** 一层“闪一下”：立刻变成 peak 的样子，再用 durationMs 毫秒回到它原来的贴法 */
   pulse(layer: StageLayerName, peak: Partial<UiMaterial>, durationMs: number): void;
@@ -64,6 +69,11 @@ export interface StageProps {
   world?: VNodeChild;
   /** hud 层的内容 */
   children?: VNodeChild;
+  /**
+   * 界面一秒里最多重画多少像素（百万像素），默认 90：给画面（地图、场景）留的余量。
+   * 整页都是界面的（文档站）给大一点，界面里的动画就能跟上屏幕的帧率（见 canvas-ui.ts 的 pixelBudget）
+   */
+  pixelBudget?: number;
   onReady?: (stage: StageHandle) => void;
 }
 
@@ -102,7 +112,7 @@ function relocate(parent: Element, element: Element) {
 }
 
 export const Stage = _component(
-  ({ sx, canvasLabel, canvasSx, world, children, onReady }: StageProps) => {
+  ({ sx, canvasLabel, canvasSx, world, children, pixelBudget, onReady }: StageProps) => {
     const supported = canvasUiSupported();
     const root = shallowRef<HTMLElement | null>(null);
     let canvas = _state.raw<HTMLCanvasElement | null>(null);
@@ -203,7 +213,7 @@ export const Stage = _component(
           offscreen = surface.transferControlToOffscreen();
         }
         sendSurface();
-        const created = createCanvasUi(surface);
+        const created = createCanvasUi(surface, { pixelBudget });
         ui = created;
         for (const name of STAGE_LAYERS) {
           const element = layers[name].value;
@@ -323,7 +333,7 @@ export const Stage = _component(
           sendSurface();
           ui?.connect(next);
         },
-        refresh: () => ui?.refresh(),
+        receive: (report) => ui?.receive(report),
         material,
         pulse,
       });

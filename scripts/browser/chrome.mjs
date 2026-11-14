@@ -50,9 +50,11 @@ export function findChrome() {
 }
 
 /**
- * @param {{ width?: number, height?: number, scale?: number, software?: boolean, headed?: boolean }} [options]
+ * @param {{ width?: number, height?: number, scale?: number, software?: boolean, headed?: boolean, flags?: string[] }} [options]
  *   software：没有显卡的机器（CI）上用软件实现的 WebGPU
  *   headed：开一个真的窗口（量帧率、长帧时用：无界面模式下帧是怎么排的和真窗口不一样，量出来偏大）
+ *   flags：另外加的启动参数。无界面模式一次启动是一秒 60 帧、另一次是屏幕的刷新率，说不准：
+ *     要比“扛得住多少帧”时加 --disable-frame-rate-limit --disable-gpu-vsync（不等屏幕，能画多快画多快）
  */
 export async function launchChrome({
   width = 1920,
@@ -60,6 +62,7 @@ export async function launchChrome({
   scale = 1,
   software = false,
   headed = false,
+  flags = [],
 } = {}) {
   const profile = mkdtempSync(join(tmpdir(), 'rune-chrome-'));
   const child = spawn(
@@ -81,6 +84,7 @@ export async function launchChrome({
       ...(software ? SOFTWARE_GPU : []),
       `--window-size=${width},${height}`,
       `--force-device-scale-factor=${scale}`,
+      ...flags,
       'about:blank',
     ],
     { stdio: ['ignore', 'ignore', 'pipe'] },

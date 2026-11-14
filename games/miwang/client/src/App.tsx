@@ -139,7 +139,7 @@ export const App = _component(() => {
     // 界面画在画布里：拍下来的各层交给渲染线程去贴；那头的贴图没了（显卡设备重建）就重拍
     const { renderLink } = game;
     stage.connect((message, transfer) => renderLink.send(message, transfer));
-    renderLink.onUiRequest = () => stage?.refresh();
+    renderLink.onUi = (report) => stage?.receive(report);
     // 画面接上了才把界面搬进画布；画面断了（显卡设备丢了、渲染出错）搬回来，界面不能跟着没了
     watchEffect(() => stage?.setLive(game?.renderLive.value === true));
     // 下面两样是贴界面那一步加的，界面画在画布里才看得到

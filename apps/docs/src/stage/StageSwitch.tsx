@@ -1,12 +1,14 @@
 /**
  * 右下角的开关：现在是哪种摆法（画进画布 / 普通网页），点一下换成另一种。
  * 故意不用组件库的组件：它是用来看组件库的，自己不该受组件库的影响。
- * 它自己占一层（只有按钮那么大）：站点滚动的时候那一层的画面会被先挪一下，它不能跟着挪。
+ * 它自己占一层（只有按钮那么大）：上面的帧率半秒变一次，只重拍这一小块。
+ * 帧率是两条线程的：主线程（网页自己的帧）和渲染线程（画进画布时才有）；括号里是这半秒里最长的一帧。
  */
 import { StageLayer, useStage } from '@rune-engine/stage';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { onBeforeUnmount, onMounted } from 'vue';
+import { useFrameRates } from './frame-rate';
 import { stageMode, switchStageMode } from './mode';
 
 /** 离窗口右下角多远（像素） */
@@ -31,12 +33,17 @@ const styles = css.create({
     pointerEvents: 'auto',
   },
   dot: { width: '0.5rem', height: '0.5rem', borderRadius: '50%' },
+  // 数字等宽：不然每次变都在抖
+  rates: { fontVariantNumeric: 'tabular-nums', opacity: 0.8 },
   canvas: { backgroundColor: '#f5a524' },
   dom: { backgroundColor: '#8b93a7' },
 });
 
 export const StageSwitch = _component(() => {
   const stage = useStage();
+  const rates = useFrameRates();
+  const show = (label: string, stats: { fps: number; worstMs: number } | null) =>
+    stats ? `${label} ${Math.round(stats.fps)} 帧（最长 ${Math.round(stats.worstMs)} 毫秒）` : '';
   let layer: HTMLElement | null = null;
   /** 这一层的左上角放在哪：窗口的右下角往里收一点 */
   let at = _state({ x: 0, y: 0 });
@@ -72,6 +79,11 @@ export const StageSwitch = _component(() => {
             : stageMode === 'canvas'
               ? '现在：画进画布 · 点一下换成普通网页'
               : '现在：普通网页 · 点一下换成画进画布'}
+          <span {...css.attrs(styles.rates)}>
+            {[show('主线程', rates.main.value), show('渲染线程', rates.render.value)]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
         </button>
       </StageLayer>
     );

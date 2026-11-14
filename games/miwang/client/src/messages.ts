@@ -7,7 +7,7 @@ import type { PlayerId, Recording } from '@rune-engine/core';
 import type { ClientMessage, HostMessage } from '@rune-engine/net';
 import type { MapPaletteName } from '@rune-engine/render';
 import type { MapCamera } from '@rune-engine/render/map-view';
-import type { UiMessage } from '@rune-engine/render/ui-types';
+import type { UiMessage, UiReport } from '@rune-engine/render/ui-types';
 import type { MapLayer } from './layers.ts';
 
 export type GameRecording = Recording<OutbreakConfig, Command>;
@@ -84,8 +84,8 @@ export type RenderControl =
 export type RenderReport =
   /** 画面接上了：第一次建好，或者显卡设备丢了以后重建好 */
   | { readonly type: 'ready' }
-  /** 界面各层的贴图没了（刚接上显卡、设备重建了）：请把它们重新拍一遍 */
-  | { readonly type: 'ui-request' }
+  /** 界面这条线上回的话（贴图没了要重拍、哪几层画上了）：原样交给舞台 */
+  | UiReport
   /** 显卡设备丢了，画面停了，正在自己重建 */
   | { readonly type: 'lost'; readonly message: string }
   /** 指针停在哪个地区上（下标，海上是 -1）；picked 表示在那里点了一下 */

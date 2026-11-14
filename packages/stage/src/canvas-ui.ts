@@ -20,6 +20,7 @@ import {
   type ElementImage,
   type UiMaterial,
   type UiMessage,
+  type UiReport,
 } from '@rune-engine/render/ui-types';
 
 /** 画布上和界面层有关的那几个方法（还没进 TypeScript 自带的声明） */
@@ -49,7 +50,7 @@ export interface CanvasUiLayer {
   /**
    * 把这一层当**滚动层**：它的元素是整份内容（可以很高），画面上只露出 width×height 这么大的一块（CSS 像素），
    * 左上角在 moveTo 说的地方。露出哪一块用 scrollTo 说。内容整份只拍一次，滚动不用重拍——
-   * 渲染线程每帧把露出来的那块画出来，代价跟这一块的面积走，不跟内容的长度走
+   * 渲染线程只把露出来的（和上下多备的几格）画成像素，代价跟这一块的面积走，不跟内容的长度走
    */
   view(width: number, height: number): void;
   /** 滚动层滚到哪：露出来的那块的左上角在内容里的位置（CSS 像素）。smooth 时渲染线程缓着滚过去 */
@@ -67,8 +68,8 @@ export interface CanvasUi {
   addLayer(element: HTMLElement, order: number, options?: CanvasUiLayerOptions): CanvasUiLayer;
   /** 接上渲染线程：之后拍下来的都从 send 发出去 */
   connect(send: (message: UiMessage, transfer: Transferable[]) => void): void;
-  /** 渲染线程那头的贴图没了（刚起来、显卡设备重建了）：全部重拍一遍 */
-  refresh(): void;
+  /** 渲染线程回的话（见 UiReport）：贴图没了就全部重拍；哪几层画上了，就可以接着拍它们的下一张 */
+  receive(report: UiReport): void;
   dispose(): void;
 }
 
@@ -87,6 +88,9 @@ interface Layer {
   drawn: boolean;
   /** 上一次是第几轮拍的：都等着拍的时候，等得最久的先拍 */
   turn: number;
+  /** 发出去了、渲染线程还没说“画上了”的画面有几张，最后一张是什么时候发的 */
+  flying: number;
+  sentAt: number;
   /** 滚动层：露出多大一块、现在要滚到哪（见 CanvasUiLayer 的 view、scrollTo） */
   scroll?: { width: number; height: number; x: number; y: number };
 }
@@ -94,15 +98,22 @@ interface Layer {
 export interface CanvasUiOptions {
   /**
    * 一秒里最多重画多少像素（百万像素，各层加在一起），默认 90。重拍一层就是把一整层重新画一遍，
-   * 花的时间跟像素数走：1600×900 的窗口一秒能拍六十次，4K 的屏幕就只有十来次——再多，帧就开始等了
-   * （不是主线程卡住，是这一帧迟迟交不出去）。
+   * 花的显卡时间跟像素数走：1600×900 的窗口一秒六十来次，4K 的屏幕就只有十来次。
+   * 它是留给**画面**的余量：有自己画面的（游戏的地图）不能让界面的动画把显卡占满。
+   * 整页都是界面的（文档站）可以给得很大，那就只剩“渲染线程画上了一张才拍下一张”这一条在管。
    */
   pixelBudget?: number;
 }
 
-/** 再小的窗口一秒也不拍超过这么多次；再大的屏幕一秒也至少拍这么多次 */
-const MAX_RATE = 60;
+/** 再大的屏幕一秒也至少拍这么多次 */
 const MIN_RATE = 10;
+/**
+ * 一层最多有几张画面在路上（发出去了、渲染线程还没说画上了）。两张：渲染线程回话到的时候主线程的这一帧可能已经过了，
+ * 只许一张的话动画就只有一半的帧
+ */
+const IN_FLIGHT = 2;
+/** 发出去这么久（毫秒）还没回话就当它到了：渲染线程重建、回话丢了的时候不能就此不拍了 */
+const LOST_MS = 250;
 /**
  * 一层头一回拍到之后，隔这么久各补拍一次（毫秒）。实测（Chrome 157）：层刚搬进画布的那一帧拍到的画面
  * 可能还停在某个过渡的半路上（按钮的底色正在变），而之后浏览器不再为它发 paint——不补拍的话，
@@ -233,6 +244,10 @@ export function createCanvasUi(
     return { ratio, width, height, pixels };
   }
 
+  /** 这一层之前发出去的画面渲染线程画上了没有（没画上就先不拍下一张） */
+  const landed = (layer: Layer, now: number) =>
+    layer.flying < IN_FLIGHT || now - layer.sentAt > LOST_MS;
+
   /** 拍一层发出去；拍不下来（这一层现在没有画面）是 false */
   function capture(layer: Layer): boolean {
     if (!send) return false;
@@ -249,6 +264,8 @@ export function createCanvasUi(
     if (!layer.drawn) for (const ms of SETTLE_MS) settling.add(setTimeout(() => retake(layer), ms));
     layer.drawn = true;
     layer.turn = ++turn;
+    layer.flying++;
+    layer.sentAt = performance.now();
     const { ratio, width, height } = sizeOf(layer);
     send(
       {
@@ -267,11 +284,12 @@ export function createCanvasUi(
   }
 
   /**
-   * 一轮里拍的像素加起来不超过一张画布那么多，两轮之间隔一会儿（隔多久看 pixelBudget）。
-   * 实测（Chrome 157，真窗口，160 Hz 的屏，两层都是整屏的）：
-   *   1600×900：不讲节奏、两层同帧拍，一秒 46 帧；一次一层、一秒最多 60 次，一秒 128 帧（界面叠在画布上面时是 139）
-   *   4K：一秒拍 30 次时每 4 秒有十几个超过 50 毫秒的帧；降到十来次就没有了
-   * 而界面里只要有个循环的小动画、进度条在过渡，那一层就每帧都在变。所以该重拍的层排着队，等得最久的先拍：
+   * 该重拍的层怎么排。三条：
+   *   - 一层发出去的画面渲染线程还没画上，就先不拍它的下一张（见 IN_FLIGHT）：拍得比画得快是白拍，
+   *     跟着渲染线程走，显卡快的机器上界面里的动画就是屏幕的帧率，慢的机器上自己降下来；
+   *   - 一轮里拍的像素加起来不超过一张画布那么多；
+   *   - 两轮之间隔一会儿（隔多久看 pixelBudget）：给画面留的余量。
+   * 界面里只要有个循环的小动画、进度条在过渡，那一层就每帧都在变。所以该重拍的层排着队，等得最久的先拍：
    * 整屏的层还是一轮一层；小块的层（侧栏、顶栏、本页目录）凑得进一张画布的就同一轮拍——
    * 文档站换页时正文、侧栏、目录、滚动条四层一起变，一层层轮着拍的话正文要多等两三帧，之后和侧栏的过渡各占一半的帧。
    * 两种情况不排队：还没有画面的层（界面刚搬进画布、显卡设备刚重建：缺一层就是少一块界面），和刚操作过界面的时候。
@@ -289,12 +307,20 @@ export function createCanvasUi(
     }
     if (missed && send) retryLater();
     else retryMs = 0;
-    const due = layers
-      .filter((layer) => layer.stale && layer.drawn)
-      .sort((a, b) => a.turn - b.turn);
-    if (due.length === 0) return;
     const now = performance.now();
-    const rate = Math.min(MAX_RATE, Math.max(MIN_RATE, (pixelBudget * 1e6) / Math.max(1, pixels)));
+    const pending = layers.filter((layer) => layer.stale && layer.drawn);
+    const due = pending.filter((layer) => landed(layer, now)).sort((a, b) => a.turn - b.turn);
+    if (due.length === 0) {
+      // 都在等渲染线程回话：回话到了会再来（receive）；万一回话丢了，过一会儿自己再来
+      if (pending.length > 0) {
+        waiting ??= setTimeout(() => {
+          waiting = undefined;
+          canvas.requestPaint();
+        }, LOST_MS);
+      }
+      return;
+    }
+    const rate = Math.max(MIN_RATE, (pixelBudget * 1e6) / Math.max(1, pixels));
     // 留两毫秒的余量：免得刚好卡在帧的边上多等一帧
     const wait = now - inputAt < INPUT_MS ? 0 : lastAt + 1000 / rate - 2 - now;
     if (wait > 0) {
@@ -339,6 +365,8 @@ export function createCanvasUi(
         stale: true,
         drawn: false,
         turn: 0,
+        flying: 0,
+        sentAt: 0,
       };
       // 按 order 插到位，元素在界面画布里也排到同样的位置：点到谁看的是文档里的先后
       const at = layers.findIndex((other) => other.order > order);
@@ -393,13 +421,26 @@ export function createCanvasUi(
     },
     connect(next) {
       send = next;
-      this.refresh();
+      this.receive({ type: 'ui-request' });
     },
-    refresh() {
+    receive(report) {
+      if (report.type === 'ui-drawn') {
+        let freed = false;
+        for (const layer of layers) {
+          if (!report.layers.includes(layer.id)) continue;
+          layer.flying = 0;
+          freed ||= layer.stale;
+        }
+        // 有等着这句话的：现在可以拍了
+        if (freed) canvas.requestPaint();
+        return;
+      }
+      // 渲染线程那头的贴图没了（刚起来、显卡设备重建了）：全部重拍一遍
       sendResize();
       for (const layer of layers) {
         layer.stale = true;
         layer.drawn = false;
+        layer.flying = 0;
         sendMaterial(layer, 0);
         sendPlace(layer);
       }
