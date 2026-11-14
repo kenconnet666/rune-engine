@@ -104,14 +104,16 @@ export async function interfaceInCanvas(page) {
     timeoutMs: 20_000,
   });
   const check = `(() => {
+    // 两张画布：画面那张（渲染线程最后把界面贴在它上面，像素从它读）和界面画布（界面的元素挂在它下面）
     const canvas = document.querySelector('canvas');
+    const surface = document.querySelector('canvas[content]');
     const parse = (color) => color.match(/[0-9.]+/g).map(Number);
     // 要真的露在外面的：面板一长，有的按钮滚到了看不见的地方（被卷走的那里画的不是它）
     const shown = (button) => {
       const box = button.getBoundingClientRect();
       return document.elementFromPoint(box.x + 4, box.y + 4) === button;
     };
-    const solid = [...canvas.querySelectorAll(':scope > [data-stage-layer="hud"] button')]
+    const solid = [...surface.querySelectorAll(':scope > [data-stage-layer="hud"] button')]
       .map((button) => ({ button, color: parse(getComputedStyle(button).backgroundColor) }))
       .find(
         ({ button, color: [r, g, b, a = 1] }) =>

@@ -3,7 +3,11 @@
  * 用的是浏览器的 HTML-in-Canvas（Chrome 157 起）：界面还是普通的网页元素，照常排版、响应鼠标键盘、能被读屏念到，
  * 只是画到屏幕上的那一步改由我们来做——于是它能和地图在同一帧里合成，能过着色器，能做网页里做不了的过场。
  *
- * 一层（layer）是画布里一个带 drawable 属性的元素，画成一张贴图。层按 order 从下往上叠。
+ * 界面层的元素挂在一张 2D 的画布下面（“界面画布”，透明地盖在画面上），这张画布归渲染线程：
+ * 拍下来的界面只能画回它所在的那张画布，而只有 2D 的画布能只画其中一块（WebGPU 的画布只能整份画进一张纹理）。
+ * 主线程只管拍（只是记下怎么画，很便宜），画成像素在渲染线程里做。
+ *
+ * 一层（layer）是界面画布里一个带 drawable 属性的元素，画成一张贴图。层按 order 从下往上叠。
  * 层可以和画布一样大（铺满的界面），也可以只有内容那么大、放在画布上的某个位置（一个气泡、一个下拉列表）：
  * 重拍一层的代价跟它的面积走，挪位置不用重拍。
  * 这个文件不碰显卡的类型，主线程那头（运行时的界面采集、组件库）也用它；和显卡有关的在 frame-layer.ts。
@@ -52,6 +56,10 @@ export const PLAIN_MATERIAL: UiMaterial = {
 
 /** 主线程 → 渲染线程 */
 export type UiMessage =
+  /** 界面画布交给渲染线程（只发一次，在所有画面之前） */
+  | { readonly type: 'ui-canvas'; readonly canvas: OffscreenCanvas }
+  /** 界面画布现在该有多少像素（设备像素；和它在页面上占的地方一样大） */
+  | { readonly type: 'ui-resize'; readonly width: number; readonly height: number }
   /** 一层的新画面。width、height 是它的设备像素尺寸，pixelRatio 是一个 CSS 像素合几个设备像素 */
   | {
       readonly type: 'ui-image';

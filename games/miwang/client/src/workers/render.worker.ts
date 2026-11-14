@@ -224,6 +224,8 @@ self.onmessage = ({ data }: MessageEvent<RenderControl>) => {
       renderer?.setHighlight(hovered, selected);
       updateArcs();
       break;
+    case 'ui-canvas':
+    case 'ui-resize':
     case 'ui-image':
     case 'ui-material':
     case 'ui-place':

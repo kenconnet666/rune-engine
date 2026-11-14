@@ -1,9 +1,14 @@
 /**
  * 界面合成器：把主线程拍下来的一层层界面贴到这一帧上（约定见 ui-types.ts）。
  * 每层一张贴图（和这一层一样大），按 order 从下往上画在它该在的位置；贴的时候可以带透明度、平移缩放旋转、颜色和几种效果。
+ * 拍下来的界面先在界面画布（2D）上画成像素，再拷进这一层的贴图：界面画布在这里只当工具用，画完就清空，自己不显示东西。
+ *
+ * “这一层在页面上的哪里”（点击、悬停、量位置都靠它）也归这里管：在 2D 的画布上，浏览器认的是**最后一次把它画在哪**——
+ * 主线程说的位置会被这边的下一次画盖掉。而且只有画过的那一块点得到。所以每层的画面留着不关，
+ * 位置定下来（新画面到了、挪了地方、过渡走完）就按它真正的位置整块画一遍再清掉：像素不留，位置和能点的范围留下了。
  * 贴法的过渡在这里逐帧插值——主线程只说“用 300 毫秒变成这样”，之后它忙不忙都不影响动画。
  */
-import type { ElementImageQueue, FrameLayer } from './frame-layer.ts';
+import type { ElementImageContext, FrameLayer } from './frame-layer.ts';
 import { PLAIN_MATERIAL, type ElementImage, type UiMaterial, type UiMessage } from './ui-types.ts';
 
 export interface UiCompositor extends FrameLayer {
@@ -165,6 +170,10 @@ interface LayerState {
   texture?: GPUTexture;
   uniform?: GPUBuffer;
   bindings?: GPUBindGroup;
+  /** 这一层现在的画面：留着，位置变了要拿它再画一遍（见文件头） */
+  image?: ElementImage;
+  /** 上一次告诉浏览器的位置（x、y、平移、缩放、旋转拼成的一串）：没变就不用再说 */
+  placed?: string;
 }
 
 const ease = (t: number) => t * t * (3 - 2 * t);
@@ -174,6 +183,10 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
   /** 按 order 排好的层：有增删才重排 */
   let ordered: LayerState[] = [];
   let gpu: { device: GPUDevice; pipeline: GPURenderPipeline; sampler: GPUSampler } | undefined;
+  /** 界面画布：把拍下来的界面画成像素的地方 */
+  let surface:
+    | { canvas: OffscreenCanvas; context: OffscreenCanvasRenderingContext2D & ElementImageContext }
+    | undefined;
   const uniformData = new Float32Array(UNIFORM_FLOATS);
   uniformData.set(options.glow ?? [0.7, 0.7, 0.7], GLOW_AT);
   let lastNow = 0;
@@ -219,9 +232,40 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
     layer.uniform = undefined;
     layer.bindings = undefined;
   };
+  /** 这一层没有画面了（被藏起来、拿掉了） */
+  const forget = (layer: LayerState) => {
+    release(layer);
+    layer.image?.close();
+    layer.image = undefined;
+    layer.placed = undefined;
+  };
+
+  /**
+   * 告诉浏览器这一层在页面上的哪里：按它真正的位置（层的位置加贴法里的平移，绕自己的中心缩放、旋转）
+   * 整块画一遍再清掉。numbers 是这一层此刻的贴法
+   */
+  function place(layer: LayerState, numbers: number[]) {
+    if (!surface || !layer.image || !layer.texture) return;
+    const [offsetX, offsetY, scale, rotate] = numbers as [number, number, number, number];
+    const key = [layer.x, layer.y, offsetX, offsetY, scale, rotate, layer.pixelRatio].join();
+    if (key === layer.placed) return;
+    layer.placed = key;
+    const { canvas, context } = surface;
+    const ratio = layer.pixelRatio;
+    const width = layer.texture.width / ratio;
+    const height = layer.texture.height / ratio;
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.translate(layer.x + offsetX + width / 2, layer.y + offsetY + height / 2);
+    context.rotate(rotate);
+    context.scale(scale, scale);
+    context.translate(-width / 2, -height / 2);
+    context.drawElementImage(layer.image, 0, 0, width, height, 0, 0, width, height);
+    context.resetTransform();
+    context.clearRect(0, 0, canvas.width, canvas.height);
+  }
 
   function upload(layer: LayerState, image: ElementImage, width: number, height: number) {
-    if (!gpu) return;
+    if (!gpu || !surface) return;
     const { device, pipeline, sampler } = gpu;
     if (layer.texture?.width !== width || layer.texture.height !== height) {
       release(layer);
@@ -246,10 +290,26 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
         ],
       });
     }
-    (device.queue as unknown as ElementImageQueue).drawElementImageToTexture(
-      { source: image },
-      { texture: layer.texture, premultipliedAlpha: true, size: [width, height] },
-    );
+    // 一块一块地画、一块一块地拷：一块最大是界面画布那么大，比它大的层（很高的内容）就分几块
+    const { canvas, context } = surface;
+    const ratio = layer.pixelRatio;
+    for (let y = 0; y < height; y += canvas.height) {
+      for (let x = 0; x < width; x += canvas.width) {
+        const w = Math.min(canvas.width, width - x);
+        const h = Math.min(canvas.height, height - y);
+        context.clearRect(0, 0, w, h);
+        context.drawElementImage(image, x / ratio, y / ratio, w / ratio, h / ratio, 0, 0, w, h);
+        device.queue.copyExternalImageToTexture(
+          { source: canvas },
+          { texture: layer.texture, origin: [x, y], premultipliedAlpha: true },
+          [w, h],
+        );
+      }
+    }
+    // 它盖在画面上面：留着刚画的东西的话，这一层会在页面上多显示一份
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    // 刚才是画在画布的角上的：浏览器现在以为这一层在那里，下一帧按真正的位置再说一遍
+    layer.placed = undefined;
   }
 
   return {
@@ -288,6 +348,23 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
     },
     handle(message) {
       switch (message.type) {
+        case 'ui-canvas': {
+          const context = message.canvas.getContext('2d');
+          if (!context) throw new Error('界面画布拿不到 2D 上下文');
+          surface = {
+            canvas: message.canvas,
+            context: context as OffscreenCanvasRenderingContext2D & ElementImageContext,
+          };
+          break;
+        }
+        case 'ui-resize': {
+          // 改尺寸会清空画布：没变就别动
+          if (!surface) break;
+          const { canvas } = surface;
+          if (canvas.width !== message.width) canvas.width = message.width;
+          if (canvas.height !== message.height) canvas.height = message.height;
+          break;
+        }
         case 'ui-image': {
           const layer = layerOf(message.layer);
           if (layer.order !== message.order) {
@@ -301,8 +378,9 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
             layer.scroll.shotX = message.scroll.x;
             layer.scroll.shotY = message.scroll.y;
           }
+          layer.image?.close();
+          layer.image = message.image;
           upload(layer, message.image, Math.max(1, message.width), Math.max(1, message.height));
-          message.image.close();
           break;
         }
         case 'ui-material': {
@@ -336,12 +414,12 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
         }
         case 'ui-clear': {
           const layer = layers.get(message.layer);
-          if (layer) release(layer);
+          if (layer) forget(layer);
           break;
         }
         case 'ui-remove': {
           const layer = layers.get(message.layer);
-          if (layer) release(layer);
+          if (layer) forget(layer);
           layers.delete(message.layer);
           reorder();
           break;
@@ -362,6 +440,8 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
           layer.pendingStart = false;
         }
         const numbers = current(layer, nowMs);
+        // 过渡走到头了（或者本来就没有）才告诉浏览器位置：过渡当中每帧都说一遍就是每帧把整层白画一遍
+        if (layer.duration <= 0 || nowMs >= layer.start + layer.duration) place(layer, numbers);
         if (numbers[OPACITY]! <= 0 || numbers[TINT_ALPHA]! <= 0) continue;
         uniformData.set([width, height, layer.pixelRatio, nowMs / 1000]);
         uniformData.set(numbers, NUMBERS_AT);

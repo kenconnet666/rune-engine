@@ -29,7 +29,7 @@
 import { PLAIN_MATERIAL, type UiMaterial } from '@rune-engine/render/ui-types';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css, type SxStyles } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { onBeforeUnmount, Teleport, watch, type VNodeChild } from 'vue';
+import { onBeforeUnmount, shallowRef, Teleport, watch, type VNodeChild } from 'vue';
 import type { OverlayEntry, OverlayOptions } from './overlays.ts';
 import { useStage, type StageLayerHandle } from './stage-context.ts';
 
@@ -77,7 +77,12 @@ export const StageLayer = _component(
     children,
   }: StageLayerProps) => {
     const stage = useStage();
-    let element: HTMLElement | null = null;
+    /**
+     * 这一层的元素。不能只在组件挂上的那一刻去登记：和舞台一起渲染出来的层，那一刻舞台自己还没挂上、
+     * 没有地方传送，元素是晚一拍才出现的。所以盯着它，有了就登记
+     */
+    const element = shallowRef<HTMLElement | null>(null);
+    const setElement = (next: unknown) => (element.value = next as HTMLElement | null);
     let handle: StageLayerHandle | undefined;
     let entry: OverlayEntry | undefined;
 
@@ -88,28 +93,28 @@ export const StageLayer = _component(
       entry = undefined;
       handle = undefined;
     };
-    /**
-     * 这一层的元素有了（或者没了）。不能只在组件挂上的那一刻登记：和舞台一起渲染出来的层，
-     * 那一刻舞台自己还没挂上、没有地方传送，元素是晚一拍才出现的
-     */
-    const attach = (next: unknown) => {
-      if (next === element) return;
-      leave();
-      element = next as HTMLElement | null;
-      layerRef?.(element);
-      if (!element || !stage) return;
-      // 选项每次现读：onDismiss、要不要点外面关都可以跟着渲染变
-      if (overlay) entry = stage.overlays.open(element, () => overlay!);
-      handle = stage.addLayer(element, entry?.order ?? order, { fill: fit === 'stage' });
-      handle.moveTo(x, y);
-      const target = { ...PLAIN_MATERIAL, ...material };
-      if (enter) {
-        handle.set({ ...target, ...enter.from });
-        handle.set(target, enter.ms);
-      } else {
-        handle.set(target);
-      }
-    };
+    // 等这一轮渲染收尾了再登记（flush: 'post'）：元素的引用是渲染当中就给的，那一刻里面的东西
+    // （对话框自己的元素引用）还没就位——弹层打开要把焦点给里面，太早了就给不到
+    watch(
+      element,
+      (next) => {
+        leave();
+        layerRef?.(next);
+        if (!next || !stage) return;
+        // 选项每次现读：onDismiss、要不要点外面关都可以跟着渲染变
+        if (overlay) entry = stage.overlays.open(next, () => overlay!);
+        handle = stage.addLayer(next, entry?.order ?? order, { fill: fit === 'stage' });
+        handle.moveTo(x, y);
+        const target = { ...PLAIN_MATERIAL, ...material };
+        if (enter) {
+          handle.set({ ...target, ...enter.from });
+          handle.set(target, enter.ms);
+        } else {
+          handle.set(target);
+        }
+      },
+      { flush: 'post' },
+    );
     watch(
       () => material,
       (next) => handle?.set({ ...PLAIN_MATERIAL, ...next }, transitionMs),
@@ -119,12 +124,15 @@ export const StageLayer = _component(
       () => [x, y] as const,
       ([nextX, nextY]) => handle?.moveTo(nextX, nextY),
     );
-    onBeforeUnmount(() => attach(null));
+    onBeforeUnmount(() => {
+      leave();
+      layerRef?.(null);
+    });
 
     return () => {
       const layer = (
         <div
-          ref={attach}
+          ref={setElement}
           // 不在舞台里：没人替它摆位置，自己用 translate 摆过去
           style={!stage && fit === 'content' ? { translate: `${x}px ${y}px` } : undefined}
           {...css.attrs(fit === 'stage' ? styles.stage : styles.content, sx)}

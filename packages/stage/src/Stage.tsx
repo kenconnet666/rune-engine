@@ -2,7 +2,8 @@
  * 舞台：一张画布，加上压在它上面的几层界面（world、hud、tips，见 stage-context.ts；弹层另外各占一层）。
  *
  * 这几层平时叠在画布上面，是普通的网页元素。浏览器支持（HTML-in-Canvas，新的 Chrome）、渲染线程也说“画面接上了”
- * 之后（setLive(true)），它们搬进画布里面，由渲染线程和画布上的画面一起合成：界面照常排版、照常响应鼠标键盘，
+ * 之后（setLive(true)），它们搬进“界面画布”里面（另一张 2D 的画布，透明地盖在画面上，归渲染线程，见 canvas-ui.ts），
+ * 由渲染线程和画布上的画面一起合成：界面照常排版、照常响应鼠标键盘，
  * 但它成了画面的一部分——能过着色器、能和画面一起过场。渲染那头出了事（setLive(false)）就搬回来：
  * 界面不能跟着画面一起没了，报错的那行字还得看得见。两种摆法样子和操作都一样，差别只是有没有那些效果。
  *
@@ -86,6 +87,15 @@ const styles = css.create({
     display: 'block',
     outline: 'none',
   },
+  // 界面画布：盖在画面上，和它一样大；自己不接收指针（点得到下面的画面），里面的层各自打开
+  surface: {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    display: 'block',
+    pointerEvents: 'none',
+  },
   // 一层：铺满，里面的东西按它来定位；自己不接收指针。
   // 搬进画布以后它的位置不再由排版说了算（画在哪由合成器定），大小由界面采集设成和画布一样
   layer: { position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' },
@@ -106,6 +116,9 @@ export const Stage = _component(
     const supported = canvasUiSupported();
     const root = shallowRef<HTMLElement | null>(null);
     let canvas = _state.raw<HTMLCanvasElement | null>(null);
+    /** 界面画布：各层搬进它里面。头一回搬的时候交给渲染线程（交出去之后收不回来，所以只交一次） */
+    let surface = _state.raw<HTMLCanvasElement | null>(null);
+    let offscreen: OffscreenCanvas | undefined;
     const layers = Object.fromEntries(
       STAGE_LAYERS.map((name) => [name, shallowRef<HTMLElement | null>(null)]),
     ) as StageContext['layers'];
@@ -170,10 +183,10 @@ export const Stage = _component(
       kept: Partial<UiMaterial> | undefined,
       fill = true,
     ) => {
-      if (!canvas) return undefined;
+      if (!surface) return undefined;
       // 画布里的元素要带这个属性才画得出来
       element.setAttribute('drawable', '');
-      relocate(canvas, element);
+      relocate(surface, element);
       const handle = created.addLayer(element, order, { fill });
       // 贴法是跟着层走的：搬出去又搬回来，接着用原来的
       if (kept) handle.set(kept);
@@ -199,11 +212,27 @@ export const Stage = _component(
       handle.set({ ...PLAIN_MATERIAL, ...materials[layer] }, durationMs);
     };
 
+    /** 界面画布交给渲染线程：要在它的任何画面之前到 */
+    function sendSurface() {
+      if (!send || !offscreen) return;
+      send({ type: 'ui-canvas', canvas: offscreen }, [offscreen]);
+      offscreen = undefined;
+    }
+
     function setLive(next: boolean) {
-      if (!supported || !root.value || !canvas || next === live) return;
+      if (!supported || !root.value || !surface || next === live) return;
       live = next;
       if (next) {
-        const created = createCanvasUi(canvas);
+        if (!surface.hasAttribute('content')) {
+          // 画布里的东西要这个属性才当成“可以画的内容”来排版
+          surface.setAttribute('content', 'drawable');
+          // 像素尺寸在交出去之前先定好（之后由渲染线程跟着改）
+          surface.width = Math.round(surface.clientWidth * devicePixelRatio);
+          surface.height = Math.round(surface.clientHeight * devicePixelRatio);
+          offscreen = surface.transferControlToOffscreen();
+        }
+        sendSurface();
+        const created = createCanvasUi(surface);
         ui = created;
         for (const name of STAGE_LAYERS) {
           const element = layers[name].value;
@@ -297,14 +326,13 @@ export const Stage = _component(
         const element = layers[name].value;
         if (element) element.style.zIndex = stackOf(STAGE_LAYER_ORDER[name]);
       }
-      // 画布里的东西要这个属性才当成“可以画的内容”来排版
-      if (supported) canvas.setAttribute('content', 'drawable');
       onReady?.({
         canvas,
         supported,
         setLive,
         connect(next) {
           send = next;
+          sendSurface();
           ui?.connect(next);
         },
         refresh: () => ui?.refresh(),
@@ -332,6 +360,7 @@ export const Stage = _component(
             aria-label={canvasLabel}
             {...css.attrs(styles.canvas, canvasSx)}
           />
+          <canvas ref={_toRef(surface)} {...css.attrs(styles.surface)} />
           {STAGE_LAYERS.map((name) => (
             <div
               key={name}

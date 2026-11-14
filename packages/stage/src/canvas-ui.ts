@@ -1,12 +1,16 @@
 /**
- * 界面采集：把画布里的一层层界面“拍”下来交给渲染线程去贴（贴的那头是 render 包的界面合成器，约定见它的 ui-types.ts）。
+ * 界面采集：把界面画布里的一层层界面“拍”下来交给渲染线程去贴（贴的那头是 render 包的界面合成器，约定见它的 ui-types.ts）。
  * 舞台（Stage.tsx）用它；不用舞台、自己摆画布的也可以直接用。
  *
- * 一层是画布里一个带 drawable 属性的元素。这里做三件事：
+ * 界面画布是一张 2D 的画布，透明地盖在画面上，交给渲染线程（transferControlToOffscreen，发 ui-canvas）：
+ * 拍下来的界面只能画回它所在的那张画布。拍只是记下怎么画，画成像素在渲染线程里。
+ * 一层是界面画布里一个带 drawable 属性的元素。这里做三件事：
  *   - 铺满的层和画布一样大；只有内容那么大的层自己定大小、由使用方说放在哪
  *     （元素在画布里排版出来的位置没有意义，画在哪由我们定）
  *   - 浏览器说“这几层的样子变了”（画布的 paint 事件）时把它们重新拍下来发过去——一帧只拍一层，轮流来
- *   - 告诉浏览器每一层画在哪：这样点击、悬停、读屏才落得到里面的元素上。后登记的层在上面
+ *   - 各层在界面画布里按上下的次序排着：两层叠在一处时，点到的是文档里靠后的那个
+ * “每一层在页面上的哪里”不归这里说：2D 的画布上浏览器认的是渲染线程最后把它画在哪（见 render 包的 ui-compositor.ts），
+ * 所以位置、贴法只管发给渲染线程，它画的时候点击、悬停、量位置就都跟上了（晚一帧）。
  *
  * 这套接口（HTML-in-Canvas）只有新的 Chrome 有：canvasUiSupported() 是 false 时别把界面放进画布（放进去就看不见了），
  * 照老办法叠在画布上面。
@@ -22,7 +26,6 @@ import {
 interface DrawableCanvas extends HTMLCanvasElement {
   captureElementImage(element: Element): ElementImage;
   getElementImageDefaultSize(element: Element): { width: number; height: number };
-  updateElementGeometry(element: Element, options: { canvasTransform?: DOMMatrixInit }): void;
   requestPaint(): void;
 }
 
@@ -33,7 +36,8 @@ interface CanvasPaintEvent extends Event {
 export const canvasUiSupported = (): boolean =>
   typeof HTMLCanvasElement !== 'undefined' &&
   'captureElementImage' in HTMLCanvasElement.prototype &&
-  'updateElementGeometry' in HTMLCanvasElement.prototype;
+  // 渲染线程那头要用 2D 上下文把拍下来的界面画出来
+  'drawElementImage' in CanvasRenderingContext2D.prototype;
 
 export interface CanvasUiLayer {
   /** 这一层怎么贴（没写的项保持原样）；durationMs 大于 0 时从现在的样子过渡过去 */
@@ -92,18 +96,6 @@ interface Layer {
   turn: number;
   /** 层里跟着的那个滚动盒子（见 followScroll）；at 是最近一次滚动的时刻 */
   scroll?: { readonly scroller: HTMLElement; readonly region: () => ScrollRegion; at: number };
-}
-
-/** 一层的位置和贴法对应的变换（CSS 像素，绕这一层自己的中心）：命中测试要跟着画的位置走 */
-function transformOf(layer: Layer): DOMMatrix {
-  const { material, element } = layer;
-  const width = element.offsetWidth;
-  const height = element.offsetHeight;
-  return new DOMMatrix()
-    .translate(layer.x + material.x + width / 2, layer.y + material.y + height / 2)
-    .rotate((material.rotate * 180) / Math.PI)
-    .scale(material.scale)
-    .translate(-width / 2, -height / 2);
 }
 
 export interface CanvasUiOptions {
@@ -166,22 +158,29 @@ export function createCanvasUi(
       if (element.style.height !== height) element.style.height = height;
     }
   };
-  const observer = new ResizeObserver(() => {
+  /** 界面画布占的地方合多少设备像素：渲染线程那头的画布跟着它，拍下来的界面也按它算该画多大 */
+  let devicePixels = {
+    width: Math.round(canvas.clientWidth * devicePixelRatio),
+    height: Math.round(canvas.clientHeight * devicePixelRatio),
+  };
+  const pixelRatio = () =>
+    canvas.clientWidth > 0 ? devicePixels.width / canvas.clientWidth : devicePixelRatio;
+  const sendResize = () => send?.({ type: 'ui-resize', ...devicePixels }, []);
+  // 按设备像素量：缩放比不是整数时也不发虚
+  const sized = new ResizeObserver(([entry]) => {
+    const box = entry?.devicePixelContentBoxSize?.[0];
+    devicePixels = {
+      width: box?.inlineSize ?? Math.round(canvas.clientWidth * devicePixelRatio),
+      height: box?.blockSize ?? Math.round(canvas.clientHeight * devicePixelRatio),
+    };
+    sendResize();
     fit();
-    place();
   });
-  observer.observe(canvas);
+  sized.observe(canvas, { box: 'device-pixel-content-box' });
   // 一层自己被藏起来（display:none、visibility:hidden）时浏览器不一定马上发 paint——它等的是“有东西要重画”。
   // 层元素的样式、类名一变就请它补发一次，好及时把这层的旧画面收掉。
   // （试过盯着层里所有的 DOM 变化、一变就请求重拍：10 倍速时主线程被卡住的时间多了一截，也没有比现在更稳，没留）
   const restyled = new MutationObserver(() => canvas.requestPaint());
-
-  /** 告诉浏览器各层画在哪。按从下到上的顺序说：后说的在命中测试里排在上面 */
-  function place() {
-    for (const layer of layers) {
-      canvas.updateElementGeometry(layer.element, { canvasTransform: transformOf(layer) });
-    }
-  }
 
   /**
    * 一层没有画面可拍了：渲染线程那头要是还留着它之前的画面，收掉（不然藏起来的界面还画在那里）。
@@ -248,10 +247,8 @@ export function createCanvasUi(
   function capture(layer: Layer): boolean {
     if (!send) return false;
     let image: ElementImage;
-    let size: { width: number; height: number };
     try {
       image = canvas.captureElementImage(layer.element);
-      size = canvas.getElementImageDefaultSize(layer.element);
     } catch {
       // 刚放进来还没画过、尺寸是 0，或者被藏起来了：它接着算“该重拍”，之后的 paint 再试
       vanish(layer);
@@ -262,7 +259,11 @@ export function createCanvasUi(
     if (!layer.drawn) for (const ms of SETTLE_MS) settling.add(setTimeout(() => retake(layer), ms));
     layer.drawn = true;
     layer.turn = ++turn;
-    pixels = size.width * size.height;
+    // 画多大自己算：这一层的排版尺寸乘上设备像素比（界面画布那头的像素尺寸是渲染线程在改，这边看到的会晚一拍）
+    const ratio = pixelRatio();
+    const width = Math.max(1, Math.round(layer.element.offsetWidth * ratio));
+    const height = Math.max(1, Math.round(layer.element.offsetHeight * ratio));
+    pixels = width * height;
     // 先说一遍滚动区现在的位置（窗口变了大小它也跟着变），再发拍的时候滚到哪：两头对得上，那边才知道该挪多少
     sendScroll(layer);
     send(
@@ -271,10 +272,9 @@ export function createCanvasUi(
         layer: layer.id,
         order: layer.order,
         image,
-        width: Math.round(size.width),
-        height: Math.round(size.height),
-        pixelRatio:
-          layer.element.offsetWidth > 0 ? size.width / layer.element.offsetWidth : devicePixelRatio,
+        width,
+        height,
+        pixelRatio: ratio,
         scroll: layer.scroll && {
           x: layer.scroll.scroller.scrollLeft,
           y: layer.scroll.scroller.scrollTop,
@@ -354,17 +354,19 @@ export function createCanvasUi(
         drawn: false,
         turn: 0,
       };
-      // 按 order 插到位：命中测试的上下和画的上下是同一个顺序
+      // 按 order 插到位，元素在界面画布里也排到同样的位置：点到谁看的是文档里的先后
       const at = layers.findIndex((other) => other.order > order);
+      const above = at < 0 ? null : layers[at]!.element;
       layers.splice(at < 0 ? layers.length : at, 0, layer);
+      if (element.parentElement === canvas && element.nextElementSibling !== above) {
+        // moveBefore 不惊动它：不重置滚动位置、动画和焦点
+        canvas.moveBefore(element, above);
+      }
       restyled.observe(element, {
         attributes: true,
         attributeFilter: ['style', 'class', 'hidden'],
       });
-      // 只有内容那么大的层：大小变了，绕中心的变换也跟着变
-      if (!fill) observer.observe(element);
       fit();
-      place();
       canvas.requestPaint();
       return {
         get material() {
@@ -373,14 +375,12 @@ export function createCanvasUi(
         set(material, durationMs = 0) {
           layer.material = { ...layer.material, ...material };
           sendMaterial(layer, durationMs);
-          place();
         },
         moveTo(x, y) {
           if (x === layer.x && y === layer.y) return;
           layer.x = x;
           layer.y = y;
           sendPlace(layer);
-          place();
         },
         followScroll(scroller, region) {
           const following = { scroller, region, at: -Infinity };
@@ -403,7 +403,6 @@ export function createCanvasUi(
           const index = layers.indexOf(layer);
           if (index < 0) return;
           layers.splice(index, 1);
-          if (!fill) observer.unobserve(element);
           send?.({ type: 'ui-remove', layer: layer.id }, []);
         },
       };
@@ -413,6 +412,7 @@ export function createCanvasUi(
       this.refresh();
     },
     refresh() {
+      sendResize();
       for (const layer of layers) {
         layer.stale = true;
         layer.drawn = false;
@@ -423,7 +423,7 @@ export function createCanvasUi(
       canvas.requestPaint();
     },
     dispose() {
-      observer.disconnect();
+      sized.disconnect();
       restyled.disconnect();
       clearTimeout(waiting);
       clearTimeout(retrying);
