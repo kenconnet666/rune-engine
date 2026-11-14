@@ -8,7 +8,7 @@ packages:
 catalog:
   # 界面：Vue 运行时 + vue-tsx-pro 的 TSX 编译器与样式引擎（组件自己写，见 packages/ui）
   vue: 3.5.44
-  '@zerodep-dev/vue-tsx-pro-tsx': 0.21.0
+  '@zerodep-dev/vue-tsx-pro-tsx': 0.25.0
   # 内核原生支持的数值与日期：Decimal（精确的十进制，运算在任何引擎上逐位一致）、日历日期（不碰系统时区）
   decimal.js: 10.6.0
   '@internationalized/date': 3.12.4
