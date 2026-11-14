@@ -222,6 +222,25 @@ export async function launchChrome({
             await call('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
           }
         },
+        /** 按住从一点拖到另一点再松开（中间走 steps 步：拖动条、拖拽排序都要看到移动的过程） */
+        async drag(x1, y1, x2, y2, steps = 8) {
+          const mouse = (type, x, y, buttons) =>
+            call('Input.dispatchMouseEvent', {
+              type,
+              x,
+              y,
+              button: 'left',
+              buttons,
+              clickCount: 1,
+            });
+          await mouse('mouseMoved', x1, y1, 0);
+          await mouse('mousePressed', x1, y1, 1);
+          for (let step = 1; step <= steps; step++) {
+            const t = step / steps;
+            await mouse('mouseMoved', x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, 1);
+          }
+          await mouse('mouseReleased', x2, y2, 0);
+        },
         /**
          * 点文字以 text 开头的那个按钮；没有就报错。
          * 直接让按钮自己“被点一下”，不按坐标发鼠标事件：按钮正在动（对话框的进场动画）时按坐标点会偶尔点偏。
