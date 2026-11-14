@@ -165,7 +165,7 @@ import { Anchored } from '@rune-engine/stage/anchor';
 ```
 
 锚点是一个元素，或者舞台里的一个点（`{ x, y }`）。放不下翻到对侧、换对齐、贴着舞台边缘挪回来；`matchWidth` 至少和锚点一样宽，
-`fitHeight` 把最大高度限制在剩下的地方里。位置是 floating-ui 的核心算的，我们只告诉它坐标系是舞台；
+`fitHeight` 把最大高度限制在剩下的地方里。位置是 `placement.ts` 里的纯函数算的（和组件库的 `computePlacement` 同一套规则，从那边搬来的），我们只告诉它坐标系是舞台；
 结果用“挪层”落地，所以界面画在画布里时**跟着锚点走不用重拍**。最后摆在哪一侧写在这一层的 `data-side`、`data-align` 上。
 它在包的另一个入口里：算位置的库只有用到的页面才带上。
 

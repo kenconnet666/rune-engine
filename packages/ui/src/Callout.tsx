@@ -25,7 +25,8 @@ export interface CalloutProps extends PartProps<'div'> {
 /** 在一直在的界面上面、对话框下面 */
 const ORDER = 1.2;
 /** 偏到点的右上方：不压住指针，也不压住点本身 */
-const OFFSET = { mainAxis: 10, crossAxis: 14 };
+const OFFSET_X = 14;
+const OFFSET_Y = 10;
 
 const styles = css.create({
   layer: { pointerEvents: 'none' },
@@ -48,7 +49,13 @@ const styles = css.create({
 });
 
 export const Callout = _component(({ x, y, children, ...rest }: CalloutProps) => () => (
-  <Anchored anchor={{ x, y }} placement="top-start" offset={OFFSET} order={ORDER} sx={styles.layer}>
+  <Anchored
+    anchor={{ x: x + OFFSET_X, y }}
+    placement="top-start"
+    offset={OFFSET_Y}
+    order={ORDER}
+    sx={styles.layer}
+  >
     <div {...mergeAttrs<'div'>({ sx: styles.root }, rest, { role: 'status' })}>{children}</div>
   </Anchored>
 ));

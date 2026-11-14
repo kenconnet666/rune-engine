@@ -61,6 +61,7 @@ export const StageSwitch = _component(() => {
       <StageLayer fit="content" order={2.9} x={at.x} y={at.y} layerRef={setLayer}>
         <button
           type="button"
+          data-stage-switch
           title="换一种摆法（整页重新加载）"
           onClick={() => switchStageMode(stageMode === 'canvas' ? 'dom' : 'canvas')}
           {...css.attrs(styles.root)}

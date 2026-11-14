@@ -14,8 +14,6 @@
     "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo && tsc -p tsconfig.worker.json --incremental --tsBuildInfoFile node_modules/.cache/typecheck-worker.tsbuildinfo"
   },
   "dependencies": {
-    "@floating-ui/core": "catalog:",
-    "@floating-ui/dom": "catalog:",
     "@rune-engine/render": "workspace:^",
     "@zerodep-dev/vue-tsx-pro-tsx": "catalog:",
     "vue": "catalog:"

@@ -19,6 +19,7 @@ playwright-report/
 
 # 冒烟测试的截图（--shots）
 smoke-shots/
+compare-shots/
 
 # wrangler 在本地模拟 Cloudflare 时存的状态
 **/.wrangler/

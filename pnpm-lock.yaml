@@ -188,12 +188,6 @@ catalogs:
     '@codemirror/view':
       specifier: 6.43.14
       version: 6.43.14
-    '@floating-ui/core':
-      specifier: 1.8.0
-      version: 1.8.0
-    '@floating-ui/dom':
-      specifier: 1.8.0
-      version: 1.8.0
     '@internationalized/date':
       specifier: 3.12.4
       version: 3.12.4
@@ -793,12 +787,6 @@ importers:
 
   packages/stage:
     dependencies:
-      '@floating-ui/core':
-        specifier: 'catalog:'
-        version: 1.8.0
-      '@floating-ui/dom':
-        specifier: 'catalog:'
-        version: 1.8.0
       '@rune-engine/render':
         specifier: workspace:^
         version: link:../render
@@ -1248,15 +1236,6 @@ packages:
 
   '@fast-csv/parse@4.3.6':
     resolution: {integrity: sha512-uRsLYksqpbDmWaSmzvJcuApSEe38+6NQZBUsuAyMZKqHxH0g1wcJgsKUvN3WC8tewaqFjBMMGrkHmC+T7k8LvA==}
-
-  '@floating-ui/core@1.8.0':
-    resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
-
-  '@floating-ui/dom@1.8.0':
-    resolution: {integrity: sha512-yXSrzeHZBTZadLOlfyhCkJHNeLJnHRnRInwdZ40L7ZiaAtrBwoYlsDrX3v5zB1Utk7CLfzcOVnVVWoXEky7Ceg==}
-
-  '@floating-ui/utils@0.2.12':
-    resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -3949,17 +3928,6 @@ snapshots:
       lodash.isnil: 4.0.0
       lodash.isundefined: 3.0.1
       lodash.uniq: 4.5.0
-
-  '@floating-ui/core@1.8.0':
-    dependencies:
-      '@floating-ui/utils': 0.2.12
-
-  '@floating-ui/dom@1.8.0':
-    dependencies:
-      '@floating-ui/core': 1.8.0
-      '@floating-ui/utils': 0.2.12
-
-  '@floating-ui/utils@0.2.12': {}
 
   '@img/colour@1.1.0': {}
 

@@ -16,7 +16,7 @@
  * data-side（top / bottom / left / right）和 data-align（start / center / end）上，箭头之类的样式按它来。
  * 第一次算好位置之前这一层看不见，不会在角上闪一下。只在舞台里起作用。
  *
- * 它从包的 anchor 入口导出（`@rune-engine/stage/anchor`）：算位置的库只有用到它的页面才带上。
+ * 它从包的 anchor 入口导出（`@rune-engine/stage/anchor`）：用不到的页面不带这部分代码。
  */
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
@@ -57,6 +57,7 @@ export const Anchored = _component(
     placement,
     offset,
     padding,
+    crossAxisFallback,
     matchWidth,
     fitHeight,
     onPlaced,
@@ -87,11 +88,10 @@ export const Anchored = _component(
         // 锚点换成没有的那一下还可能被叫到（排着队的重算）：用最后一次的
         () => anchor ?? watched ?? { x: 0, y: 0 },
         floating,
-        () => ({ placement, offset, padding, matchWidth, fitHeight }),
+        () => ({ placement, offset, padding, crossAxisFallback, matchWidth, fitHeight }),
         (result) => {
-          const [side, align = 'center'] = result.placement.split('-');
-          floating.dataset.side = side;
-          floating.dataset.align = align;
+          floating.dataset.side = result.side;
+          floating.dataset.align = result.align;
           position = result;
           onPlaced?.(result);
         },
@@ -106,7 +106,7 @@ export const Anchored = _component(
       },
     );
     watch(
-      () => [placement, offset, padding, matchWidth, fitHeight],
+      () => [placement, offset, padding, crossAxisFallback, matchWidth, fitHeight],
       () => follow?.update(),
     );
     onBeforeUnmount(() => follow?.stop());
