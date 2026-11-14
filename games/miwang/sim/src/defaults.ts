@@ -60,6 +60,13 @@ export const DEFAULT_RULES: Rules = {
   decisionChance: 0.035,
   decisionAfter: 25,
   decisionGap: 14,
+  crisisGap: 45,
+  fatigueDays: 40,
+  sealedDays: 30,
+  unrestCompliance: 0.65,
+  reliefCare: 0.5,
+  leakGate: 0.55,
+  hesitancyTrust: 0.6,
   taskAfter: 12,
   taskGap: 8,
 

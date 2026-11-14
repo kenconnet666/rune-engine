@@ -52,8 +52,14 @@ export type AlertData =
   | { readonly kind: 'priority'; readonly policy: VaccinePolicy }
   /** 有一件事等这一方拿主意 */
   | { readonly kind: 'decisionPending'; readonly decision: string }
-  /** 一件事定了（自己选的、到期默认的，或者守方公开的决定）：subject 是“事.选项” */
+  /** 一件事定了（自己选的、到期默认的，或者守方公开的决定）：subject 是“事.选项”；冲着某个地区的带着 region */
   | { readonly kind: 'decided'; readonly subject: string; readonly own: boolean }
+  | {
+      readonly kind: 'decided';
+      readonly subject: string;
+      readonly own: boolean;
+      readonly region: number;
+    }
   /** 自己用了一个技能（region 是 -1 时不对着地区） */
   | { readonly kind: 'skill'; readonly skill: string; readonly region: number }
   /** 退掉了一个性状（守方知道底细时也看得到） */
@@ -312,7 +318,11 @@ export function watchAlerts(view: () => OutbreakView | null): Alerts {
         const mine = now.attacker ? !defenderDecided(item.subject) : true;
         // 对面照旧、什么都没变的决定不值得打断人
         if (!mine && choseDefault(item.subject)) continue;
-        push(mine ? 'calm' : 'danger', { kind: 'decided', subject: item.subject, own: mine });
+        const decided = { kind: 'decided', subject: item.subject, own: mine } as const;
+        push(
+          mine ? 'calm' : 'danger',
+          item.region >= 0 ? { ...decided, region: item.region } : decided,
+        );
       }
     }
   }

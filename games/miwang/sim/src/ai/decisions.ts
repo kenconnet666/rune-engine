@@ -13,8 +13,13 @@ function forDefender(option: DecisionOption, view: OutbreakView): number {
   // 付不起的选项不考虑
   if (view.resource + budget < 0) return -Infinity;
   const days = option.days ?? 0;
-  const { detect = 0, spread = 0, income = 0 } = option.modifiers ?? {};
+  const { detect = 0, spread = 0, income = 0, rollout = 0 } = option.modifiers ?? {};
   return (
+    // 冲着一个地区的事：闹事是坏事，医疗支援是好事，放松封锁要丢一档管控
+    -(option.unrest ?? 0) * 0.6 +
+    (option.relief ?? 0) * 0.5 -
+    (option.relax ?? 0) * 6 +
+    rollout * days * 1.5 +
     budget * (view.resource < 30 ? 2 : 1) +
     (option.trust ?? 0) * (view.defense.trust < 0.5 ? 300 : 120) +
     (option.research ?? 0) * 40 * view.defense.active.length +
@@ -30,7 +35,14 @@ function forAttacker(option: DecisionOption, view: OutbreakView): number {
   if (view.resource + points < 0) return -Infinity;
   const days = option.days ?? 0;
   const { detect = 0, spread = 0 } = option.modifiers ?? {};
-  return points + spread * days * 3 - detect * days * 3 - (option.trust ?? 0) * 100;
+  // 口子漏风：关着的地方又能往外带了
+  return (
+    points +
+    (option.leak ?? 0) * 0.2 +
+    spread * days * 3 -
+    detect * days * 3 -
+    (option.trust ?? 0) * 100
+  );
 }
 
 export function choose(view: OutbreakView, config: OutbreakConfig, level: AiLevel): Command[] {

@@ -5,12 +5,29 @@
  * 整层不接收指针：点下去点到的是地图。
  */
 import { bounds, regions } from '@miwang/content';
-import { HAS_DISASTER, HAS_GATHERING, HAS_SURGE, type OutbreakView } from '@miwang/sim';
+import {
+  HAS_DISASTER,
+  HAS_GATHERING,
+  HAS_LEAK,
+  HAS_RELIEF,
+  HAS_SURGE,
+  HAS_UNREST,
+  type OutbreakView,
+} from '@miwang/sim';
 import { mapScale, type MapBounds } from '@rune-engine/render/map-view';
 import { colors, fonts, Icon } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { Ambulance, CloudRainWind, Crosshair, Flame, PartyPopper } from 'lucide';
+import {
+  Ambulance,
+  CloudRainWind,
+  Crosshair,
+  Flame,
+  Footprints,
+  Megaphone,
+  PartyPopper,
+  Tent,
+} from 'lucide';
 import type { Ping } from '../feedback/alerts.ts';
 import { placeName } from '../i18n.ts';
 import type { MapController } from '../map.ts';
@@ -167,6 +184,21 @@ export const MapOverlay = _component(
                 {(marks & HAS_DISASTER) !== 0 && (
                   <span {...css.attrs(styles.mark, styles.disaster)}>
                     <Icon icon={CloudRainWind} size="0.875rem" />
+                  </span>
+                )}
+                {(marks & HAS_UNREST) !== 0 && (
+                  <span data-mark="unrest" {...css.attrs(styles.mark, styles.disaster)}>
+                    <Icon icon={Megaphone} size="0.875rem" />
+                  </span>
+                )}
+                {(marks & HAS_RELIEF) !== 0 && (
+                  <span data-mark="relief" {...css.attrs(styles.mark, styles.gathering)}>
+                    <Icon icon={Tent} size="0.875rem" />
+                  </span>
+                )}
+                {(marks & HAS_LEAK) !== 0 && (
+                  <span data-mark="leak" {...css.attrs(styles.mark, styles.gathering)}>
+                    <Icon icon={Footprints} size="0.875rem" />
                   </span>
                 )}
               </span>

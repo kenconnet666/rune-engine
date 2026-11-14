@@ -51,7 +51,8 @@ export function newsSentence(item: NewsItem, attacker: boolean): string {
     case 'decision': {
       const [id, option] = split(item.subject);
       const text = content.decisions[id];
-      return ui.decision(text?.name ?? id, text?.options[option] ?? option);
+      const [name, chosen] = [text?.name ?? id, text?.options[option] ?? option];
+      return place ? ui.decisionAt(place, name, chosen) : ui.decision(name, chosen);
     }
     case 'task': {
       const [id, result] = split(item.subject);

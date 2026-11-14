@@ -23,7 +23,11 @@ describe('抉择', () => {
     run(state, 3);
     expect(outbreak.observe(state, ATTACKER).decision).toBeNull();
     run(state, 1);
-    expect(outbreak.observe(state, ATTACKER).decision).toEqual({ id: 'variant', daysLeft: 4 });
+    expect(outbreak.observe(state, ATTACKER).decision).toEqual({
+      id: 'variant',
+      daysLeft: 4,
+      region: -1,
+    });
     // 守方这时没有研究在做：要研究在进行才出的那件不会出
     expect(outbreak.observe(state, DEFENDER).decision?.id).toBe('aid');
   });

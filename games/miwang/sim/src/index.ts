@@ -73,4 +73,13 @@ export {
   type Outcome,
   type OutbreakState,
 } from './state.ts';
-export { HAS_DISASTER, HAS_GATHERING, HAS_SURGE, type Offer, type OutbreakView } from './view.ts';
+export {
+  HAS_DISASTER,
+  HAS_GATHERING,
+  HAS_LEAK,
+  HAS_RELIEF,
+  HAS_SURGE,
+  HAS_UNREST,
+  type Offer,
+  type OutbreakView,
+} from './view.ts';

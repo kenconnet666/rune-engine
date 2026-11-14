@@ -219,6 +219,47 @@ export const en: ContentText = {
   },
 
   decisions: {
+    hospitalOverload: {
+      name: 'Hospitals are full',
+      detail:
+        'There are more patients here than the hospitals can take; beds line the corridors. People who could be saved will not be.',
+      options: {
+        cope: 'Leave it to them',
+        fieldHospital: 'Build a field hospital',
+        transfer: 'Pull staff from elsewhere',
+      },
+    },
+    lockdownFatigue: {
+      name: 'Locked down too long',
+      detail:
+        'This place has been locked down for a long time, and crowds are starting to protest.',
+      options: { hold: 'Hold the line', ease: 'Ease one level', subsidy: 'Pay support' },
+    },
+    vaccineHesitancy: {
+      name: 'People who will not take it',
+      detail: 'Vaccination has begun, but many do not trust the vaccine and the clinics are quiet.',
+      options: {
+        ignore: 'Let them be',
+        campaign: 'Ask trusted voices to speak',
+        mandate: 'Make it mandatory',
+      },
+    },
+    identified: {
+      name: 'They know what you are',
+      detail:
+        'The response has identified the pathogen: from now on a single case is recognised anywhere, and testing will roll out.',
+      options: {
+        steady: 'Carry on',
+        lowProfile: 'Lie low for a while',
+        rush: 'Spread fast before testing rolls out',
+      },
+    },
+    smuggling: {
+      name: 'A border that leaks',
+      detail:
+        'The crossings here have been shut for a long time; goods and people now take the back roads.',
+      options: { wait: 'Leave it', routes: 'Follow the back roads out' },
+    },
     aidOffer: {
       name: 'Aid with strings attached',
       detail:

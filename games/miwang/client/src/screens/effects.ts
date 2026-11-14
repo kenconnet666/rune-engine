@@ -102,5 +102,11 @@ export function optionEffects(option: DecisionOption, ui: ClientText): EffectLin
   for (const line of modifierEffects(option.modifiers, ui)) {
     lines.push({ name: line.name, amount: ui.effects.lasting(line.amount, option.days ?? 0) });
   }
+  // 落在那个地区的效果（危机的选项）
+  const { unrest, relief, leak, relax } = option;
+  if (unrest) lines.push({ name: ui.effects.unrest, amount: ui.effects.forDays(unrest) });
+  if (relief) lines.push({ name: ui.effects.relief, amount: ui.effects.forDays(relief) });
+  if (leak) lines.push({ name: ui.effects.leak, amount: ui.effects.forDays(leak) });
+  if (relax) lines.push({ name: ui.effects.relax, amount: ui.effects.levels(relax) });
   return lines;
 }

@@ -40,6 +40,10 @@ import {
 export const HAS_GATHERING = 1;
 export const HAS_DISASTER = 2;
 export const HAS_SURGE = 4;
+/** 这个地区在闹事（措施效果打折）、有临时的医疗支援、口子在漏风（只有攻方知道） */
+export const HAS_UNREST = 8;
+export const HAS_RELIEF = 16;
+export const HAS_LEAK = 32;
 
 /** 能买的一样东西（性状或科技）和它现在的价格 */
 export interface Offer {
@@ -66,7 +70,7 @@ export interface OutbreakView {
   readonly deaths: Float64Array;
   /** 接种得到免疫的人口比例 */
   readonly immune: Float32Array;
-  /** 正在发生的事（HAS_GATHERING、HAS_DISASTER） */
+  /** 正在发生的事（按位：HAS_GATHERING、HAS_DISASTER、HAS_UNREST……） */
   readonly happening: Uint8Array;
   /**
    * 有效传播数：一个发病者在这里平均传给几个人（大于 1 在涨，小于 1 在退）。
@@ -142,8 +146,15 @@ export interface OutbreakView {
     readonly amount: number;
     readonly daysLeft: number;
   }[];
-  /** 等着这一方拿主意的事：哪一件、还剩几天（到期按第一个选项办）；没有是 null */
-  readonly decision: { readonly id: string; readonly daysLeft: number } | null;
+  /**
+   * 等着这一方拿主意的事：哪一件、还剩几天（到期按第一个选项办）、冲着哪个地区（-1 是不针对某个地区）；
+   * 没有是 null
+   */
+  readonly decision: {
+    readonly id: string;
+    readonly daysLeft: number;
+    readonly region: number;
+  } | null;
 
   /**
    * 这一方手里的短期任务：哪一件、还剩几天、手里有多少、要到多少（cap、shrink 是不能超过多少）；没有是 null
@@ -220,7 +231,10 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
     happening[r] =
       (state.gatheringUntil[r]! > state.tick ? HAS_GATHERING : 0) |
       (state.disasterUntil[r]! > state.tick ? HAS_DISASTER : 0) |
-      (attacker && state.surgeUntil[r]! > state.tick ? HAS_SURGE : 0);
+      (attacker && state.surgeUntil[r]! > state.tick ? HAS_SURGE : 0) |
+      (state.unrestUntil[r]! > state.tick ? HAS_UNREST : 0) |
+      (state.reliefUntil[r]! > state.tick ? HAS_RELIEF : 0) |
+      (attacker && state.leakUntil[r]! > state.tick ? HAS_LEAK : 0);
     if (known) {
       const spread = reproductionIn(state, r, pathogen, defense, comply);
       reproduction[r] = spread.now;
@@ -321,7 +335,11 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
         : [],
     ),
     decision: pending
-      ? { id: pending.id, daysLeft: Math.max(0, state.decisionExpires[player]! - state.tick) }
+      ? {
+          id: pending.id,
+          daysLeft: Math.max(0, state.decisionExpires[player]! - state.tick),
+          region: state.decisionRegion[player]!,
+        }
       : null,
     task:
       task && taskNow

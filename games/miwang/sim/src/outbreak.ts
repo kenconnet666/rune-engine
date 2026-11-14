@@ -4,6 +4,7 @@
 import { fnv1a, hashNumbers, type Simulation, type Stamped } from '@rune-engine/core';
 import { applyCommand, type Command } from './commands.ts';
 import type { OutbreakConfig } from './config.ts';
+import { trackCrises } from './rules/crises.ts';
 import { arriveTeams, compliance, settleEconomy, updateTrust } from './rules/defense.ts';
 import { progress, type DayTally } from './rules/epidemic.ts';
 import { rollDecisions } from './rules/decisions.ts';
@@ -42,7 +43,8 @@ function step(state: OutbreakState, commands: readonly Stamped<Command>[]) {
   expireModifiers(state);
   arriveTeams(state);
   rollEvents(state);
-  rollDecisions(state);
+  trackCrises(state);
+  rollDecisions(state, defense);
   travel(state, pathogen, comply, tally);
   progress(state, pathogen, defense, comply, tally);
   vaccinate(state, defense, comply);
@@ -113,6 +115,13 @@ function hash(state: OutbreakState): number {
     state.decisionExpires,
     state.decisionSeen,
     state.decisionLast,
+    state.decisionRegion,
+    state.crisisReadyAt,
+    state.lockedDays,
+    state.sealedDays,
+    state.unrestUntil,
+    state.reliefUntil,
+    state.leakUntil,
     state.task,
     state.taskStart,
     state.taskExpires,

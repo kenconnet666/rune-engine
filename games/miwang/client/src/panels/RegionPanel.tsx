@@ -9,7 +9,10 @@ import { regions } from '@miwang/content';
 import {
   HAS_DISASTER,
   HAS_GATHERING,
+  HAS_LEAK,
+  HAS_RELIEF,
   HAS_SURGE,
+  HAS_UNREST,
   MAX_LEVEL,
   measureLevel,
   MEASURES,
@@ -40,6 +43,9 @@ import {
   BookmarkPlus,
   CircleOff,
   CloudRainWind,
+  Footprints,
+  Megaphone,
+  Tent,
   Copy,
   Eye,
   Flame,
@@ -245,6 +251,21 @@ export const RegionPanel = _component(
           {(happening & HAS_DISASTER) !== 0 && (
             <Note icon={CloudRainWind} tone="danger">
               {ui.region.disaster}
+            </Note>
+          )}
+          {(happening & HAS_UNREST) !== 0 && (
+            <Note icon={Megaphone} tone={view.attacker ? 'signal' : 'danger'}>
+              {ui.region.unrest}
+            </Note>
+          )}
+          {(happening & HAS_RELIEF) !== 0 && (
+            <Note icon={Tent} tone={view.attacker ? 'danger' : 'signal'}>
+              {ui.region.relief}
+            </Note>
+          )}
+          {(happening & HAS_LEAK) !== 0 && (
+            <Note icon={Footprints} tone="signal">
+              {ui.region.leak}
             </Note>
           )}
           {team && (

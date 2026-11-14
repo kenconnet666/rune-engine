@@ -76,8 +76,9 @@ export interface TraitDef {
  *   detect  各地的发现率加多少（负的是更难发现）
  *   spread  本地传播的倍数加多少（0.1 是强一成，负的是弱）
  *   income  守方每天收入的倍数加多少
+ *   rollout 接种速度的倍数加多少
  */
-export const MODIFIER_KEYS = ['detect', 'spread', 'income'] as const;
+export const MODIFIER_KEYS = ['detect', 'spread', 'income', 'rollout'] as const;
 export type ModifierKey = (typeof MODIFIER_KEYS)[number];
 export type Modifiers = Readonly<Partial<Record<ModifierKey, number>>>;
 
@@ -104,7 +105,10 @@ export interface SkillDef {
 
 // ───── 抉择 ─────
 
-/** 抉择的一个选项：立刻生效的几样，加上持续 days 天的修正 */
+/**
+ * 抉择的一个选项：立刻生效的几样，加上持续 days 天的修正。
+ * 冲着某个地区来的事（危机）还可以带落在那个地区的效果：闹事、放松封锁、医疗支援、口子漏风。
+ */
 export interface DecisionOption {
   readonly id: string;
   /** 变异点、预算、信任各加多少（可以是负的） */
@@ -115,7 +119,22 @@ export interface DecisionOption {
   readonly research?: number;
   readonly modifiers?: Modifiers;
   readonly days?: number;
+  /** 那个地区闹事几天：这期间那里的措施效果打折（Rules.unrestCompliance） */
+  readonly unrest?: number;
+  /** 那个地区的封锁降几档 */
+  readonly relax?: number;
+  /** 那个地区得到几天的医疗支援：救得回来的人多一些（Rules.reliefCare） */
+  readonly relief?: number;
+  /** 那个地区的口岸、机场、港口漏风几天：关着也拦不住多少（Rules.leakGate） */
+  readonly leak?: number;
 }
+
+/**
+ * 危机的起因（局面到了这一步才出，不靠运气；见 rules/crises.ts）：
+ *   fatigue 封锁太久   overload 医疗挤兑   sealed 口子关得太久（攻方的事）
+ *   hesitancy 疫苗开打而信任不高   identified 守方做完了病原鉴定（攻方的事）
+ */
+export type CrisisCause = 'fatigue' | 'overload' | 'sealed' | 'hesitancy' | 'identified';
 
 /**
  * 一件要某一方拿主意的事。到期没选按第一个选项办，所以第一个放“照旧、什么都不做”的那个。
@@ -129,6 +148,8 @@ export interface DecisionDef {
   /** 要在几天之内选 */
   readonly days: number;
   readonly when?: 'research' | 'spread';
+  /** 写了就是一件“危机”：不参加平时的随机，局面到了这一步才出；weight 用不上 */
+  readonly crisis?: CrisisCause;
   readonly options: readonly DecisionOption[];
 }
 
@@ -375,6 +396,20 @@ export interface Rules {
   readonly decisionAfter: number;
   /** 一件事定下来之后，至少隔这么多天才出下一件 */
   readonly decisionGap: number;
+  /** 危机：同一种至少隔这么多天才再出；写负数是不出危机 */
+  readonly crisisGap: number;
+  /** 一个地区的封锁（中档以上）连着这么多天，那里的人受不了了 */
+  readonly fatigueDays: number;
+  /** 一个有感染的地区口子（中档以上）连着关这么多天，开始有人走私 */
+  readonly sealedDays: number;
+  /** 闹事期间那个地区措施的配合程度剩下的比例 */
+  readonly unrestCompliance: number;
+  /** 医疗支援期间，医疗没能挽回的那部分再挽回多少 */
+  readonly reliefCare: number;
+  /** 漏风期间那个地区口子的效果剩下的比例 */
+  readonly leakGate: number;
+  /** 疫苗开打时信任低于这个数，会出“不肯打”的事 */
+  readonly hesitancyTrust: number;
   /** 短期任务：开局第几天起发，一件完了隔几天发下一件；间隔写负数是不发任务 */
   readonly taskAfter: number;
   readonly taskGap: number;

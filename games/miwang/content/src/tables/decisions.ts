@@ -1,12 +1,58 @@
 /**
  * 抉择表：隔一阵子某一方会碰上的、要它拿主意的事（规则见 sim 的 rules/decisions.ts）。
- * 每件事两个选项，各有得失；第一个是“照旧”的那个——到期没选就按它办。
+ * 每件事两三个选项，各有得失；第一个是“照旧”的那个——到期没选就按它办。
  * 数值的单位：budget 是预算，points 是变异点，trust 是公众信任（0–1），research 是进行中的研究提前的比例，
  * modifiers 是持续 days 天的修正（发现率加多少、传播和收入的倍数加多少）。
+ *
+ * 带 crisis 的是“危机”：不靠运气，局面到了那一步才出（规则见 sim 的 rules/crises.ts）；一方同时成立好几件时
+ * 表里靠前的先出。冲着某个地区来的危机，选项可以带落在那个地区的效果：unrest 闹事几天、relax 封锁降几档、
+ * relief 医疗支援几天、leak 口子漏风几天。
  */
 import type { DecisionDef } from '@miwang/sim';
 
 export const DECISIONS: readonly DecisionDef[] = [
+  // ───── 守方的危机 ─────
+  // 医院挤满了：让当地自己扛，信任掉；建临时病房花钱，那里一个月里救得回来的多；
+  // 从别处抽调人手不花钱，但别处的产出少一截
+  {
+    id: 'hospitalOverload',
+    side: 'defender',
+    weight: 0,
+    days: 5,
+    crisis: 'overload',
+    options: [
+      { id: 'cope', trust: -0.04 },
+      { id: 'fieldHospital', budget: -14, relief: 30 },
+      { id: 'transfer', relief: 20, modifiers: { income: -0.08 }, days: 20 },
+    ],
+  },
+  // 封得太久：不让步，那里闹起来、措施打折；放松一档，大家松口气；发补贴，花钱买平静
+  {
+    id: 'lockdownFatigue',
+    side: 'defender',
+    weight: 0,
+    days: 7,
+    crisis: 'fatigue',
+    options: [
+      { id: 'hold', unrest: 25, trust: -0.03 },
+      { id: 'ease', relax: 1, trust: 0.02 },
+      { id: 'subsidy', budget: -12 },
+    ],
+  },
+  // 疫苗开打了，不少人不肯打：随他们去就慢三成；请人出面要花钱；强制接种快，但伤信任
+  {
+    id: 'vaccineHesitancy',
+    side: 'defender',
+    weight: 0,
+    days: 7,
+    crisis: 'hesitancy',
+    options: [
+      { id: 'ignore', modifiers: { rollout: -0.3 }, days: 45 },
+      { id: 'campaign', budget: -10, trust: 0.04 },
+      { id: 'mandate', trust: -0.06, modifiers: { rollout: 0.25 }, days: 45 },
+    ],
+  },
+
   // ───── 守方 ─────
   // 带条件的援助：钱马上到，公众不喜欢“外人说了算”
   {
@@ -87,6 +133,33 @@ export const DECISIONS: readonly DecisionDef[] = [
     options: [
       { id: 'keep', modifiers: { detect: -0.1 }, days: 30 },
       { id: 'recall', budget: -8, modifiers: { detect: -0.03 }, days: 10 },
+    ],
+  },
+
+  // ───── 攻方的危机 ─────
+  // 守方认出它了（一局一次）：照旧，压力之下多攒一点；收敛一阵更难发现；趁检测还没铺开抢着传
+  {
+    id: 'identified',
+    side: 'attacker',
+    weight: 0,
+    days: 7,
+    crisis: 'identified',
+    options: [
+      { id: 'steady', points: 3 },
+      { id: 'lowProfile', modifiers: { detect: -0.08, spread: -0.05 }, days: 30 },
+      { id: 'rush', modifiers: { spread: 0.12, detect: 0.05 }, days: 20 },
+    ],
+  },
+  // 一个地区的口子关得太久，开始有人走小路：花点数顺着出去，那里的口子一个月里拦不住多少
+  {
+    id: 'smuggling',
+    side: 'attacker',
+    weight: 0,
+    days: 7,
+    crisis: 'sealed',
+    options: [
+      { id: 'wait', points: 2 },
+      { id: 'routes', points: -3, leak: 30 },
     ],
   },
 

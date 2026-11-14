@@ -150,6 +150,17 @@ export interface OutbreakState {
   decisionSeen: Uint8Array;
   /** 双方各自上一次碰上的是哪一件（-1 是还没有）：下一次不出同一件 */
   decisionLast: Int16Array;
+  /** 双方各自等着的那件事是冲着哪个地区来的（-1 是不针对某个地区） */
+  decisionRegion: Int16Array;
+  /** 各种危机下一次最早哪一步能出（下标同 config.decisions） */
+  crisisReadyAt: Int32Array;
+  /** 各地区的封锁、关着的口子各连着多少天了（危机用，见 rules/crises.ts） */
+  lockedDays: Uint16Array;
+  sealedDays: Uint16Array;
+  /** 闹事、医疗支援、口子漏风在各地区持续到哪一步（不含） */
+  unrestUntil: Int32Array;
+  reliefUntil: Int32Array;
+  leakUntil: Int32Array;
   /**
    * 双方手里的短期任务（下标是玩家）：是 config.tasks 里的第几件（-1 是没有）、接到时那个数是多少、
    * 到哪一步为止、下一件最早哪一步发；各自做到了几件；每件任务发过几次
@@ -248,6 +259,13 @@ export function createState(config: OutbreakConfig): OutbreakState {
     decisionExpires: new Int32Array(2),
     decisionSeen: new Uint8Array(config.decisions.length),
     decisionLast: new Int16Array(2).fill(-1),
+    decisionRegion: new Int16Array(2).fill(-1),
+    crisisReadyAt: new Int32Array(config.decisions.length),
+    lockedDays: new Uint16Array(count),
+    sealedDays: new Uint16Array(count),
+    unrestUntil: new Int32Array(count),
+    reliefUntil: new Int32Array(count),
+    leakUntil: new Int32Array(count),
     task: new Int16Array(2).fill(-1),
     taskStart: new Float64Array(2),
     taskExpires: new Int32Array(2),

@@ -14,6 +14,7 @@ import {
   TECH_IDLE,
   type OutbreakState,
 } from '../state.ts';
+import { modifier } from './modifiers.ts';
 import { effectiveWealth } from './regional.ts';
 
 /** 做完的科技的效果之和 */
@@ -88,6 +89,8 @@ export function vaccinate(state: OutbreakState, defense: DefenseStats, comply: n
   const { regions, rules } = state.config;
   const policy = VACCINE_POLICIES[state.priority] ?? 'even';
   const count = regions.length;
+  // 临时的修正：有人不肯打、强制接种……
+  const shift = Math.max(0, 1 + modifier(state, 'rollout'));
   const pace = new Float64Array(count);
   let plain = 0;
   let weighted = 0;
@@ -97,6 +100,7 @@ export function vaccinate(state: OutbreakState, defense: DefenseStats, comply: n
     const base =
       effectiveWealth(rules.rolloutByWealth, regions[r]!.wealth, defense.aid) *
       (1 + defense.rollout) *
+      shift *
       comply;
     const favoured =
       policy === 'hotspots'

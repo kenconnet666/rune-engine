@@ -47,12 +47,15 @@ export function transmissionIn(
   r: number,
   pathogen: PathogenStats,
   defense: DefenseStats,
-  comply: number,
+  complyAll: number,
   detection: number,
   bits: number = state.measures[r]!,
 ): number {
   const { rules, regions } = state.config;
   const region = regions[r]!;
+  // 这个地区在闹事：措施还开着，听的人少了
+  const comply =
+    state.unrestUntil[r]! > state.tick ? complyAll * rules.unrestCompliance : complyAll;
   const cold = winter(state, r);
   const struck = state.disasterUntil[r]! > state.tick;
 
@@ -158,7 +161,10 @@ function fatalityIn(
     (1 - rules.overloadLoss * overload) *
     (state.disasterUntil[r]! > state.tick ? rules.disasterCare : 1);
   // 应急队驻着：医疗没能挽回的那部分，再挽回一些
-  const helped = teamAt(state, r) ? care + (1 - care) * rules.teamCare : care;
+  const teamed = teamAt(state, r) ? care + (1 - care) * rules.teamCare : care;
+  // 临时的医疗支援（方舱、外面调来的人手）也一样，和应急队叠着算
+  const helped =
+    state.reliefUntil[r]! > state.tick ? teamed + (1 - teamed) * rules.reliefCare : teamed;
   // 耐药对药物是全额抵消，对一般的医疗（补液、吸氧、护理）只抵消一半
   const untreated = 1 - clamp(defense.treatment, 0, 0.95) * (1 - pathogen.resistance);
   return clamp(

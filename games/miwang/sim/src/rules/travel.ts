@@ -26,6 +26,9 @@ export function travel(
   // 潜伏的人照常出行；发病的人病得越重越走不动
   const mobility = 1 / (1 + rules.severityImmobility * pathogen.severity);
 
+  /** 这个地区的口子现在漏不漏风（有人在走私）：漏的话关着也只剩几成效果 */
+  const tight = (region: number) => (state.leakUntil[region]! > state.tick ? rules.leakGate : 1);
+
   /** 一个口子（口岸、机场、港口）：出发地和目的地谁管得严就按谁的档位算 */
   const gate = (
     from: number,
@@ -36,8 +39,8 @@ export function travel(
     1 -
     effect *
       Math.max(
-        strengthOf(rules, state.measures[from]!, measure),
-        strengthOf(rules, state.measures[to]!, measure),
+        strengthOf(rules, state.measures[from]!, measure) * tight(from),
+        strengthOf(rules, state.measures[to]!, measure) * tight(to),
       ) *
       comply;
 

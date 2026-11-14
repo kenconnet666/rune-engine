@@ -318,6 +318,7 @@ export const App = _component(() => {
                 <DecisionPanel
                   view={view}
                   onCommand={sendCommand}
+                  onLocate={locate}
                   paused={heldForDecision && game.paused.value}
                   readonly={watching}
                 />

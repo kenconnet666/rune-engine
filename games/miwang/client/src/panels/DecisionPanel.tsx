@@ -5,11 +5,11 @@
  */
 import { DECISIONS } from '@miwang/content';
 import type { Command, OutbreakView } from '@miwang/sim';
-import { ActionButton, colors, Frame, Note, space, Stack } from '@rune-engine/ui';
+import { ActionButton, colors, focusRing, Frame, Icon, Note, space, Stack } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { Scale } from 'lucide';
-import { useContent, useUi } from '../i18n.ts';
+import { MapPin, Scale } from 'lucide';
+import { placeName, useContent, useUi } from '../i18n.ts';
 import { optionEffects } from '../screens/effects.ts';
 
 const styles = css.create({
@@ -18,17 +18,33 @@ const styles = css.create({
   name: { fontSize: '1rem', color: colors.text },
   text: { margin: 0, fontSize: '0.8125rem', lineHeight: 1.6, color: colors.text },
   effects: { paddingInlineStart: space.xs },
+  // 冲着哪个地区：点了地图飞过去
+  where: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: space.xs,
+    alignSelf: 'start',
+    padding: 0,
+    fontSize: '0.8125rem',
+    color: { default: colors.signal, ':hover': colors.text },
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    cursor: 'pointer',
+  },
 });
 
 export const DecisionPanel = _component(
   ({
     view,
     onCommand,
+    onLocate,
     paused = false,
     readonly = false,
   }: {
     view: OutbreakView;
     onCommand: (command: Command) => void;
+    /** 去看这件事冲着的那个地区 */
+    onLocate?: (region: number) => void;
     /** 时间为这件事停下了（一个人玩的时候）：卡片上说一声 */
     paused?: boolean;
     /** 只能看（回放时）：选项点不动 */
@@ -54,6 +70,18 @@ export const DecisionPanel = _component(
           sx={styles.root}
         >
           <span {...css.attrs(styles.name)}>{text.name}</span>
+          {pending.region >= 0 && (
+            <button
+              type="button"
+              data-decision-region={pending.region}
+              aria-label={`${ui.where(placeName(pending.region))}，${ui.locate}`}
+              onClick={() => onLocate?.(pending.region)}
+              {...css.attrs(focusRing.visible, styles.where)}
+            >
+              <Icon icon={MapPin} size="0.875rem" />
+              {ui.where(placeName(pending.region))}
+            </button>
+          )}
           <p {...css.attrs(styles.text)}>{text.detail}</p>
           {decision.options.map((option, index) => {
             const lines = optionEffects(option, all);

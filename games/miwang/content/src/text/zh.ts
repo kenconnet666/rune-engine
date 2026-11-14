@@ -120,6 +120,31 @@ export const zh: ContentText = {
   },
 
   decisions: {
+    hospitalOverload: {
+      name: '医院挤满了',
+      detail: '这里的病人多到医院收不下，走廊里都是床。再这样下去，本来救得回来的人也救不回来。',
+      options: { cope: '让当地自己扛', fieldHospital: '建临时病房', transfer: '从别处抽调人手' },
+    },
+    lockdownFatigue: {
+      name: '封得太久了',
+      detail: '这里已经封了很久，街上开始有人聚集抗议。',
+      options: { hold: '不让步', ease: '放松一档', subsidy: '发补贴' },
+    },
+    vaccineHesitancy: {
+      name: '不肯打的人',
+      detail: '疫苗开打了，可是不少人信不过它，接种点冷冷清清。',
+      options: { ignore: '随他们去', campaign: '请信得过的人出面', mandate: '强制接种' },
+    },
+    identified: {
+      name: '它们认出你了',
+      detail: '守方完成了病原鉴定：从此各地一例就认得出来，检测也会铺开。',
+      options: { steady: '照旧', lowProfile: '收敛一阵', rush: '趁检测还没铺开，抢着传' },
+    },
+    smuggling: {
+      name: '关不住的口子',
+      detail: '这里的口子关了很久，货和人开始走小路。',
+      options: { wait: '不去管它', routes: '顺着小路出去' },
+    },
     aidOffer: {
       name: '带条件的援助',
       detail: '一笔国际援助可以马上到账，但对方要求派人进驻、参与决策。',
