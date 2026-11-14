@@ -2,7 +2,7 @@
   "name": "@rune-engine/components",
   "version": "0.0.0",
   "private": true,
-  "description": "组件库：从 vue-tsx-pro 的组件库（0.27.0）复制过来、在这边分叉着改，目标是整套能画进画布（见 UPSTREAM.md）",
+  "description": "组件库：从 vue-tsx-pro 的组件库（0.28.0）复制过来、在这边分叉着改，目标是整套能画进画布（见 UPSTREAM.md）",
   "type": "module",
   "license": "MIT",
   "sideEffects": [

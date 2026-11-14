@@ -3,7 +3,7 @@
 `src/` 是从 [vue-tsx-pro](https://github.com/kenconnet666/vue-tsx-pro) 的组件库（`packages/ui/src`）复制过来的；
 文档站（`apps/docs`）是从它的 `apps/docs` 复制过来的，对着同一个提交：
 
-- 现在对着的是版本 0.27.0，提交 `b7bbca0a`（头一回复制的是 0.25.0、`fffc0c7f`，中间跟过 0.26.0、`c42b2f39`，都在 2026-11-14）；
+- 现在对着的是版本 0.28.0，提交 `c2be5550`（头一回复制的是 0.25.0、`fffc0c7f`，中间跟过 0.26.0、0.27.0，都在 2026-11-14）；
 - 同一位作者，MIT 许可；
 - 复制时只把包名从 `@zerodep-dev/vue-tsx-pro-ui` 换成了 `@rune-engine/components`，目录结构没有动
   （另有一处：`utils/.test/dependencies.test.ts` 里“第三方依赖”不算这边自己的包）；
