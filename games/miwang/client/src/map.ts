@@ -1,5 +1,5 @@
 /**
- * 地图在主线程这头的控制器：相机归它管（拖动、缩放、飞到某个地区），指针的位置报给渲染线程去点选，
+ * 地图在主线程这头的控制器：相机和图层归它管（拖动、缩放、飞到某个地区、涂哪一样数），指针的位置报给渲染线程去点选，
  * 界面要的东西（指针停在哪个地区、选中了哪个、地图上一点在屏幕的哪里）从它读。
  *
  * 相机的每一次变化都发给渲染线程；主线程用同一套换算（@rune-engine/render/map-view）摆界面，
@@ -17,6 +17,7 @@ import {
   type MapCamera,
 } from '@rune-engine/render/map-view';
 import { shallowRef, type ShallowRef } from 'vue';
+import type { MapLayer } from './layers.ts';
 import type { RenderLink } from './session/index.ts';
 
 const MIN_ZOOM = 1;
@@ -33,6 +34,9 @@ export interface MapController {
   readonly selected: ShallowRef<number>;
   /** 鼠标在画布上的位置（CSS 像素）；不在画布上、或者是触屏时是 null */
   readonly pointer: ShallowRef<GesturePoint | null>;
+  /** 地图上涂的是哪一样数 */
+  readonly layer: ShallowRef<MapLayer>;
+  setLayer(layer: MapLayer): void;
   /** 选中一个地区（-1 是取消）；fly 为 true 时相机飞过去 */
   select(region: number, fly?: boolean): void;
   /** 以画布中心为准放大、缩小 */
@@ -50,6 +54,7 @@ export function createMapController(canvas: HTMLCanvasElement, link: RenderLink)
   const hovered = shallowRef(-1);
   const selected = shallowRef(-1);
   const pointer = shallowRef<GesturePoint | null>(null);
+  const layer = shallowRef<MapLayer>('infection');
   const viewport = () => ({ width: canvas.clientWidth, height: canvas.clientHeight });
 
   let flight = 0;
@@ -126,6 +131,11 @@ export function createMapController(canvas: HTMLCanvasElement, link: RenderLink)
     hovered,
     selected,
     pointer,
+    layer,
+    setLayer(next) {
+      layer.value = next;
+      link.send({ type: 'layer', layer: next });
+    },
     select,
     zoomBy(factor) {
       const { width, height } = viewport();

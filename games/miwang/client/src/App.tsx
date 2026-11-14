@@ -15,13 +15,17 @@ import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { CHAPTERS, type ChapterId } from '@miwang/content';
 import { onBeforeUnmount, onMounted, watchEffect } from 'vue';
 import { watchHints } from './chapters/hints.ts';
+import { watchAlerts } from './feedback/alerts.ts';
+import { watchRegionGrowth } from './feedback/trends.ts';
 import { markChapterPassed } from './chapters/progress.ts';
 import { placeName, useFormats, useUi } from './i18n.ts';
 import { createMapController, type MapController } from './map.ts';
 import { palette } from './palette.ts';
+import { AlertStack } from './panels/AlertStack.tsx';
 import { ControlBar } from './panels/ControlBar.tsx';
 import { GoalPanel } from './panels/GoalPanel.tsx';
 import { HintPanel } from './panels/HintPanel.tsx';
+import { LayerBar } from './panels/LayerBar.tsx';
 import { MapOverlay } from './panels/MapOverlay.tsx';
 import { About } from './screens/About.tsx';
 import { Chapters } from './screens/Chapters.tsx';
@@ -31,6 +35,7 @@ import { Lobby } from './screens/Lobby.tsx';
 import { MainMenu } from './screens/MainMenu.tsx';
 import { NewsPanel } from './panels/NewsPanel.tsx';
 import { PlaybackBar } from './panels/PlaybackBar.tsx';
+import { RankPanel } from './panels/RankPanel.tsx';
 import { OpponentPanel } from './panels/OpponentPanel.tsx';
 import { Outcome } from './screens/Outcome.tsx';
 import { Saves } from './screens/saves/Saves.tsx';
@@ -140,6 +145,14 @@ export const App = _component(() => {
 
   // 章节里的教学提示：到了该讲的时候讲一句
   const hints = watchHints(() => game?.view.value ?? null);
+  // 对局里的提示（里程碑、警报、操作的回应）和各地区这一周的涨跌
+  const alerts = watchAlerts(() => game?.view.value ?? null);
+  const growth = watchRegionGrowth(() => game?.view.value ?? null);
+  /** 去看一个地区：地图飞过去、选中它，再闪一下 */
+  const locate = (region: number) => {
+    map?.select(region, true);
+    alerts.ping(region);
+  };
   // 章节打赢了记一笔（章节页上打勾）
   watchEffect(() => {
     const now = game?.view.value;
@@ -196,7 +209,9 @@ export const App = _component(() => {
       <div {...css.attrs(styles.root, palette.value === 'safe' && colorSafeTheme)}>
         <canvas ref={_toRef(canvas)} aria-label={ui.app.mapLabel} {...css.attrs(styles.canvas)} />
         {/* 地名和标记压在地图上、界面的下面 */}
-        {view && map && canvas && <MapOverlay map={map} view={view} canvas={canvas} />}
+        {view && map && canvas && (
+          <MapOverlay map={map} view={view} canvas={canvas} pings={alerts.pings.value} />
+        )}
         <div {...css.attrs(styles.layer)}>
           <Scroll sx={[styles.column, styles.left]}>
             <StatusPanel view={view} />
@@ -207,7 +222,8 @@ export const App = _component(() => {
             {view && (
               <div {...css.attrs(styles.extra)}>
                 <TrendPanel view={view} />
-                <NewsPanel view={view} onLocate={(region) => map?.select(region, true)} />
+                <RankPanel view={view} growth={growth.value} onLocate={locate} />
+                <NewsPanel view={view} onLocate={locate} />
               </div>
             )}
           </Scroll>
@@ -251,6 +267,7 @@ export const App = _component(() => {
 
           <div {...css.attrs(styles.bottom)}>
             {game && <ControlBar game={game} map={map} onMenu={openMenu} />}
+            {view && map && <LayerBar map={map} view={view} />}
             {game && (
               <Note
                 tone={
@@ -276,6 +293,14 @@ export const App = _component(() => {
             </Callout>
           )}
         </div>
+        {view && overlay === null && (
+          <AlertStack
+            alerts={alerts.list.value}
+            view={view}
+            onLocate={locate}
+            onDismiss={alerts.dismiss}
+          />
+        )}
         {game && overlay === null && <PlaybackBar game={game} />}
         {view && overlay === 'workbench' && !view.outcome && !watching && (
           <Workbench

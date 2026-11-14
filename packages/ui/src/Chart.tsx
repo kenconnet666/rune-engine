@@ -19,6 +19,8 @@ export interface ChartSeries {
   tone: 'signal' | 'danger' | 'calm' | 'text';
   /** 线下面铺一层淡淡的颜色（最要紧的那条线用） */
   fill?: boolean;
+  /** 预测：接在最后一个值后面的几个点，画成虚线（“照现在的势头会到哪里”） */
+  forecast?: readonly number[];
 }
 
 export interface ChartProps extends PartProps<'figure'> {
@@ -73,11 +75,11 @@ const sizes = css.create({
   height: (height: string) => ({ height }),
 });
 
-/** 一条线上各点的坐标，写成 polyline 的 points */
-function points(values: readonly number[], count: number, max: number): string {
+/** 一条线上各点的坐标，写成 polyline 的 points；offset 是第一个点排在横轴上的第几格 */
+function points(values: readonly number[], count: number, max: number, offset = 0): string {
   return values
     .map((value, index) => {
-      const x = count > 1 ? (index / (count - 1)) * WIDTH : 0;
+      const x = count > 1 ? ((index + offset) / (count - 1)) * WIDTH : 0;
       const y = HEIGHT - (max > 0 ? value / max : 0) * HEIGHT;
       return `${x.toFixed(2)},${y.toFixed(2)}`;
     })
@@ -87,8 +89,14 @@ function points(values: readonly number[], count: number, max: number): string {
 export const Chart = _component(
   ({ series, format, from, to, height = '5rem', ...rest }: ChartProps) =>
     () => {
-      const count = Math.max(2, ...series.map((line) => line.values.length));
-      const max = Math.max(0, ...series.flatMap((line) => line.values));
+      const count = Math.max(
+        2,
+        ...series.map((line) => line.values.length + (line.forecast?.length ?? 0)),
+      );
+      const max = Math.max(
+        0,
+        ...series.flatMap((line) => [...line.values, ...(line.forecast ?? [])]),
+      );
       return (
         <figure {...mergeAttrs<'figure'>({ sx: styles.root }, rest)}>
           <figcaption {...css.attrs(styles.legend)}>
@@ -142,6 +150,23 @@ export const Chart = _component(
                       stroke-linejoin="round"
                       vector-effect="non-scaling-stroke"
                     />
+                    {line.forecast && line.forecast.length > 0 && line.values.length > 0 && (
+                      // 预测从最后一个真实的点接着画，虚线、淡一点
+                      <polyline
+                        points={points(
+                          [line.values.at(-1)!, ...line.forecast],
+                          count,
+                          max,
+                          line.values.length - 1,
+                        )}
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-opacity="0.6"
+                        stroke-dasharray="3 3"
+                        vector-effect="non-scaling-stroke"
+                      />
+                    )}
                   </g>
                 );
               })}

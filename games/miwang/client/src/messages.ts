@@ -7,6 +7,7 @@ import type { PlayerId, Recording } from '@rune-engine/core';
 import type { ClientMessage, HostMessage } from '@rune-engine/net';
 import type { MapPaletteName } from '@rune-engine/render';
 import type { MapCamera } from '@rune-engine/render/map-view';
+import type { MapLayer } from './layers.ts';
 
 export type GameRecording = Recording<OutbreakConfig, Command>;
 
@@ -64,6 +65,8 @@ export type RenderControl =
   | { readonly type: 'select'; readonly region: number }
   /** 换一套色带 */
   | { readonly type: 'palette'; readonly name: MapPaletteName }
+  /** 地图上涂哪一样数 */
+  | { readonly type: 'layer'; readonly layer: MapLayer }
   /** 开发时用：把显卡设备弄丢，看画面能不能自己恢复 */
   | { readonly type: 'lose-device' }
   /** 开发时用：问一下最近这段时间画得多快 */

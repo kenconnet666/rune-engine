@@ -11,6 +11,7 @@ import { colors, fonts, Icon } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { CloudRainWind, Crosshair, PartyPopper } from 'lucide';
+import type { Ping } from '../feedback/alerts.ts';
 import { placeName } from '../i18n.ts';
 import type { MapController } from '../map.ts';
 
@@ -23,6 +24,11 @@ const LABEL_LIMIT = 48;
 const sizes = regions.map((region) => Math.sqrt(region.area));
 /** 从大到小排好的地区下标：标名字时大的优先 */
 const bySize = regions.map((_, index) => index).sort((a, b) => sizes[b]! - sizes[a]!);
+
+const ripple = css.keyframes({
+  from: { scale: 0.15, opacity: 1 },
+  to: { scale: 1, opacity: 0 },
+});
 
 const styles = css.create({
   root: { position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' },
@@ -62,6 +68,26 @@ const styles = css.create({
   gathering: { color: colors.signal },
   disaster: { color: colors.danger },
   origin: { color: colors.calm },
+  // 闪一下：一个圈从小到大、由实到淡，告诉你“这里刚出了事”。
+  // 外面一层只管摆位置，里面一层只管动：缩放要是和定位写在同一个元素上，会连位置一起缩
+  pingAt: { position: 'absolute', insetBlockStart: 0, insetInlineStart: 0 },
+  ping: {
+    display: 'block',
+    width: '4.5rem',
+    height: '4.5rem',
+    borderRadius: '50%',
+    borderWidth: '2px',
+    borderStyle: 'solid',
+    borderColor: 'currentColor',
+    animationName: ripple,
+    animationDuration: '1.2s',
+    animationIterationCount: 2,
+    animationTimingFunction: 'ease-out',
+    animationFillMode: 'both',
+  },
+  signal: { color: colors.signal },
+  danger: { color: colors.danger },
+  calm: { color: colors.calm },
 });
 
 const places = css.create({
@@ -71,7 +97,18 @@ const places = css.create({
 });
 
 export const MapOverlay = _component(
-  ({ map, view, canvas }: { map: MapController; view: OutbreakView; canvas: HTMLCanvasElement }) =>
+  ({
+    map,
+    view,
+    canvas,
+    pings = [],
+  }: {
+    map: MapController;
+    view: OutbreakView;
+    canvas: HTMLCanvasElement;
+    /** 地图上正在闪的几处（刚出事的地区） */
+    pings?: readonly Ping[];
+  }) =>
     () => {
       const camera = map.camera.value;
       const viewport = { width: canvas.clientWidth, height: canvas.clientHeight };
@@ -114,6 +151,24 @@ export const MapOverlay = _component(
           </div>,
         );
       }
-      return <div {...css.attrs(styles.root)}>{items}</div>;
+      const rings = pings.flatMap((ping) => {
+        const center = regions[ping.region]?.center;
+        if (!center) return [];
+        const [x, y] = map.toScreen(center[0]!, center[1]!);
+        return [
+          <span
+            key={`ping-${ping.id}`}
+            {...css.attrs(styles.pingAt, places.at(Math.round(x), Math.round(y)))}
+          >
+            <span {...css.attrs(styles.ping, styles[ping.tone])} />
+          </span>,
+        ];
+      });
+      return (
+        <div {...css.attrs(styles.root)}>
+          {rings}
+          {items}
+        </div>
+      );
     },
 );

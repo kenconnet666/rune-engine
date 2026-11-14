@@ -31,6 +31,7 @@ export const en: ClientText = {
     points: 'Mutation points',
     budget: 'Budget',
     perDay: (net) => `${net} per day`,
+    runway: (net, days) => `${net} per day · lasts ${days} days`,
     calamityAttacker: 'Calamity (fill it to win)',
     calamityDefender: 'Calamity (full means defeat; from reported deaths)',
     trust: 'Public trust',
@@ -41,6 +42,69 @@ export const en: ClientText = {
     title: 'Trend',
     infected: 'Total infected',
     reported: 'Total reported',
+    ahead: (day) => `at this pace by day ${day}`,
+  },
+
+  layers: {
+    title: 'What the map shows',
+    reportedInfection: 'Reported infection',
+    unknown: 'Its routes are still unknown: identify the pathogen first.',
+    items: {
+      infection: { name: 'Infection', low: 'none', middle: '', high: 'severe' },
+      reproduction: {
+        name: 'Reproduction number',
+        low: 'shrinking',
+        middle: '1',
+        high: 'growing fast',
+      },
+      suppression: { name: 'Spread cut by measures', low: 'none', middle: '', high: 'all' },
+      strain: { name: 'Strain on care', low: 'spare', middle: '', high: 'overrun' },
+      immune: { name: 'Vaccinated', low: 'none', middle: '', high: 'all' },
+    },
+  },
+
+  rank: {
+    title: 'Regions to watch',
+    boards: {
+      cases: 'Worst',
+      growth: 'Rising most',
+      reproduction: 'Spreading fastest',
+      strain: 'Most strained',
+    },
+    growthPending: 'A few more days are needed to compare the week.',
+    reproductionUnknown: 'Its routes are still unknown: identify the pathogen first.',
+    empty: 'No regions on this board right now.',
+  },
+
+  alerts: {
+    title: 'Notices',
+    firstDeath: 'The first death',
+    regions: (count) => `${count} regions reached`,
+    infected: (count) => `${count} infected in total`,
+    reported: (count) => `${count} cases reported in total`,
+    calamity: (share) => `The calamity line is past ${share}`,
+    strain: (place) => `Care is overrun in ${place}`,
+    strainCount: (count) => `Care is overrun in ${count} regions`,
+    strainDetail: 'Too many patients: fewer can be saved',
+    trust: (level) => `Public trust fell below ${level}`,
+    trustDetail: 'The lower the trust, the weaker every measure',
+    runway: (days) => `The budget lasts only ${days} more days`,
+    vaccine: 'Vaccination has begun',
+    identified: 'Pathogen identified: its details are now visible',
+    goal: (share) => `The chapter goal is at ${share}`,
+    deadline: (days) => `${days} days left in this chapter`,
+    traitOwn: (name) => `Acquired: ${name}`,
+    traitTheirs: (name) => `The pathogen changed: ${name}`,
+    researchOwn: (name) => `Research done: ${name}`,
+    researchTheirs: (name) => `The response finished research: ${name}`,
+    measure: (place) => `Measures changed in ${place}`,
+    measureEffect: (from, to) => `Spread cut ${from} → ${to}`,
+    measureUnknown: 'The effect shows once the pathogen is identified',
+    measures: (count) => `Measures changed in ${count} regions`,
+    crackdown: (place, count) =>
+      count > 1
+        ? `The response tightened in ${place} and ${count - 1} more`
+        : `The response tightened in ${place}`,
   },
 
   news: {
@@ -61,6 +125,10 @@ export const en: ClientText = {
     deselect: 'Deselect',
     population: (year) => `Population (${year})`,
     immune: 'Vaccinated',
+    reproduction: 'Reproduction number',
+    reproductionValue: (value, growing, cut) =>
+      `${value} (${growing ? 'growing' : 'shrinking'}) · measures cut ${cut}`,
+    strain: 'Strain on care',
     conditions: 'Conditions',
     routes: 'Routes',
     routeCounts: (land, air, sea) => `Land ${land} · Air ${air} · Sea ${sea}`,

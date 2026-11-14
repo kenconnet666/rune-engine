@@ -30,6 +30,7 @@ export const zh = {
     points: '变异点',
     budget: '预算',
     perDay: (net: string) => `每天 ${net}`,
+    runway: (net: string, days: number) => `每天 ${net} · 还能撑 ${days} 天`,
     calamityAttacker: '灾厄（到头就赢）',
     calamityDefender: '灾厄（到头就输；按上报的死亡算）',
     trust: '公众信任',
@@ -40,6 +41,57 @@ export const zh = {
     title: '趋势',
     infected: '累计感染',
     reported: '累计上报',
+    ahead: (day: number) => `照这个势头到第 ${day} 天`,
+  },
+
+  layers: {
+    title: '地图上看什么',
+    reportedInfection: '上报的感染',
+    unknown: '还不知道它靠什么传：先做完病原鉴定。',
+    items: {
+      infection: { name: '感染', low: '没有', middle: '', high: '很重' },
+      reproduction: { name: '传播数', low: '在退', middle: '1', high: '涨得快' },
+      suppression: { name: '措施压掉的传播', low: '没压', middle: '', high: '全压住' },
+      strain: { name: '医疗挤兑', low: '宽裕', middle: '', high: '挤兑' },
+      immune: { name: '已接种', low: '没有', middle: '', high: '全部' },
+    },
+  },
+
+  rank: {
+    title: '地区榜',
+    boards: { cases: '最重', growth: '涨得最多', reproduction: '传得最快', strain: '最吃紧' },
+    growthPending: '再过几天才比得出这一周的涨跌。',
+    reproductionUnknown: '还不知道它靠什么传：先做完病原鉴定。',
+    empty: '现在没有地区上榜。',
+  },
+
+  alerts: {
+    title: '提示',
+    firstDeath: '出现了第一例死亡',
+    regions: (count: number) => `已经波及 ${count} 个地区`,
+    infected: (count: string) => `累计感染过 ${count} 人次`,
+    reported: (count: string) => `累计上报 ${count} 例`,
+    calamity: (share: string) => `灾厄线过了 ${share}`,
+    strain: (place: string) => `${place}的医疗被挤兑了`,
+    strainCount: (count: number) => `${count} 个地区的医疗被挤兑了`,
+    strainDetail: '病人太多，救得回来的人变少',
+    trust: (level: string) => `公众信任跌破 ${level}`,
+    trustDetail: '信任越低，措施的效果越打折',
+    runway: (days: number) => `预算只够再撑 ${days} 天`,
+    vaccine: '疫苗开始接种',
+    identified: '病原鉴定完成：看得到它的底细了',
+    goal: (share: string) => `这一章的目标到了 ${share}`,
+    deadline: (days: number) => `这一章还剩 ${days} 天`,
+    traitOwn: (name: string) => `换到了：${name}`,
+    traitTheirs: (name: string) => `病原体变了：${name}`,
+    researchOwn: (name: string) => `研究完成：${name}`,
+    researchTheirs: (name: string) => `守方完成了研究：${name}`,
+    measure: (place: string) => `${place}的措施变了`,
+    measureEffect: (from: string, to: string) => `压掉的传播 ${from} → ${to}`,
+    measureUnknown: '效果要等做完病原鉴定才看得出来',
+    measures: (count: number) => `${count} 个地区的措施变了`,
+    crackdown: (place: string, count: number) =>
+      count > 1 ? `守方在${place}等 ${count} 个地区收紧了` : `守方在${place}收紧了`,
   },
 
   news: {
@@ -60,6 +112,10 @@ export const zh = {
     deselect: '取消选中',
     population: (year: number) => `人口（${year} 年）`,
     immune: '已接种',
+    reproduction: '传播数',
+    reproductionValue: (value: string, growing: boolean, cut: string) =>
+      `${value}（${growing ? '在涨' : '在退'}）· 措施压掉 ${cut}`,
+    strain: '医疗挤兑',
     conditions: '条件',
     routes: '路线',
     routeCounts: (land: number, air: number, sea: number) =>

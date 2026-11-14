@@ -47,6 +47,8 @@ export const RegionPanel = _component(
       const level = view.intensity[index] ?? 0;
       const bits = view.measures[index] ?? 0;
       const happening = view.happening[index] ?? 0;
+      /** 这里的传播数；这一方算不出来（守方还没做病原鉴定）时是负数 */
+      const reproduction = view.reproduction[index] ?? -1;
       const active = MEASURES.filter((measure) => (bits & MEASURE_BITS[measure]) !== 0);
       return (
         <Frame
@@ -73,6 +75,19 @@ export const RegionPanel = _component(
             <Fact label={ui.status.deaths} value={format.compact(view.deaths[index] ?? 0)} />
             {(view.immune[index] ?? 0) > 0 && (
               <Fact label={ui.region.immune} value={format.percent(view.immune[index] ?? 0)} />
+            )}
+            {reproduction >= 0 && (
+              <Fact
+                label={ui.region.reproduction}
+                value={ui.region.reproductionValue(
+                  reproduction.toFixed(2),
+                  reproduction >= 1,
+                  format.percent(Math.max(0, view.suppression[index] ?? 0)),
+                )}
+              />
+            )}
+            {(view.strain[index] ?? 0) > 0.02 && (
+              <Fact label={ui.region.strain} value={format.percent(view.strain[index] ?? 0)} />
             )}
             <Fact
               label={ui.region.conditions}

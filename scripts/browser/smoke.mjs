@@ -110,6 +110,29 @@ try {
   await page.evaluate(`document.querySelector('[aria-label="暂停"]').click()`);
   await done(`时间在走：从第 ${before} 天到了第 ${await dayOf(page)} 天`);
 
+  // 图层：换到“传播数”，地图照样有东西；再换回来
+  await page.evaluate(`document.querySelector('[aria-label="传播数"]').click()`);
+  await page.waitFor(`document.querySelector('[data-layer="reproduction"]')`, {
+    what: '传播数图层',
+  });
+  await sleep(900);
+  const layerColors = await mapColors(page);
+  if (layerColors < 20) throw new Error(`传播数图层没画出来：只有 ${layerColors} 种颜色`);
+  await page.evaluate(`document.querySelector('[aria-label="感染"]').click()`);
+  await page.waitFor(`document.querySelector('[data-layer="infection"]')`, {
+    what: '换回感染图层',
+  });
+  // 地区榜：有上榜的地区，点第一名，右边出现它的详情
+  await page.waitFor(`document.querySelectorAll('[data-board] ol button').length > 0`, {
+    what: '地区榜上有地区',
+  });
+  await page.evaluate(`document.querySelector('[data-board] ol button').click()`);
+  await page.waitFor(hasText('传播数'), { what: '选中地区后的传播数' });
+  // 点地区榜会让地图飞过去放大：回到整张地图，后面按固定的位置点地图的那一步才点得准
+  await page.evaluate(`document.querySelector('[aria-label="回到整张地图"]').click()`);
+  await sleep(800);
+  await done('图层能切换，地区榜点得动');
+
   await page.clickButton('进化');
   await page.waitFor(`document.querySelector('dialog[open]') && ${hasText('飞沫传播')}`, {
     what: '进化的工作台',

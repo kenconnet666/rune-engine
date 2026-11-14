@@ -9,7 +9,10 @@ import { toWire, type Stamped } from '@rune-engine/core';
 import { encodeMessage } from '@rune-engine/net';
 import { expect, it } from 'vitest';
 
-/** 模拟一天（两方电脑各想一次、各看一次、走一步）平均不超过这么多毫秒。10 倍速时主机每 40 毫秒要走一天 */
+/**
+ * 模拟一天（两方电脑各想一次、各看一次、走一步）平均不超过这么多毫秒的 CPU 时间。10 倍速时主机每 40 毫秒要走一天。
+ * 量的是这个进程用掉的 CPU 时间，不是墙上的时间：测试是好多文件并行跑的，被别的进程挤下去的那段不该算在模拟头上
+ */
 const DAY_MS = 5;
 /** 经网络发的一份状态不超过这么多字节。走中转时每秒大约发八份 */
 const VIEW_BYTES = 16 * 1024;
@@ -22,7 +25,7 @@ it('性能预算：模拟的速度、一份状态的大小、一局记录的大�
   const commands: Stamped<Command>[] = [];
   let largestView = 0;
 
-  const started = performance.now();
+  const started = process.cpuUsage();
   let days = 0;
   for (; !state.outcome && days < 400; days++) {
     const today: Stamped<Command>[] = [];
@@ -38,7 +41,8 @@ it('性能预算：模拟的速度、一份状态的大小、一局记录的大�
     commands.push(...today);
     outbreak.step(state, today);
   }
-  const perDay = (performance.now() - started) / days;
+  const used = process.cpuUsage(started);
+  const perDay = (used.user + used.system) / 1000 / days;
 
   expect(days).toBeGreaterThan(100);
   expect(perDay, `模拟一天用了 ${perDay.toFixed(2)} 毫秒`).toBeLessThan(DAY_MS);

@@ -43,6 +43,9 @@ export const StatusPanel = _component(({ view }: { view: OutbreakView | null }) 
     );
   }
   const { attacker, totals, defense } = view;
+  /** 守方入不敷出时：照现在的收支，预算还能撑几天 */
+  const burn = defense.upkeep - defense.income;
+  const runway = !attacker && burn > 0 ? Math.floor(view.resource / burn) : null;
   return (
     <Frame
       icon={attacker ? Biohazard : ShieldCheck}
@@ -72,9 +75,13 @@ export const StatusPanel = _component(({ view }: { view: OutbreakView | null }) 
           label={attacker ? ui.points : ui.budget}
           value={format.whole(Math.floor(view.resource))}
           note={
-            attacker ? undefined : ui.perDay(signed(defense.income - defense.upkeep, format.amount))
+            attacker
+              ? undefined
+              : runway === null
+                ? ui.perDay(signed(defense.income - defense.upkeep, format.amount))
+                : ui.runway(signed(defense.income - defense.upkeep, format.amount), runway)
           }
-          tone="calm"
+          tone={runway !== null && runway < 30 ? 'danger' : 'calm'}
         />
       </div>
       <Meter

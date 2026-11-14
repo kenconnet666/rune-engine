@@ -28,6 +28,7 @@ import {
   type MapRenderer,
 } from '@rune-engine/render';
 import { asPort } from '@rune-engine/runtime/worker';
+import { layerValues, type MapLayer } from '../layers.ts';
 import type { RenderControl, RenderReport } from '../messages.ts';
 
 declare const self: DedicatedWorkerGlobalScope;
@@ -36,8 +37,10 @@ let renderer: MapRenderer | undefined;
 /** 用哪一套色带：渲染器建好之前先记着 */
 let paletteName: MapPaletteName = 'standard';
 let session: Session<Command> | undefined;
-/** 渲染器还没建好时先到的东西：建好后补上 */
-let pendingView: OutbreakView | undefined;
+/** 最近一份状态：渲染器还没建好时先留着，换图层时拿它重画 */
+let latestView: OutbreakView | undefined;
+/** 地图上涂的是哪一样数 */
+let layer: MapLayer = 'infection';
 /** 最近一份状态里“跳到新地区”的记录，和各自第一次看到它的时刻（光从那时开始走） */
 let hops: OutbreakView['hops'] = [];
 let today = 0;
@@ -115,11 +118,9 @@ function updateArcs() {
 }
 
 function show(view: OutbreakView) {
-  if (!renderer) {
-    pendingView = view;
-    return;
-  }
-  renderer.setValues(view.intensity, performance.now());
+  latestView = view;
+  if (!renderer) return;
+  renderer.setValues(layerValues(view, layer), performance.now());
   // 地图上现在只画封锁（斜纹）；别的措施在地区面板里看
   renderer.setFlags(
     Uint8Array.from(view.measures, (bits) => ((bits & MEASURE_BITS.lockdown) !== 0 ? 1 : 0)),
@@ -154,7 +155,7 @@ async function init(data: Extract<RenderControl, { type: 'init' }>) {
   renderer.setPalette(paletteName);
   renderer.setHighlight(hovered, selected);
   updateArcs();
-  if (pendingView) show(pendingView);
+  if (latestView) show(latestView);
   const frame = (now: number) => {
     const started = performance.now();
     renderer?.render(now);
@@ -199,6 +200,10 @@ self.onmessage = ({ data }: MessageEvent<RenderControl>) => {
       }
       break;
     }
+    case 'layer':
+      layer = data.layer;
+      if (latestView) show(latestView);
+      break;
     case 'palette':
       paletteName = data.name;
       renderer?.setPalette(paletteName);

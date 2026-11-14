@@ -99,9 +99,17 @@ self.onmessage = ({ data }: MessageEvent<HostControl>) => {
         stepMs: data.stepMs,
         // 这些数组每次都是新建的：直接转移给对面，不拷贝
         transfer: (view) =>
-          [view.intensity, view.measures, view.cases, view.deaths, view.immune, view.happening].map(
-            (array) => array.buffer as ArrayBuffer,
-          ),
+          [
+            view.intensity,
+            view.measures,
+            view.cases,
+            view.deaths,
+            view.immune,
+            view.happening,
+            view.reproduction,
+            view.suppression,
+            view.strain,
+          ].map((array) => array.buffer as ArrayBuffer),
       });
       tell({ type: 'started', replayedTicks: host.tick, replayMs: performance.now() - began });
       reported = { ticks: -1, commands: -1 };

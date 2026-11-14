@@ -39,8 +39,8 @@ export function travel(
     // 目的地封锁、入境筛查都会拦下一部分
     const admitted =
       expected *
-      after(state, to, 'lockdown', rules.lockdownTravel, comply) *
-      after(state, to, 'screening', rules.screeningEffect, comply);
+      after(state.measures[to]!, 'lockdown', rules.lockdownTravel, comply) *
+      after(state.measures[to]!, 'screening', rules.screeningEffect, comply);
     if (admitted < NEGLIGIBLE || state.susceptible[to]! <= 0) return;
     const whole = Math.floor(admitted);
     const landed = whole + (chance(state.random, admitted - whole) ? 1 : 0);
@@ -69,7 +69,8 @@ export function travel(
   for (let from = 0; from < regions.length; from++) {
     const carriers = state.exposed[from]! + state.infectious[from]! * mobility;
     if (carriers <= 0) continue;
-    const leaving = carriers * after(state, from, 'lockdown', rules.lockdownTravel, comply);
+    const leaving =
+      carriers * after(state.measures[from]!, 'lockdown', rules.lockdownTravel, comply);
     const region = regions[from]!;
     for (const to of region.neighbors) {
       send(

@@ -2,6 +2,7 @@
 import { dateAtTick, dateFromText, dateToText, type PlayerId } from '@rune-engine/core';
 import type { Goal, PathogenStats } from './config.ts';
 import { compliance, dailyBalance } from './rules/defense.ts';
+import { reproductionIn, strainIn } from './rules/epidemic.ts';
 import { HISTORY_EVERY, type History } from './rules/history.ts';
 import { calamity, goalValue } from './rules/outcome.ts';
 import { canEvolve, pathogenStats, traitCost } from './rules/pathogen.ts';
@@ -52,6 +53,15 @@ export interface OutbreakView {
   readonly immune: Float32Array;
   /** 正在发生的事（HAS_GATHERING、HAS_DISASTER） */
   readonly happening: Uint8Array;
+  /**
+   * 有效传播数：一个发病者在这里平均传给几个人（大于 1 在涨，小于 1 在退）。
+   * 攻方总是看得到；守方要做完病原鉴定——之前不知道它靠什么传，算不出来，是 -1
+   */
+  readonly reproduction: Float32Array;
+  /** 措施在这里压掉了多少传播（0–1，和一项都不开相比）；守方不知道病原体底细时同样是 -1 */
+  readonly suppression: Float32Array;
+  /** 医疗被挤兑的程度（0–1）：攻方按真实的发病人数，守方按上报估的 */
+  readonly strain: Float32Array;
 
   readonly totals: {
     /** 现在的病例、累计感染（守方：累计上报）、累计死亡 */
@@ -133,6 +143,12 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
   const deaths = new Float64Array(count);
   const immune = new Float32Array(count);
   const happening = new Uint8Array(count);
+  const reproduction = new Float32Array(count);
+  const suppression = new Float32Array(count);
+  const strain = new Float32Array(count);
+  const known = attacker || defense.identify >= 1;
+  const pathogen = pathogenStats(state);
+  const comply = compliance(state);
   let totalCases = 0;
   let totalDeaths = 0;
   let population = 0;
@@ -151,6 +167,15 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
     happening[r] =
       (state.gatheringUntil[r]! > state.tick ? HAS_GATHERING : 0) |
       (state.disasterUntil[r]! > state.tick ? HAS_DISASTER : 0);
+    if (known) {
+      const spread = reproductionIn(state, r, pathogen, defense, comply);
+      reproduction[r] = spread.now;
+      suppression[r] = spread.unchecked > 0 ? 1 - spread.now / spread.unchecked : 0;
+    } else {
+      reproduction[r] = -1;
+      suppression[r] = -1;
+    }
+    strain[r] = strainIn(state, attacker ? state.infectious[r]! : state.visible[r]!, people);
     totalCases += active;
     totalDeaths += deaths[r]!;
     population += people;
@@ -158,7 +183,6 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
     if ((state.reached[r]! & (attacker ? REACHED : REPORTED)) !== 0) reached++;
   }
 
-  const known = attacker || defense.identify >= 1;
   const audience = attacker ? FOR_ATTACKER : FOR_DEFENDER;
   const balance = attacker ? { income: 0, upkeep: 0 } : dailyBalance(state);
   const line = state.config.rules.calamityShare * state.worldPopulation;
@@ -174,6 +198,9 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
     deaths,
     immune,
     happening,
+    reproduction,
+    suppression,
+    strain,
     totals: {
       cases: totalCases,
       infected: attacker ? state.infectedTotal : reportedTotal,
@@ -187,7 +214,7 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
       known,
       id: known ? state.config.pathogen.id : null,
       owned: known ? traits.filter((_, index) => state.traits[index] === 1).map((t) => t.id) : [],
-      stats: known ? pathogenStats(state) : null,
+      stats: known ? pathogen : null,
       offers: attacker
         ? traits.flatMap((trait, index) =>
             canEvolve(state, index) ? [{ id: trait.id, cost: traitCost(state, index) }] : [],
@@ -196,7 +223,7 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
     },
     defense: {
       trust: state.trust,
-      compliance: compliance(state),
+      compliance: comply,
       income: balance.income,
       upkeep: balance.upkeep,
       done: techs.filter((_, index) => state.techs[index] === TECH_DONE).map((tech) => tech.id),
