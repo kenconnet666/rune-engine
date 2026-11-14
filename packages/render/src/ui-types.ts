@@ -69,8 +69,11 @@ export type UiMessage =
       readonly width: number;
       readonly height: number;
       readonly pixelRatio: number;
-      /** 这一层里有个滚动区（见 ui-scroll）：拍的这一刻它滚到了哪 */
-      readonly scroll?: { readonly x: number; readonly y: number };
+      /**
+       * 这是一层**滚动层**：拍下来的是整份内容（可以很高），画面上只露出这么大的一块（CSS 像素），
+       * 露出哪一块看 ui-scroll。渲染线程每帧只把露出来的那块画成像素——滚动不用重拍，代价跟这一块的面积走
+       */
+      readonly view?: { readonly width: number; readonly height: number };
     }
   /** 一层的贴法：durationMs 大于 0 时从现在的样子过渡过去（在渲染线程里逐帧插值） */
   | {
@@ -82,16 +85,15 @@ export type UiMessage =
   /** 一层放在画布上的哪里：它的左上角（CSS 像素）。没说过就是 0,0（铺满的层） */
   | { readonly type: 'ui-place'; readonly layer: number; readonly x: number; readonly y: number }
   /**
-   * 一层里的滚动区现在滚到了哪（x、y），它在这一层里占哪一块（rect：左、上、宽、高，CSS 像素）。
-   * 滚动之后新的画面要过一两帧才拍得到；这之前合成器先把手里那张画面在这一块里挪过去（差多少挪多少），
-   * 露出来的边先空着。所以滚动的快慢跟着渲染线程的帧走，不等重拍
+   * 滚动层滚到哪：露出来的那块的左上角在内容里的位置（CSS 像素）。smooth 时渲染线程自己缓着滚过去
+   * （主线程忙不忙都不影响），不然直接到
    */
   | {
       readonly type: 'ui-scroll';
       readonly layer: number;
       readonly x: number;
       readonly y: number;
-      readonly rect: readonly [number, number, number, number];
+      readonly smooth: boolean;
     }
   /** 一层现在没有画面（被藏起来了）：别再画它，贴法留着，等它的新画面 */
   | { readonly type: 'ui-clear'; readonly layer: number }

@@ -20,9 +20,10 @@ import {
   useTextMatcher,
 } from '@rune-engine/components';
 import { GithubIcon } from '@rune-engine/components/docs-kit';
-import { AppShell, AppShellBrand, ThemeSwitcher } from '@rune-engine/components/patterns';
+import { AppShellBrand, ThemeSwitcher } from '@rune-engine/components/patterns';
 import { breakpoints } from '@rune-engine/components/tokens';
 import { RouterView, useRoute, useRouter } from 'vue-router';
+import { StageShell } from './stage/StageShell';
 import { loadingBar } from './site/loading-bar';
 import { allPages, sectionOf, sections } from './site/nav';
 import { FontSwitcher } from './site/FontSwitcher';
@@ -129,7 +130,7 @@ export const App = _component(() => {
     return (
       <>
         <LoadingBar controller={loadingBar} />
-        <AppShell
+        <StageShell
           brand={
             <AppShellBrand href="/" icon={Box}>
               vue-tsx-pro
@@ -212,7 +213,7 @@ export const App = _component(() => {
               </Container>
             )}
           </div>
-        </AppShell>
+        </StageShell>
       </>
     );
   };

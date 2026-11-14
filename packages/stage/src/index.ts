@@ -12,7 +12,6 @@ export {
   type CanvasUiLayer,
   type CanvasUiLayerOptions,
   type CanvasUiOptions,
-  type ScrollRegion,
 } from './canvas-ui.ts';
 export {
   createOverlayHost,
@@ -34,6 +33,7 @@ export {
   type StageLayerName,
 } from './stage-context.ts';
 export { StageLayer, type StageLayerProps } from './StageLayer.tsx';
+export { StageScroll, type StageScrollHandle, type StageScrollProps } from './StageScroll.tsx';
 export { attachTips } from './tips.ts';
 // 层的贴法是和渲染线程约好的（render 包的 ui-types）：用舞台的不用再去认识 render
 export { PLAIN_MATERIAL, type UiMaterial, type UiMessage } from '@rune-engine/render/ui-types';

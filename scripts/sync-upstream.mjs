@@ -37,6 +37,19 @@ const OWN_COMPONENTS = ['utils/dom/scroll-root.ts'];
 /** 文档站里这边自己写的：同步时留着（相对 apps/docs） */
 const OWN = ['package.json', 'vite.config.ts', 'tsconfig.json', 'src/main.ts', 'src/stage'];
 /**
+ * 站点的外壳换成舞台版（src/stage/StageShell.tsx）：上游用组件库的 AppShell，它靠整页滚动和 sticky 把顶栏、侧栏粘住，
+ * 滚动由引擎接管之后粘不住。属性对得上，App.tsx 里只换名字
+ */
+const APP_PATCHES = [
+  ['import { AppShell, AppShellBrand, ThemeSwitcher }', 'import { AppShellBrand, ThemeSwitcher }'],
+  [
+    "import { RouterView, useRoute, useRouter } from 'vue-router';",
+    "import { RouterView, useRoute, useRouter } from 'vue-router';\nimport { StageShell } from './stage/StageShell';",
+  ],
+  ['        <AppShell\n', '        <StageShell\n'],
+  ['        </AppShell>\n', '        </StageShell>\n'],
+];
+/**
  * 上游文档站里不取的（相对 apps/docs）：流程中心和它的示例、移动端的演示外框、预渲染和部署、
  * 浏览器里的 TypeScript（流程工作室用的）、样式更新的基准页（要另一个样式库来对比）
  */
@@ -277,6 +290,7 @@ const out = archive(['packages/ui/src', 'packages/ui/package.json', 'apps/docs']
     '[guide, ...componentSections, stack, mobile]',
     '[guide, ...componentSections, stack]',
   );
+  for (const [from, to] of APP_PATCHES) patch(join(docs, 'src/App.tsx'), from, to);
   // 组件的源码在这边的 packages/components
   const api = join(docs, 'build/api.ts');
   patch(api, "'../../../packages/ui'", "'../../../packages/components'");

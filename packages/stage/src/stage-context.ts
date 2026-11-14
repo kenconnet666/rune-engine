@@ -23,6 +23,13 @@ export interface StageLayerHandle {
   set(material: Partial<UiMaterial>, durationMs?: number): void;
   /** 只有内容那么大的层：把左上角放到舞台上的 (x, y)（CSS 像素）。界面画在画布里时这不用重拍 */
   moveTo(x: number, y: number): void;
+  /**
+   * 把这一层当滚动层（见 StageScroll.tsx）：它的元素是整份内容，舞台上只露出 width×height 这么大的一块，
+   * 左上角在 moveTo 说的地方
+   */
+  view(width: number, height: number): void;
+  /** 滚动层滚到哪：露出来的那块的左上角在内容里的位置。smooth 时缓着滚过去（界面画在画布里时才缓） */
+  scrollTo(x: number, y: number, smooth?: boolean): void;
   remove(): void;
 }
 

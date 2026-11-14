@@ -24,12 +24,12 @@ export interface UiCompositorOptions {
 }
 
 /** 一层的参数在着色器那头的样子：见 SHADER 里的 Layer */
-const UNIFORM_FLOATS = 32;
-/** 亮边的颜色、这一层的位置和大小、滚动区、滚动区该挪多少各从第几个浮点数开始放 */
+const UNIFORM_FLOATS = 24;
+/** 亮边的颜色、这一层的位置和大小各从第几个浮点数开始放 */
 const GLOW_AT = 16;
 const RECT_AT = 20;
-const SCROLL_RECT_AT = 24;
-const SCROLL_SHIFT_AT = 28;
+/** 缓着滚：每过这么久（毫秒），离目的地的距离缩到原来的 1/e */
+const SCROLL_EASE_MS = 45;
 
 const SHADER = /* wgsl */ `
 struct Layer {
@@ -51,10 +51,6 @@ struct Layer {
   glow: vec4f,
   // 这一层在画布上的左上角和它的大小（CSS 像素）
   rect: vec4f,
-  // 层里的滚动区（左、上、宽、高，CSS 像素；宽是 0 就是没有），和它里面的画面该挪多少：
-  // 拍这张画面之后又滚了这么远，新画面还没到
-  scroll_rect: vec4f,
-  scroll_shift: vec2f,
 }
 @group(0) @binding(0) var<uniform> layer: Layer;
 @group(0) @binding(1) var smooth_sampler: sampler;
@@ -89,14 +85,6 @@ fn hash(p: vec2f) -> f32 {
   // 贴图里的像素位置（按 CSS 像素算：效果的粗细不跟着屏幕的缩放比变）
   let at = in.uv * layer.rect.zw;
   var uv = in.uv;
-  // 滚动区里面：取挪过之后的位置；挪出了滚动区的（刚露出来、还没拍到的那一条）先空着
-  var blank = false;
-  let region = layer.scroll_rect;
-  if (region.z > 0 && all(at >= region.xy) && all(at < region.xy + region.zw)) {
-    let moved = at + layer.scroll_shift;
-    blank = any(moved < region.xy) || any(moved >= region.xy + region.zw);
-    uv = moved / layer.rect.zw;
-  }
   // 下面几个分支的条件只看这一层的参数（整层一样），所以里面可以取贴图
   if (layer.glitch > 0) {
     // 错位：每隔一小会儿，十行里有一两行整行往旁边挪一点
@@ -129,8 +117,7 @@ fn hash(p: vec2f) -> f32 {
     color = color * shown + vec4f(layer.glow.rgb, 0) * edge * color.a;
   }
   // 贴图是预乘过的：颜色、不透明度都直接乘
-  return color * vec4f(layer.tint.rgb * layer.tint.a, layer.tint.a) * layer.opacity
-    * select(1.0, 0.0, blank);
+  return color * vec4f(layer.tint.rgb * layer.tint.a, layer.tint.a) * layer.opacity;
 }
 `;
 
@@ -165,8 +152,19 @@ interface LayerState {
   duration: number;
   /** 等下一帧开始才知道“现在”是什么时候：收到过渡的消息时先记下，画的时候补上起点 */
   pendingStart: boolean;
-  /** 层里的滚动区：它占哪一块、现在滚到哪、手里这张画面是滚到哪的时候拍的 */
-  scroll?: { rect: readonly number[]; x: number; y: number; shotX: number; shotY: number };
+  /**
+   * 滚动层：画面上露出多大一块（CSS 像素）、要滚到哪（x、y）、现在画的是哪（shownX、shownY，缓着跟过去）、
+   * 这一帧要不要重画那一块（内容换了、滚了、挪了地方）
+   */
+  scroll?: {
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+    shownX: number;
+    shownY: number;
+    dirty: boolean;
+  };
   texture?: GPUTexture;
   uniform?: GPUBuffer;
   bindings?: GPUBindGroup;
@@ -264,8 +262,9 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
     context.clearRect(0, 0, canvas.width, canvas.height);
   }
 
-  function upload(layer: LayerState, image: ElementImage, width: number, height: number) {
-    if (!gpu || !surface) return;
+  /** 这一层的贴图是这么大（设备像素）：不是就重建 */
+  function ensureTexture(layer: LayerState, width: number, height: number) {
+    if (!gpu) return;
     const { device, pipeline, sampler } = gpu;
     if (layer.texture?.width !== width || layer.texture.height !== height) {
       release(layer);
@@ -290,7 +289,14 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
         ],
       });
     }
-    // 一块一块地画、一块一块地拷：一块最大是界面画布那么大，比它大的层（很高的内容）就分几块
+  }
+
+  function upload(layer: LayerState, image: ElementImage, width: number, height: number) {
+    if (!gpu || !surface) return;
+    const { device } = gpu;
+    ensureTexture(layer, width, height);
+    if (!layer.texture) return;
+    // 一块一块地画、一块一块地拷：一块最大是界面画布那么大，比它大的层就分几块
     const { canvas, context } = surface;
     const ratio = layer.pixelRatio;
     for (let y = 0; y < height; y += canvas.height) {
@@ -310,6 +316,35 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
     context.clearRect(0, 0, canvas.width, canvas.height);
     // 刚才是画在画布的角上的：浏览器现在以为这一层在那里，下一帧按真正的位置再说一遍
     layer.placed = undefined;
+  }
+
+  /**
+   * 滚动层：把现在露出来的那一块画成像素。直接画在它真正在的地方再拷走——浏览器由此知道内容滚到了哪，
+   * 而且正好只有露出来的这一块点得到（上面、下面滚出去的部分点不到，像被裁掉了一样）
+   */
+  function rasterView(layer: LayerState) {
+    const { scroll, image } = layer;
+    if (!gpu || !surface || !scroll || !image) return;
+    const { canvas, context } = surface;
+    const ratio = layer.pixelRatio;
+    const width = Math.min(canvas.width, Math.max(1, Math.round(scroll.width * ratio)));
+    const height = Math.min(canvas.height, Math.max(1, Math.round(scroll.height * ratio)));
+    ensureTexture(layer, width, height);
+    if (!layer.texture) return;
+    const dx = Math.min(Math.max(0, Math.round(layer.x * ratio)), canvas.width - width);
+    const dy = Math.min(Math.max(0, Math.round(layer.y * ratio)), canvas.height - height);
+    // 按整个设备像素滚：停在半个像素上字是糊的
+    const sx = Math.round(scroll.shownX * ratio) / ratio;
+    const sy = Math.round(scroll.shownY * ratio) / ratio;
+    context.clearRect(dx, dy, width, height);
+    context.drawElementImage(image, sx, sy, width / ratio, height / ratio, dx, dy, width, height);
+    gpu.device.queue.copyExternalImageToTexture(
+      { source: canvas, origin: [dx, dy] },
+      { texture: layer.texture, premultipliedAlpha: true },
+      [width, height],
+    );
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    scroll.dirty = false;
   }
 
   return {
@@ -374,13 +409,23 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
             reorder();
           }
           layer.pixelRatio = message.pixelRatio;
-          if (layer.scroll && message.scroll) {
-            layer.scroll.shotX = message.scroll.x;
-            layer.scroll.shotY = message.scroll.y;
-          }
           layer.image?.close();
           layer.image = message.image;
-          upload(layer, message.image, Math.max(1, message.width), Math.max(1, message.height));
+          if (message.view) {
+            // 滚动层：不整份画，下一帧画露出来的那块
+            layer.scroll = {
+              x: 0,
+              y: 0,
+              shownX: 0,
+              shownY: 0,
+              ...layer.scroll,
+              ...message.view,
+              dirty: true,
+            };
+          } else {
+            layer.scroll = undefined;
+            upload(layer, message.image, Math.max(1, message.width), Math.max(1, message.height));
+          }
           break;
         }
         case 'ui-material': {
@@ -397,19 +442,19 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
           const layer = layerOf(message.layer);
           layer.x = message.x;
           layer.y = message.y;
+          if (layer.scroll) layer.scroll.dirty = true;
           break;
         }
         case 'ui-scroll': {
-          const layer = layerOf(message.layer);
-          // 头一回听说：手里的画面就当是这时候拍的（不挪）
-          layer.scroll = {
-            shotX: message.x,
-            shotY: message.y,
-            ...layer.scroll,
-            rect: message.rect,
-            x: message.x,
-            y: message.y,
-          };
+          const scroll = layers.get(message.layer)?.scroll;
+          if (!scroll) break;
+          scroll.x = message.x;
+          scroll.y = message.y;
+          if (!message.smooth) {
+            scroll.shownX = message.x;
+            scroll.shownY = message.y;
+          }
+          scroll.dirty = true;
           break;
         }
         case 'ui-clear': {
@@ -427,8 +472,25 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
       }
     },
     draw(encoder, target, width, height, nowMs) {
+      const elapsed = nowMs - lastNow;
       lastNow = nowMs;
       if (!gpu || ordered.length === 0) return;
+      // 滚动层：往要去的地方缓着靠过去；位置变了、内容换了就把露出来的那块重画
+      const step = 1 - Math.exp(-Math.max(0, elapsed) / SCROLL_EASE_MS);
+      for (const layer of ordered) {
+        const { scroll } = layer;
+        if (!scroll) continue;
+        for (const [shown, to] of [
+          ['shownX', 'x'],
+          ['shownY', 'y'],
+        ] as const) {
+          const gap = scroll[to] - scroll[shown];
+          if (gap === 0) continue;
+          scroll[shown] = Math.abs(gap) < 0.5 ? scroll[to] : scroll[shown] + gap * step;
+          scroll.dirty = true;
+        }
+        if (scroll.dirty) rasterView(layer);
+      }
       const pass = encoder.beginRenderPass({
         colorAttachments: [{ view: target, loadOp: 'load', storeOp: 'store' }],
       });
@@ -440,8 +502,11 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
           layer.pendingStart = false;
         }
         const numbers = current(layer, nowMs);
-        // 过渡走到头了（或者本来就没有）才告诉浏览器位置：过渡当中每帧都说一遍就是每帧把整层白画一遍
-        if (layer.duration <= 0 || nowMs >= layer.start + layer.duration) place(layer, numbers);
+        // 过渡走到头了（或者本来就没有）才告诉浏览器位置：过渡当中每帧都说一遍就是每帧把整层白画一遍。
+        // 滚动层不用：它每回都是画在自己真正在的地方的
+        if (!layer.scroll && (layer.duration <= 0 || nowMs >= layer.start + layer.duration)) {
+          place(layer, numbers);
+        }
         if (numbers[OPACITY]! <= 0 || numbers[TINT_ALPHA]! <= 0) continue;
         uniformData.set([width, height, layer.pixelRatio, nowMs / 1000]);
         uniformData.set(numbers, NUMBERS_AT);
@@ -453,12 +518,6 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
             layer.texture.height / layer.pixelRatio,
           ],
           RECT_AT,
-        );
-        const { scroll } = layer;
-        uniformData.set(scroll?.rect ?? [0, 0, 0, 0], SCROLL_RECT_AT);
-        uniformData.set(
-          scroll ? [scroll.x - scroll.shotX, scroll.y - scroll.shotY] : [0, 0],
-          SCROLL_SHIFT_AT,
         );
         gpu.device.queue.writeBuffer(layer.uniform, 0, uniformData);
         pass.setBindGroup(0, layer.bindings);

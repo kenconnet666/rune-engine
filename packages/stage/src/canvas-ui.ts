@@ -47,21 +47,14 @@ export interface CanvasUiLayer {
   /** 把这一层的左上角放到画布上的 (x, y)（CSS 像素）。不用重拍：只是换个地方贴，命中测试跟着走 */
   moveTo(x: number, y: number): void;
   /**
-   * 这一层里有个滚动的盒子（scroller），滚动的内容在层里占 region 说的那一块（CSS 像素，相对这一层的左上角；
-   * 粘在边上不跟着滚的东西——顶栏、侧栏——不算在里面）。说了之后滚动就顺了：新画面拍到之前，
-   * 渲染线程先把手里那张在这一块里挪过去，而且滚动的时候少拍（每一帧都重拍整层，滚动本身就被拖慢了）。
-   * 滚动还是浏览器原生的，键盘、触摸、滚动条都照常。返回“不跟了”的函数
+   * 把这一层当**滚动层**：它的元素是整份内容（可以很高），画面上只露出 width×height 这么大的一块（CSS 像素），
+   * 左上角在 moveTo 说的地方。露出哪一块用 scrollTo 说。内容整份只拍一次，滚动不用重拍——
+   * 渲染线程每帧把露出来的那块画出来，代价跟这一块的面积走，不跟内容的长度走
    */
-  followScroll(scroller: HTMLElement, region: () => ScrollRegion): () => void;
+  view(width: number, height: number): void;
+  /** 滚动层滚到哪：露出来的那块的左上角在内容里的位置（CSS 像素）。smooth 时渲染线程缓着滚过去 */
+  scrollTo(x: number, y: number, smooth?: boolean): void;
   remove(): void;
-}
-
-/** 层里的一块（CSS 像素，相对这一层的左上角） */
-export interface ScrollRegion {
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
 }
 
 export interface CanvasUiLayerOptions {
@@ -94,8 +87,8 @@ interface Layer {
   drawn: boolean;
   /** 上一次是第几轮拍的：都等着拍的时候，等得最久的先拍 */
   turn: number;
-  /** 层里跟着的那个滚动盒子（见 followScroll）；at 是最近一次滚动的时刻 */
-  scroll?: { readonly scroller: HTMLElement; readonly region: () => ScrollRegion; at: number };
+  /** 滚动层：露出多大一块、现在要滚到哪（见 CanvasUiLayer 的 view、scrollTo） */
+  scroll?: { width: number; height: number; x: number; y: number };
 }
 
 export interface CanvasUiOptions {
@@ -119,13 +112,6 @@ const SETTLE_MS = [150, 600];
 /** 刚操作过界面（指针、键盘落在界面上）的这段时间里不讲节奏：按下、悬停要马上看到反应 */
 const INPUT_MS = 150;
 const INPUT_EVENTS = ['pointermove', 'pointerdown', 'pointerup', 'keydown', 'wheel', 'input'];
-/**
- * 一层里的滚动盒子正在滚的时候，这一层两次重拍之间至少隔这么久（毫秒）：这段时间画面靠渲染线程挪贴图跟上。
- * 隔得越久主线程越闲、滚动越顺，但滚得快的时候露出来还没拍到的边也越宽
- */
-const SCROLL_CAPTURE_MS = 50;
-/** 多久没有滚动事件就算停了（毫秒）：停了马上补拍一张准的 */
-const SCROLL_IDLE_MS = 120;
 
 export function createCanvasUi(
   target: HTMLCanvasElement,
@@ -226,19 +212,11 @@ export function createCanvasUi(
     canvas.requestPaint();
   };
 
-  /** 一层里的滚动盒子现在滚到哪、滚动的内容占哪一块：告诉渲染线程 */
-  function sendScroll(layer: Layer) {
-    if (!layer.scroll || !send) return;
-    const { scroller, region } = layer.scroll;
-    const { x, y, width, height } = region();
-    send(
-      {
-        type: 'ui-scroll',
-        layer: layer.id,
-        x: scroller.scrollLeft,
-        y: scroller.scrollTop,
-        rect: [x, y, width, height],
-      },
+  /** 滚动层滚到哪：告诉渲染线程 */
+  function sendScroll(layer: Layer, smooth: boolean) {
+    if (!layer.scroll) return;
+    send?.(
+      { type: 'ui-scroll', layer: layer.id, x: layer.scroll.x, y: layer.scroll.y, smooth },
       [],
     );
   }
@@ -263,9 +241,10 @@ export function createCanvasUi(
     const ratio = pixelRatio();
     const width = Math.max(1, Math.round(layer.element.offsetWidth * ratio));
     const height = Math.max(1, Math.round(layer.element.offsetHeight * ratio));
-    pixels = width * height;
-    // 先说一遍滚动区现在的位置（窗口变了大小它也跟着变），再发拍的时候滚到哪：两头对得上，那边才知道该挪多少
-    sendScroll(layer);
+    // 讲节奏按要画成像素的面积算：滚动层只画露出来的那一块，内容再长也不算进去
+    pixels = layer.scroll
+      ? layer.scroll.width * layer.scroll.height * ratio * ratio
+      : width * height;
     send(
       {
         type: 'ui-image',
@@ -275,10 +254,7 @@ export function createCanvasUi(
         width,
         height,
         pixelRatio: ratio,
-        scroll: layer.scroll && {
-          x: layer.scroll.scroller.scrollLeft,
-          y: layer.scroll.scroller.scrollTop,
-        },
+        view: layer.scroll && { width: layer.scroll.width, height: layer.scroll.height },
       },
       [image as unknown as Transferable],
     );
@@ -311,14 +287,8 @@ export function createCanvasUi(
     if (due.length === 0) return;
     const now = performance.now();
     const rate = Math.min(MAX_RATE, Math.max(MIN_RATE, (pixelBudget * 1e6) / Math.max(1, pixels)));
-    // 正在滚：画面有渲染线程挪着贴图顶着，不用每一帧都重拍（滚轮也算“刚操作过”，这条排在它前面）
-    const scrolling = due.some((layer) => layer.scroll && now - layer.scroll.at < SCROLL_IDLE_MS);
     // 留两毫秒的余量：免得刚好卡在帧的边上多等一帧
-    const wait = scrolling
-      ? lastAt + SCROLL_CAPTURE_MS - 2 - now
-      : now - inputAt < INPUT_MS
-        ? 0
-        : lastAt + 1000 / rate - 2 - now;
+    const wait = now - inputAt < INPUT_MS ? 0 : lastAt + 1000 / rate - 2 - now;
     if (wait > 0) {
       // 到点了再请浏览器发一次 paint（这些层自己不一定又变了）
       waiting ??= setTimeout(() => {
@@ -382,22 +352,20 @@ export function createCanvasUi(
           layer.y = y;
           sendPlace(layer);
         },
-        followScroll(scroller, region) {
-          const following = { scroller, region, at: -Infinity };
-          layer.scroll = following;
-          const onScroll = () => {
-            following.at = performance.now();
-            sendScroll(layer);
-          };
-          scroller.addEventListener('scroll', onScroll, { passive: true });
-          sendScroll(layer);
-          return () => {
-            scroller.removeEventListener('scroll', onScroll);
-            if (layer.scroll !== following) return;
-            layer.scroll = undefined;
-            // 那头别再挪了：滚动区的宽是 0 就是没有
-            send?.({ type: 'ui-scroll', layer: layer.id, x: 0, y: 0, rect: [0, 0, 0, 0] }, []);
-          };
+        view(width, height) {
+          const scroll = (layer.scroll ??= { width, height, x: 0, y: 0 });
+          if (scroll.width === width && scroll.height === height && layer.drawn) return;
+          scroll.width = width;
+          scroll.height = height;
+          // 露出多大一块是跟着画面一起发的：重拍一次（只是记下怎么画，便宜）
+          layer.stale = true;
+          canvas.requestPaint();
+        },
+        scrollTo(x, y, smooth = false) {
+          if (!layer.scroll) return;
+          layer.scroll.x = x;
+          layer.scroll.y = y;
+          sendScroll(layer, smooth);
         },
         remove() {
           const index = layers.indexOf(layer);
@@ -418,7 +386,6 @@ export function createCanvasUi(
         layer.drawn = false;
         sendMaterial(layer, 0);
         sendPlace(layer);
-        sendScroll(layer);
       }
       canvas.requestPaint();
     },
