@@ -112,7 +112,7 @@ export const Tile = _component(
               type: 'button',
               onClick: () => onPress?.(),
               ...ripple,
-              ...(tip != null && { interestfor: tipId }),
+              ...(tip != null && { 'data-tip': tipId, 'aria-describedby': tipId }),
             },
           )}
         >

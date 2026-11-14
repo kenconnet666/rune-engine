@@ -79,6 +79,7 @@ export const Toasts = _component(({ label, items, ...rest }: ToastsProps) => () 
       <button
         key={item.id}
         type="button"
+        data-tone={item.tone ?? 'signal'}
         onClick={() => item.onPress?.()}
         {...css.attrs(
           focusRing.visible,

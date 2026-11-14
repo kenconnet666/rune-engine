@@ -88,3 +88,46 @@ export const mapColors = (page) =>
     for (let i = 0; i < data.length; i += 4) colors.add((data[i] << 16) | (data[i + 1] << 8) | data[i + 2]);
     return colors.size;
   })()`);
+
+/**
+ * 界面是不是画在画布里（新的 Chrome 才行）。等渲染线程的画面接上、几层界面搬进画布，然后在面板那一层里找一个
+ * 底色不透明又鲜艳的按钮（选中的那个倍速按钮是橙的），从画布上读它那里的颜色：读出来就是它的底色，
+ * 说明它是渲染线程贴上去的（网页元素本身是读不进画布的）。地图上不会恰好在那里有同一种颜色。
+ * 返回 'drawn'；'unsupported'（这个浏览器没有这套接口：界面照老办法叠在画布上面，不算错）；或者一句哪里不对。
+ */
+export async function interfaceInCanvas(page) {
+  if (!(await page.evaluate(`'captureElementImage' in HTMLCanvasElement.prototype`))) {
+    return 'unsupported';
+  }
+  await page.waitFor(`document.querySelector('canvas > [data-stage-layer="hud"]')`, {
+    what: '界面搬进画布',
+    timeoutMs: 20_000,
+  });
+  const check = `(() => {
+    const canvas = document.querySelector('canvas');
+    const parse = (color) => color.match(/[0-9.]+/g).map(Number);
+    const solid = [...canvas.querySelectorAll(':scope > [data-stage-layer="hud"] button')]
+      .map((button) => ({ button, color: parse(getComputedStyle(button).backgroundColor) }))
+      .find(({ color: [r, g, b, a = 1] }) => a === 1 && Math.max(r, g, b) - Math.min(r, g, b) > 80);
+    if (!solid) return '面板那一层里没有底色鲜艳的按钮可以比';
+    const box = solid.button.getBoundingClientRect();
+    const ratio = canvas.width / canvas.clientWidth;
+    const probe = document.createElement('canvas');
+    probe.width = 1;
+    probe.height = 1;
+    const context = probe.getContext('2d');
+    // 按钮的左上角往里一点：避开中间的图标和文字
+    context.drawImage(canvas, Math.round((box.x + 4) * ratio), Math.round((box.y + 4) * ratio), 1, 1, 0, 0, 1, 1);
+    const seen = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3);
+    const close = seen.every((value, index) => Math.abs(value - solid.color[index]) <= 16);
+    return close ? 'drawn' : '按钮的底色是 ' + solid.color.slice(0, 3) + '，画布上那里是 ' + seen;
+  })()`;
+  // 刚搬进去的头几帧画面可能还没到：等一等再下结论
+  let result = '';
+  for (let tries = 0; tries < 30; tries++) {
+    result = await page.evaluate(check);
+    if (result === 'drawn') break;
+    await sleep(100);
+  }
+  return result;
+}

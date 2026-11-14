@@ -528,6 +528,10 @@ export const en: ClientText = {
     autoPauseOff: 'Keep going',
     autoPauseHelp:
       'In a solo game, time pauses when a decision needs you and resumes once you choose. It never pauses in a two-player game.',
+    look: 'Interface look',
+    looks: { plain: 'Plain', holo: 'Holo screen' },
+    lookHelp:
+      'Holo screen: the in-game panels get scan lines and a slight flicker. It only changes the look, not how anything works.',
     palette: 'Colours',
     palettes: { standard: 'Standard', safe: 'Colour-blind friendly' },
     paletteHelp:

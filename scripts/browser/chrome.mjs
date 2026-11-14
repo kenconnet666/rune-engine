@@ -50,20 +50,25 @@ export function findChrome() {
 }
 
 /**
- * @param {{ width?: number, height?: number, scale?: number, software?: boolean }} [options]
+ * @param {{ width?: number, height?: number, scale?: number, software?: boolean, headed?: boolean }} [options]
  *   software：没有显卡的机器（CI）上用软件实现的 WebGPU
+ *   headed：开一个真的窗口（量帧率、长帧时用：无界面模式下帧是怎么排的和真窗口不一样，量出来偏大）
  */
 export async function launchChrome({
   width = 1920,
   height = 927,
   scale = 1,
   software = false,
+  headed = false,
 } = {}) {
   const profile = mkdtempSync(join(tmpdir(), 'rune-chrome-'));
   const child = spawn(
     findChrome(),
     [
-      '--headless=new',
+      // 真窗口被别的窗口挡住时也照常跑，不然量到一半帧就停了
+      ...(headed
+        ? ['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding']
+        : ['--headless=new']),
       '--remote-debugging-port=0',
       `--user-data-dir=${profile}`,
       '--no-first-run',
@@ -235,6 +240,14 @@ export async function launchChrome({
           // 按不动的按钮“点”下去什么都不会发生，测试会在后面莫名其妙地等超时：在这里就说清楚
           if (result === 'disabled') throw new Error(`“${text}”这个按钮现在按不动（禁用着）`);
         },
+        /** 把指针移到页面上的某个位置（不按下）：悬停的样子、提示气泡 */
+        async hover(x, y) {
+          await call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+        },
+        /** 往有焦点的输入框里打字（整段文字一次进去，和输入法上屏是同一条路） */
+        async type(text) {
+          await call('Input.insertText', { text });
+        },
         /** 滚轮：正数往下（缩小地图），负数往上（放大） */
         async wheel(x, y, deltaY) {
           await call('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY });
@@ -242,6 +255,35 @@ export async function launchChrome({
         async screenshot(path) {
           const { data } = await call('Page.captureScreenshot', { format: 'png' });
           writeFileSync(path, Buffer.from(data, 'base64'));
+        },
+        /**
+         * 录一段浏览器自己的跟踪（run 跑着的那段时间），返回跟踪事件：主线程的时间不在我们的脚本里时，
+         * 用它看是花在排版、绘制还是别的哪一步上。
+         * @param {() => Promise<void>} run
+         */
+        async trace(run) {
+          const events = [];
+          const collect = (message) => {
+            if (message.method === 'Tracing.dataCollected') events.push(...message.params.value);
+          };
+          listeners.add(collect);
+          await call('Tracing.start', {
+            transferMode: 'ReportEvents',
+            traceConfig: { includedCategories: ['devtools.timeline', 'toplevel', 'blink', 'cc'] },
+          });
+          await run();
+          const complete = new Promise((resolve) => {
+            const end = (message) => {
+              if (message.method !== 'Tracing.tracingComplete') return;
+              listeners.delete(end);
+              resolve();
+            };
+            listeners.add(end);
+          });
+          await call('Tracing.end');
+          await complete;
+          listeners.delete(collect);
+          return events;
         },
       };
       return page;

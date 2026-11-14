@@ -7,6 +7,7 @@ import type { PlayerId, Recording } from '@rune-engine/core';
 import type { ClientMessage, HostMessage } from '@rune-engine/net';
 import type { MapPaletteName } from '@rune-engine/render';
 import type { MapCamera } from '@rune-engine/render/map-view';
+import type { UiMessage } from '@rune-engine/render/ui-types';
 import type { MapLayer } from './layers.ts';
 
 export type GameRecording = Recording<OutbreakConfig, Command>;
@@ -70,6 +71,8 @@ export type RenderControl =
   | { readonly type: 'select'; readonly region: number }
   /** 换一套色带 */
   | { readonly type: 'palette'; readonly name: MapPaletteName }
+  /** 画在画布里的界面：各层的新画面、贴法（见引擎 render 包的 ui-types.ts） */
+  | UiMessage
   /** 地图上涂哪一样数 */
   | { readonly type: 'layer'; readonly layer: MapLayer }
   /** 开发时用：把显卡设备弄丢，看画面能不能自己恢复 */
@@ -81,6 +84,8 @@ export type RenderControl =
 export type RenderReport =
   /** 画面接上了：第一次建好，或者显卡设备丢了以后重建好 */
   | { readonly type: 'ready' }
+  /** 界面各层的贴图没了（刚接上显卡、设备重建了）：请把它们重新拍一遍 */
+  | { readonly type: 'ui-request' }
   /** 显卡设备丢了，画面停了，正在自己重建 */
   | { readonly type: 'lost'; readonly message: string }
   /** 指针停在哪个地区上（下标，海上是 -1）；picked 表示在那里点了一下 */

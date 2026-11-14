@@ -496,6 +496,9 @@ export const zh = {
     autoPauseOff: '不停',
     autoPauseHelp:
       '一个人玩的时候，冒出一件要你拿主意的事就自己暂停，选好了接着走。两个人玩时不会停。',
+    look: '界面质感',
+    looks: { plain: '平实', holo: '全息屏' },
+    lookHelp: '全息屏：对局里的面板带一层扫描线和轻微的闪烁。只是样子不同，不影响操作。',
     palette: '配色',
     palettes: { standard: '标准', safe: '色觉友好' },
     paletteHelp:

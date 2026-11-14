@@ -106,7 +106,7 @@ export const ActionButton = _component(
               'aria-pressed': active || undefined,
               onClick: () => onPress?.(),
               ...ripple,
-              ...(tip != null && { interestfor: tipId }),
+              ...(tip != null && { 'data-tip': tipId, 'aria-describedby': tipId }),
             },
           )}
         >

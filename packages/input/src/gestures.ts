@@ -8,6 +8,9 @@
  *   });
  *
  * 元素会被设成 touch-action: none（否则触屏拖动会被浏览器当成滚动页面），并且可以聚焦（键盘操作）。
+ *
+ * 只认落在元素自己身上的手势：元素里面要是还有别的东西（画布里的界面层），从它们身上冒上来的
+ * 按下、滚轮、按键都不算——在面板上拖动不是拖地图，在面板里滚滚轮不是缩放地图。
  */
 
 /** 元素里的一点（CSS 像素，相对元素左上角） */
@@ -61,7 +64,11 @@ export function observeGestures(element: HTMLElement, handlers: GestureHandlers)
     };
   };
 
+  /** 指针现在是不是停在元素自己身上（不是它里面的东西上） */
+  let over = false;
+
   const down = (event: PointerEvent) => {
+    if (event.target !== element) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     element.setPointerCapture(event.pointerId);
     pointers.set(event.pointerId, local(event));
@@ -76,7 +83,14 @@ export function observeGestures(element: HTMLElement, handlers: GestureHandlers)
     const at = local(event);
     const last = pointers.get(event.pointerId);
     if (!last) {
-      if (event.pointerType === 'mouse') handlers.hover?.(at);
+      if (event.target !== element) {
+        // 移到了里面的东西上：对元素自己来说等于离开了
+        if (over) handlers.leave?.();
+        over = false;
+      } else if (event.pointerType === 'mouse') {
+        over = true;
+        handlers.hover?.(at);
+      }
       return;
     }
     pointers.set(event.pointerId, at);
@@ -107,6 +121,7 @@ export function observeGestures(element: HTMLElement, handlers: GestureHandlers)
   };
 
   const wheel = (event: WheelEvent) => {
+    if (event.target !== element) return;
     event.preventDefault();
     // 行模式（deltaMode 1，老式鼠标）的一格算 40 像素
     const delta = event.deltaMode === 1 ? event.deltaY * 40 : event.deltaY;
@@ -114,6 +129,7 @@ export function observeGestures(element: HTMLElement, handlers: GestureHandlers)
   };
 
   const key = (event: KeyboardEvent) => {
+    if (event.target !== element) return;
     const pan: Record<string, [number, number]> = {
       ArrowLeft: [KEY_PAN, 0],
       ArrowRight: [-KEY_PAN, 0],
@@ -129,7 +145,10 @@ export function observeGestures(element: HTMLElement, handlers: GestureHandlers)
     event.preventDefault();
   };
 
-  const leave = () => handlers.leave?.();
+  const leave = () => {
+    over = false;
+    handlers.leave?.();
+  };
 
   const touchAction = element.style.touchAction;
   element.style.touchAction = 'none';

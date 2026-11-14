@@ -15,7 +15,8 @@ const ALLOWED = {
   '@rune-engine/net': ['@rune-engine/core'],
   '@rune-engine/render': [],
   '@rune-engine/assets-build': ['@rune-engine/render'],
-  '@rune-engine/ui': [],
+  // 界面画进画布：组件库认识渲染那头的界面合成器的约定（render/ui-types，不碰显卡）
+  '@rune-engine/ui': ['@rune-engine/render'],
   '@rune-engine/input': [],
   '@rune-engine/audio': [],
   '@rune-engine/i18n': [],

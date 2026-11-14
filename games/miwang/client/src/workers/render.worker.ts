@@ -5,6 +5,8 @@
  * 点选也在这里做：主线程只报指针在画布上的位置，落在哪个地区由这里算（网格在这里），
  * 停留的高亮当场画上，再把结果告诉主线程去显示名字、打开详情。
  *
+ * 画在画布里的界面也在这里贴：主线程把各层拍下来发过来，每一帧画完地图接着贴（引擎的界面合成器）。
+ *
  * 地图上的弧线也在这里定：选中的地区画出它的航线和海运；疾病跳到新地区的那一下画一道走动的光（只有攻方看得到）。
  */
 import { regions } from '@miwang/content';
@@ -18,6 +20,7 @@ import {
 import {
   createMapRenderer,
   createRegionPicker,
+  createUiCompositor,
   decodeRegionMesh,
   fitCamera,
   screenToMap,
@@ -56,6 +59,13 @@ let hovered = -1;
 let selected = -1;
 
 const report = (message: RenderReport) => self.postMessage(message);
+
+/** 画在画布里的界面：主线程拍下来的各层由它贴到每一帧上（地图画完之后） */
+const ui = createUiCompositor({
+  onNeedImages: () => report({ type: 'ui-request' }),
+  // 界面一块块显现时的亮边：用界面的信号色（橙）
+  glow: [0.9, 0.6, 0.2],
+});
 
 /** 最近这些帧各花了多久（毫秒）、各是什么时候画的：开发时量性能用 */
 const FRAMES_KEPT = 240;
@@ -149,6 +159,7 @@ async function init(data: Extract<RenderControl, { type: 'init' }>) {
     onLost: (reason) => report({ type: 'lost', message: reason }),
     onRestored: () => report({ type: 'ready' }),
     onError: (message) => report({ type: 'error', message }),
+    overlay: ui,
   });
   renderer.resize(size.width, size.height);
   renderer.setCamera(camera);
@@ -212,6 +223,12 @@ self.onmessage = ({ data }: MessageEvent<RenderControl>) => {
       selected = data.region;
       renderer?.setHighlight(hovered, selected);
       updateArcs();
+      break;
+    case 'ui-image':
+    case 'ui-material':
+    case 'ui-clear':
+    case 'ui-remove':
+      ui.handle(data);
       break;
     case 'lose-device':
       renderer?.loseDevice();

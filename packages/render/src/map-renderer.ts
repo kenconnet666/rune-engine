@@ -17,6 +17,7 @@ import {
 } from './map-shaders.ts';
 import { fitCamera, mapScale, type MapCamera } from './map-view.ts';
 import type { RegionMeshData } from './mesh-format.ts';
+import type { FrameLayer } from './frame-layer.ts';
 
 export interface MapRendererOptions {
   canvas: OffscreenCanvas;
@@ -31,6 +32,8 @@ export interface MapRendererOptions {
    * 只是那一帧画不出东西——不报出来的话就是一张黑屏，谁也不知道为什么。同样的话只报一次
    */
   onError?: (message: string) => void;
+  /** 画完地图之后往同一帧上接着画的东西（界面层） */
+  overlay?: FrameLayer;
 }
 
 /** 一条弧线：地图上两个点之间的连线 */
@@ -235,7 +238,7 @@ async function createGpu({ canvas, mesh, regionCount }: MapRendererOptions): Pro
 }
 
 export async function createMapRenderer(options: MapRendererOptions): Promise<MapRenderer> {
-  const { canvas, mesh, regionCount, onLost, onRestored, onError } = options;
+  const { canvas, mesh, regionCount, onLost, onRestored, onError, overlay } = options;
   /** 已经报过的错：每帧都会再犯一次，不能每帧都报 */
   const reportedErrors = new Set<string>();
 
@@ -288,6 +291,7 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
     dirty = true;
     allocateTarget();
     allocateArcs();
+    overlay?.attach(next.device, next.format);
     detail = detailMesh && uploadMesh(next.device, detailMesh);
     next.device.addEventListener('uncapturederror', (event) => {
       const { message } = event.error;
@@ -301,6 +305,7 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
       multisampled = undefined;
       arcBuffer = undefined;
       detail = undefined;
+      overlay?.detach();
       onLost?.(info.message || info.reason);
       void restore();
     });
@@ -425,11 +430,12 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
       device.queue.writeBuffer(gpu.viewBuffer, 0, viewData);
 
       const encoder = device.createCommandEncoder();
+      const frame = gpu.context.getCurrentTexture().createView();
       const pass = encoder.beginRenderPass({
         colorAttachments: [
           {
             view: multisampled.createView(),
-            resolveTarget: gpu.context.getCurrentTexture().createView(),
+            resolveTarget: frame,
             clearValue: { r: 0.035, g: 0.05, b: 0.07, a: 1 },
             loadOp: 'clear',
             storeOp: 'discard',
@@ -458,6 +464,7 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
         pass.draw((ARC_SEGMENTS + 1) * 2, arcCount);
       }
       pass.end();
+      overlay?.draw(encoder, frame, canvas.width, canvas.height, nowMs);
       device.queue.submit([encoder.finish()]);
     },
     loseDevice() {
@@ -465,6 +472,7 @@ export async function createMapRenderer(options: MapRendererOptions): Promise<Ma
     },
     destroy() {
       destroyed = true;
+      overlay?.detach();
       // 设备一销毁，它名下的缓冲、纹理跟着作废
       gpu?.device.destroy();
       gpu = undefined;

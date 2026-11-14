@@ -6,6 +6,12 @@
  */
 export { ActionButton, type ActionButtonProps } from './ActionButton.tsx';
 export { Callout, type CalloutProps } from './Callout.tsx';
+export {
+  canvasUiSupported,
+  createCanvasUi,
+  type CanvasUi,
+  type CanvasUiLayer,
+} from './canvas-ui.ts';
 export { Chart, type ChartProps, type ChartSeries } from './Chart.tsx';
 export { Dialog, type DialogProps } from './Dialog.tsx';
 export { Fact, type FactProps } from './Fact.tsx';
@@ -27,7 +33,16 @@ export {
 } from './Segmented.tsx';
 export { Slider, type SliderProps } from './Slider.tsx';
 export { Stack, type StackProps } from './Stack.tsx';
-export { dialogEnter, focusRing, pressable, scroll } from './styles.ts';
+export { Stage, type StageHandle, type StageProps } from './Stage.tsx';
+export { StageLayer, type StageLayerProps } from './StageLayer.tsx';
+export {
+  STAGE_LAYERS,
+  useStage,
+  type StageContext,
+  type StageLayerHandle,
+  type StageLayerName,
+} from './stage-context.ts';
+export { focusRing, pressable, scroll } from './styles.ts';
 export { Tabs, type TabItem, type TabsProps, type TabValue } from './Tabs.tsx';
 export { TechTree, type TechTreeProps, type TreeNode } from './TechTree.tsx';
 export { TextField, type TextFieldProps } from './TextField.tsx';

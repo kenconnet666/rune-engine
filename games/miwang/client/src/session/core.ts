@@ -42,6 +42,8 @@ export interface GameSession {
   readonly room: ShallowRef<RoomInfo | null>;
   /** 渲染起不来时的原因（没有 WebGPU 等） */
   readonly renderError: ShallowRef<string | null>;
+  /** 渲染线程的画面现在是不是好的：是的话界面可以交给它合成（画进画布） */
+  readonly renderLive: ShallowRef<boolean>;
   /** 和渲染线程说话的口子：地图的相机、指针、选中都经它（见 map.ts） */
   readonly renderLink: RenderLink;
   /** 这一局是照着暂存的记录重放接上的：重放了几步、用了多久；新开的一局是 null */
@@ -87,9 +89,12 @@ export interface GameSetup {
 }
 
 export interface RenderLink {
-  send(message: RenderControl): void;
+  /** transfer 是要转移过去的东西（拍下来的界面） */
+  send(message: RenderControl, transfer?: Transferable[]): void;
   /** 渲染线程报告指针停在、点在哪个地区上；地图控制器接上它 */
   onRegion: ((region: number, picked: boolean) => void) | null;
+  /** 渲染线程那头界面的贴图没了，要重新拍一遍；舞台接上它 */
+  onUiRequest: (() => void) | null;
 }
 
 /** GameSession 里两种身份做法一样的那些成员 */
@@ -102,6 +107,7 @@ type SharedMembers =
   | 'aiLevel'
   | 'room'
   | 'renderError'
+  | 'renderLive'
   | 'renderLink'
   | 'resumed'
   | 'playback'
@@ -126,6 +132,8 @@ export function createCore(canvas: HTMLCanvasElement, opponent: 'ai' | 'human'):
   const speed = shallowRef(1);
   const paused = shallowRef(false);
   const renderError = shallowRef<string | null>(null);
+  /** 渲染线程的画面现在是不是好的（建好了、没丢设备、没报错） */
+  const renderLive = shallowRef(false);
 
   // ───── 渲染线程 ─────
   const render = new Worker(new URL('../workers/render.worker.ts', import.meta.url), {
@@ -133,16 +141,23 @@ export function createCore(canvas: HTMLCanvasElement, opponent: 'ai' | 'human'):
   });
   const toRender = (message: RenderControl, transfer: Transferable[] = []) =>
     render.postMessage(message, transfer);
-  const renderLink: RenderLink = { send: (message) => toRender(message), onRegion: null };
+  const renderLink: RenderLink = { send: toRender, onRegion: null, onUiRequest: null };
   render.onmessage = ({ data }: MessageEvent<RenderReport>) => {
-    if (data.type === 'error') renderError.value = data.message;
-    else if (data.type === 'lost') renderError.value = data.message;
-    else if (data.type === 'ready') renderError.value = null;
-    else if (data.type === 'region') renderLink.onRegion?.(data.region, data.picked);
+    if (data.type === 'error' || data.type === 'lost') {
+      renderError.value = data.message;
+      renderLive.value = false;
+    } else if (data.type === 'ready') {
+      renderError.value = null;
+      renderLive.value = true;
+    } else if (data.type === 'region') renderLink.onRegion?.(data.region, data.picked);
+    else if (data.type === 'ui-request') renderLink.onUiRequest?.();
     else if (data.type === 'stats') console.info('渲染线程', data);
   };
   // 渲染线程里没接住的错（每帧的循环里抛出来的）：线程自己报不了，主线程这头接着——否则就是一张不再动的画面
-  render.onerror = (event) => (renderError.value = event.message);
+  render.onerror = (event) => {
+    renderError.value = event.message;
+    renderLive.value = false;
+  };
   // 开发时在控制台里用：__miwang.loseDevice() 试显卡设备丢了能不能自己恢复，__miwang.stats() 看渲染线程画得多快
   if (import.meta.env.DEV) {
     Object.assign(globalThis, {
@@ -186,6 +201,7 @@ export function createCore(canvas: HTMLCanvasElement, opponent: 'ai' | 'human'):
       aiLevel: shallowRef<AiLevel>(1),
       room: shallowRef<RoomInfo | null>(null),
       renderError,
+      renderLive,
       renderLink,
       resumed: shallowRef<{ ticks: number; replayMs: number } | null>(null),
       playback: shallowRef<{ readonly length: number } | null>(null),

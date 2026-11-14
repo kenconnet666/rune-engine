@@ -1,11 +1,11 @@
-/** 设置：语言、配色、音量 */
+/** 设置：语言、配色、界面质感、要不要自动暂停、音量 */
 import type { Locale } from '@miwang/content';
-import { Dialog, Note, Scroll, Segmented, Slider, space, Stack } from '@rune-engine/ui';
+import { Dialog, Note, Scroll, Segmented, Slider, space, Stack, useStage } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { i18n, LOCALE_NAMES, useFormats, useUi } from '../i18n.ts';
 import { palette } from '../palette.ts';
-import { autoPause } from '../preferences.ts';
+import { autoPause, hudLook } from '../preferences.ts';
 import type { GameAudio } from '../sound.ts';
 
 const styles = css.create({
@@ -31,6 +31,7 @@ export const Settings = _component(
   ({ audio, onClose }: { audio: GameAudio | null; onClose: () => void }) => {
     // 音量存在声音引擎里，不是响应式的：改了之后靠它让这里重画
     let revision = _state(0);
+    const stage = useStage();
     return () => {
       const ui = useUi().settings;
       const format = useFormats();
@@ -64,6 +65,22 @@ export const Settings = _component(
                 />
                 <Note>{ui.paletteHelp}</Note>
               </Stack>
+              {/* 质感是贴界面那一步加的：界面画不进画布的浏览器上没有这一项 */}
+              {stage?.supported && (
+                <Stack gap="xs">
+                  <Note>{ui.look}</Note>
+                  <Segmented
+                    label={ui.look}
+                    value={hudLook.value}
+                    options={[
+                      { value: 'plain', label: ui.looks.plain },
+                      { value: 'holo', label: ui.looks.holo },
+                    ]}
+                    onChange={(value) => (hudLook.value = value === 'holo' ? 'holo' : 'plain')}
+                  />
+                  <Note>{ui.lookHelp}</Note>
+                </Stack>
+              )}
               <Stack gap="xs">
                 <Note>{ui.autoPause}</Note>
                 <Segmented

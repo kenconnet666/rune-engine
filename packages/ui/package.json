@@ -2,7 +2,7 @@
   "name": "@rune-engine/ui",
   "version": "0.0.0",
   "private": true,
-  "description": "游戏用的界面组件：面板、读数、操作按钮、分段选择；TSX 编译与样式引擎用 vue-tsx-pro 的，组件自己写",
+  "description": "游戏用的界面组件：舞台（画布加画在画布里的几层界面）、面板、读数、操作按钮、分段选择；TSX 编译与样式引擎用 vue-tsx-pro 的，组件自己写",
   "type": "module",
   "license": "MIT",
   "exports": {
@@ -12,6 +12,7 @@
     "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"
   },
   "dependencies": {
+    "@rune-engine/render": "workspace:^",
     "@zerodep-dev/vue-tsx-pro-tsx": "catalog:",
     "lucide": "catalog:",
     "vue": "catalog:"

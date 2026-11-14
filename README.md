@@ -52,11 +52,13 @@ packages/            引擎，不知道任何具体游戏
   transport          浏览器这头和服务端打交道的部分：联机的连接（进房间、WebRTC 直连、直连不通时经房间中转）、
                      云存档的客户端
   edge               跑在 Cloudflare Workers 上的服务端：联机的房间、云存档的存档柜（各是一个 Durable Object 类）
-  render             WebGPU 2D 渲染（不碰 DOM）：地区地图、色带、视野的坐标换算、点选
+  render             WebGPU 2D 渲染（不碰 DOM）：地区地图、色带、视野的坐标换算、点选；
+                     把主线程拍下来的界面贴到画面上的合成器
   input              手势：拖动、缩放、轻点、停留（鼠标、触屏、键盘同一套回调）
   audio              声音：设备解锁、分路音量、合成用的基本件
   runtime            把线程接起来：消息通道、画布尺寸、主机的计时循环、存在浏览器里的小东西
-  ui                 游戏用的界面组件（TSX 编译与样式引擎、属性合并的约定用 vue-tsx-pro 的）；图标用 lucide
+  ui                 游戏用的界面组件（TSX 编译与样式引擎、属性合并的约定用 vue-tsx-pro 的）；图标用 lucide。
+                     舞台（Stage）把界面画进画布、和地图同一帧合成，见 docs/interface.md
   i18n               多语言：当前语言、各语言的文案、跟着语言走的数字与日期写法
   assets-build       构建时的素材处理：地理数据 → 地区网格
 games/miwang/        《迷惘》

@@ -1,5 +1,6 @@
 /**
  * 主界面：整屏的地图（画布在渲染 Worker 里画），上面压一层界面。
+ * 界面放在引擎的舞台（Stage）里：浏览器支持时它画在画布里面、和地图在同一帧里合成，不支持时叠在画布上面。
  * 界面层自己不接收指针，只有面板和按钮接收：拖得动、点得到下面的地图。
  *
  * 布局：左边一列是态势和新闻，右边一列是选中的地区、守方的指挥和双方的概况，底下一排是时间和地图的控制。
@@ -9,7 +10,17 @@
  * 地图和界面互相配合：指针停在一个地区上，旁边出现它的名字；点一下选中，右侧出现它的详情；
  * 点一条和地区有关的新闻，地图飞过去并选中它。
  */
-import { Callout, colors, colorSafeTheme, fonts, Note, Scroll, space } from '@rune-engine/ui';
+import {
+  Callout,
+  colors,
+  colorSafeTheme,
+  fonts,
+  Note,
+  Scroll,
+  space,
+  Stage,
+  type StageHandle,
+} from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { CHAPTERS, type ChapterId } from '@miwang/content';
@@ -22,7 +33,7 @@ import { markChapterPassed } from './chapters/progress.ts';
 import { placeName, useFormats, useUi } from './i18n.ts';
 import { createMapController, type MapController } from './map.ts';
 import { palette } from './palette.ts';
-import { autoPause } from './preferences.ts';
+import { autoPause, hudLook } from './preferences.ts';
 import { AlertStack } from './panels/AlertStack.tsx';
 import { CommandPanel } from './panels/CommandPanel.tsx';
 import { ControlBar } from './panels/ControlBar.tsx';
@@ -60,15 +71,7 @@ const COMPACT = '@media (max-height: 560px), (max-width: 1000px)';
 
 const styles = css.create({
   root: { position: 'relative', width: '100%', height: '100%', overflow: 'hidden' },
-  canvas: {
-    position: 'absolute',
-    inset: 0,
-    width: '100%',
-    height: '100%',
-    display: 'block',
-    outline: 'none',
-    cursor: { default: 'grab', ':active': 'grabbing' },
-  },
+  canvas: { cursor: { default: 'grab', ':active': 'grabbing' } },
   // 避开刘海和手势区（手机横屏）
   layer: {
     position: 'absolute',
@@ -107,8 +110,16 @@ const styles = css.create({
   calloutDetail: { fontFamily: fonts.numeric, color: colors.textMuted },
 });
 
+/** “全息屏”质感的扫描线有多重（0–1）：看得出来，又不妨碍读字 */
+const HOLO_SCAN = 0.55;
+
+/** 两次“坏消息抖一下”之间至少隔这么久（毫秒） */
+const PULSE_GAP_MS = 6000;
+
 export const App = _component(() => {
   let canvas = _state.raw<HTMLCanvasElement | null>(null);
+  /** 舞台：画布和画在它里面的几层界面。它比这个组件先挂好（onReady 先于下面的 onMounted） */
+  let stage = _state.raw<StageHandle | null>(null);
   let game = _state.raw<GameSession | null>(null);
   let map = _state.raw<MapController | null>(null);
   let audio = _state.raw<GameAudio | null>(null);
@@ -129,9 +140,30 @@ export const App = _component(() => {
     | null
   >(null);
   onMounted(() => {
-    if (!canvas) return;
+    if (!canvas || !stage) return;
     game = createGameSession(canvas);
     map = createMapController(canvas, game.renderLink);
+    // 界面画在画布里：拍下来的各层交给渲染线程去贴；那头的贴图没了（显卡设备重建）就重拍
+    const { renderLink } = game;
+    stage.connect((message, transfer) => renderLink.send(message, transfer));
+    renderLink.onUiRequest = () => stage?.refresh();
+    // 画面接上了才把界面搬进画布；画面断了（显卡设备丢了、渲染出错）搬回来，界面不能跟着没了
+    watchEffect(() => stage?.setLive(game?.renderLive.value === true));
+    // 下面两样是贴界面那一步加的，界面画在画布里才看得到
+    watchEffect(() =>
+      stage?.material('hud', { scan: hudLook.value === 'holo' ? HOLO_SCAN : 0 }, 400),
+    );
+    // 来了坏消息：面板那一层抖一下。隔得太近的不再抖——开着倍速时坏消息一条接一条，一直抖就没法看了
+    let lastAlert = 0;
+    let lastPulse = -PULSE_GAP_MS;
+    watchEffect(() => {
+      const newest = alerts.list.value.at(-1);
+      if (!newest || newest.id <= lastAlert) return;
+      lastAlert = newest.id;
+      if (newest.tone !== 'danger' || performance.now() - lastPulse < PULSE_GAP_MS) return;
+      lastPulse = performance.now();
+      stage?.pulse('hud', { glitch: 0.7 }, 450);
+    });
     audio = createGameAudio();
     // 自己开的局先到主菜单，时间停着；加入别人房间的直接进对局
     if (game.role === 'host') openMenu();
@@ -247,12 +279,21 @@ export const App = _component(() => {
     };
 
     return (
-      <div {...css.attrs(styles.root, palette.value === 'safe' && colorSafeTheme)}>
-        <canvas ref={_toRef(canvas)} aria-label={ui.app.mapLabel} {...css.attrs(styles.canvas)} />
-        {/* 地名和标记压在地图上、界面的下面 */}
-        {view && map && canvas && (
-          <MapOverlay map={map} view={view} canvas={canvas} pings={alerts.pings.value} />
-        )}
+      <Stage
+        sx={[styles.root, palette.value === 'safe' && colorSafeTheme]}
+        canvasSx={styles.canvas}
+        canvasLabel={ui.app.mapLabel}
+        onReady={(ready) => {
+          stage = ready;
+          canvas = ready.canvas;
+        }}
+        // 地名和标记压在地图上、界面的下面
+        world={
+          view &&
+          map &&
+          canvas && <MapOverlay map={map} view={view} canvas={canvas} pings={alerts.pings.value} />
+        }
+      >
         <div {...css.attrs(styles.layer)}>
           <Scroll sx={[styles.column, styles.left]}>
             <StatusPanel view={view} />
@@ -443,7 +484,7 @@ export const App = _component(() => {
         {overlay === 'encyclopedia' && <Encyclopedia onClose={() => (overlay = 'menu')} />}
         {overlay === 'settings' && <Settings audio={audio} onClose={() => (overlay = 'menu')} />}
         {overlay === 'about' && <About onClose={() => (overlay = 'menu')} />}
-      </div>
+      </Stage>
     );
   };
 });

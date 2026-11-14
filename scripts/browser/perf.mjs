@@ -1,7 +1,8 @@
 /**
  * 性能核对：在无界面的 Chrome 里开一局，让它用 10 倍速跑一阵，量主线程卡不卡、渲染线程每帧花多久。
  * 先把开发服务器起起来（pnpm dev），再跑：
- *   node scripts/browser/perf.mjs [地址=http://localhost:5180] [--budget] [--shot=截图存到哪]
+ *   node scripts/browser/perf.mjs [地址=http://localhost:5180] [--budget] [--headed] [--shot=截图存到哪]
+ * --headed：开一个真的窗口来量。无界面模式下帧是怎么排的和真窗口不一样；拿不准一个数是不是模式带来的，用它对一下。
  * --budget：超了 docs/performance.md 里“手动核对的”那几条线就以 1 退出。要在有显卡的机器上跑，
  * 软件渲染（CI）量出来的数不作数。
  */
@@ -16,7 +17,7 @@ const shot = args.value('shot');
 const BUDGET = { lagP95: 20, longFrames: 2, renderFrameMs: 4 };
 const overBudget = [];
 
-const chrome = await launchChrome({ scale: 2 });
+const chrome = await launchChrome({ scale: 2, headed: args.flag('headed') });
 try {
   const page = await chrome.open(url, { init: LOCALE_INIT });
   await page.waitFor(`document.body.innerText.includes('新开一局')`, { what: '主菜单' });

@@ -3,7 +3,6 @@
  *   focusRing   键盘聚焦时的一圈描边（鼠标点击不出现）
  *   scroll      可滚动的区域：细的、半透明的滚动条，没有箭头，不抢内容的戏
  *   pressable   可以按的东西共有的手感：过渡、按下时轻微下沉、禁用的样子
- *   dialogEnter 对话框的进出场
  * 用法是把它们放进 sx 的数组里：`sx: [focusRing.visible, pressable.root, styles.root]`
  */
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
@@ -65,20 +64,5 @@ export const pressable = css.create({
     transform: { default: 'none', ':active:not(:disabled)': 'translateY(1px)' },
     transition: `background-color ${durations.fast}, border-color ${durations.fast}, color ${durations.fast}, transform ${durations.fast}, opacity ${durations.fast}`,
     userSelect: 'none',
-  },
-});
-
-export const dialogEnter = css.create({
-  /** 淡入并从略小放大到原尺寸；关的时候更快地淡出（离场过渡靠 overlay，只有 Chromium 有） */
-  panel: {
-    opacity: { default: 0, ':modal': { default: 1, '@starting-style': 0 } },
-    transform: {
-      default: 'scale(0.97)',
-      ':modal': { default: 'none', '@starting-style': 'scale(0.97)' },
-    },
-    transition: {
-      default: `opacity ${durations.fast}, transform ${durations.fast}, display ${durations.fast} allow-discrete, overlay ${durations.fast} allow-discrete`,
-      ':modal': `opacity ${durations.normal}, transform ${durations.normal}, display ${durations.normal} allow-discrete, overlay ${durations.normal} allow-discrete`,
-    },
   },
 });

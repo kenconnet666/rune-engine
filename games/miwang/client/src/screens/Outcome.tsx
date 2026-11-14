@@ -1,6 +1,7 @@
 /**
  * 结算：分出胜负之后盖在地图中间。左边是结果——谁赢了、整局的曲线、几个总数；
  * 右边是回顾——给这一方的评价（一个等级，和它是怎么加出来的）、对局结束才公开的真实的数、大事记。
+ * 它在舞台上单独占一层：界面画在画布里时，整块是从稍大一点的地方一块块显现出来的。
  */
 import { regions, type ChapterId } from '@miwang/content';
 import type { OutbreakView } from '@miwang/sim';
@@ -16,6 +17,7 @@ import {
   Scroll,
   space,
   Stack,
+  StageLayer,
 } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
@@ -28,13 +30,7 @@ import { newsIcon } from '../icons.ts';
 const NARROW = '@media (max-width: 860px)';
 
 const styles = css.create({
-  root: {
-    position: 'absolute',
-    inset: 0,
-    display: 'grid',
-    placeItems: 'center',
-    pointerEvents: 'none',
-  },
+  root: { display: 'grid', placeItems: 'center' },
   panel: { width: '50rem', maxWidth: '94vw', maxHeight: '92vh' },
   columns: {
     display: 'grid',
@@ -87,6 +83,9 @@ const styles = css.create({
   momentIcon: { color: colors.textMuted },
 });
 
+/** 结算出现的样子：从稍大一点、全没显现开始，用这么久到位 */
+const ENTER = { from: { reveal: 0, scale: 1.04 }, ms: 900 } as const;
+
 export const Outcome = _component(
   ({
     view,
@@ -113,7 +112,7 @@ export const Outcome = _component(
       const chapters = all.chapters;
       const chapter = view.scenario ? content.chapters[view.scenario.id as ChapterId] : null;
       return (
-        <div {...css.attrs(styles.root)}>
+        <StageLayer sx={styles.root} enter={ENTER}>
           <Frame title={ui.title(outcome.tick)} sx={styles.panel}>
             <div {...css.attrs(styles.columns)}>
               <div {...css.attrs(styles.column)}>
@@ -230,7 +229,7 @@ export const Outcome = _component(
               </ActionButton>
             )}
           </Frame>
-        </div>
+        </StageLayer>
       );
     },
 );
