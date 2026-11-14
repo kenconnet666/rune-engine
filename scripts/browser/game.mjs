@@ -122,12 +122,14 @@ export async function interfaceInCanvas(page) {
     const close = seen.every((value, index) => Math.abs(value - solid.color[index]) <= 16);
     return close ? 'drawn' : '按钮的底色是 ' + solid.color.slice(0, 3) + '，画布上那里是 ' + seen;
   })()`;
-  // 刚搬进去的头几帧画面可能还没到：等一等再下结论
+  // 刚搬进去的头几帧画面可能还没到；软件渲染的机器（CI）上把一层界面画进贴图要很久（量到过两分钟）：
+  // 等到画出来为止，三分钟还没有才算没画
+  const deadline = Date.now() + 180_000;
   let result = '';
-  for (let tries = 0; tries < 30; tries++) {
+  do {
     result = await page.evaluate(check);
     if (result === 'drawn') break;
-    await sleep(100);
-  }
+    await sleep(250);
+  } while (Date.now() < deadline);
   return result;
 }

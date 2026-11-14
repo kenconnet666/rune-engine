@@ -107,15 +107,6 @@ try {
   }
   await done(`开局：选了流感型，对局开始，地图画出来了（画布上 ${colors} 种颜色）`);
 
-  // 界面画在画布里（和地图同一帧合成）；浏览器没有这套接口时叠在画布上面，这一步跳过
-  const drawn = await interfaceInCanvas(page);
-  if (drawn !== 'drawn' && drawn !== 'unsupported') throw new Error(`界面没画进画布：${drawn}`);
-  await done(
-    drawn === 'drawn'
-      ? '界面画在画布里：几层都在画布里面，面板是渲染线程贴上去的'
-      : '界面叠在画布上面（这个浏览器还不能把界面画进画布）',
-  );
-
   const before = await dayOf(page);
   await page.evaluate(`document.querySelector('[aria-label="10 倍速"]').click()`);
   await page.waitFor(dayPast(before + 20), { what: '时间在走' });
@@ -126,6 +117,17 @@ try {
     { what: '短期任务' },
   );
   await done(`时间在走：从第 ${before} 天到了第 ${await dayOf(page)} 天，短期任务发下来了`);
+
+  // 界面画在画布里（和地图同一帧合成）；浏览器没有这套接口时叠在画布上面，这一步跳过。
+  // 放在暂停之后做：软件渲染的机器上从画布里读像素很慢，对局不能在这期间自己往下走
+  const checkStarted = Date.now();
+  const drawn = await interfaceInCanvas(page);
+  if (drawn !== 'drawn' && drawn !== 'unsupported') throw new Error(`界面没画进画布：${drawn}`);
+  await done(
+    drawn === 'drawn'
+      ? `界面画在画布里：几层都在画布里面，面板是渲染线程贴上去的（核对用了 ${((Date.now() - checkStarted) / 1000).toFixed(1)} 秒）`
+      : '界面叠在画布上面（这个浏览器还不能把界面画进画布）',
+  );
 
   // 图层：换到“传播数”，地图照样有东西；再换回来
   await page.evaluate(`document.querySelector('[aria-label="传播数"]').click()`);
