@@ -170,8 +170,8 @@ try {
   await done('进化：换到了“咳嗽”（时间停着时下的命令立刻生效）');
 
   // 攻方的技能排在病原体面板里；刚换的性状能退掉（返还一部分点数）
-  await page.waitFor(`document.querySelectorAll('[data-skill]').length === 3`, {
-    what: '攻方的三个技能',
+  await page.waitFor(`document.querySelectorAll('[data-skill]').length === 4`, {
+    what: '攻方的四个技能',
   });
   await page.clickButton('进化');
   await page.waitFor(`document.querySelector('dialog[open]') && ${hasText('飞沫传播')}`, {
@@ -244,7 +244,11 @@ try {
   await page.waitFor(`${hasText('开了发布会')} && !${canPress('开发布会')}`, {
     what: '发布会开了，进入冷却',
   });
-  await done('指挥：派出应急队，开了发布会');
+  // 指挥面板里还有“部署”：野战医院、援助物资
+  await page.waitFor(`document.querySelectorAll('[data-deploy]').length === 2`, {
+    what: '守方的两样部署',
+  });
+  await done('指挥：派出应急队，开了发布会；部署的两样东西在');
 
   await page.clickButton('菜单');
   await page.waitFor(hasButton('继续这一局'), { what: '主菜单里的“继续”' });

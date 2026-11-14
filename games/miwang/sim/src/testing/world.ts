@@ -9,6 +9,7 @@ import {
   type CalendarDef,
   type Climate,
   type DecisionDef,
+  type DeploymentDef,
   type EventDef,
   type OutbreakConfig,
   type RegionConfig,
@@ -117,6 +118,7 @@ export const TEST_SKILLS: readonly SkillDef[] = [
     days: 15,
     modifiers: { detect: -0.2, spread: -0.1 },
   },
+  { id: 'shift', kind: 'shift', cost: 10, cooldown: 60, amount: 0.5 },
 ];
 
 /** 日程：测试配置默认不带（calendar 是空的）；要测的自己传进去。日子是按开局那天（11 月 13 日，第 316 天）排的 */
@@ -124,6 +126,11 @@ export const TEST_CALENDAR: readonly CalendarDef[] = [
   { id: 'rush', kind: 'travel', day: 326, days: 10, notice: 5, amount: 1 },
   { id: 'wet', kind: 'rains', day: 320, days: 20, notice: 3, amount: 0.5 },
   { id: 'cup', kind: 'games', day: 330, days: 8, notice: 10, amount: 0.5 },
+];
+
+export const TEST_DEPLOYMENTS: readonly DeploymentDef[] = [
+  { id: 'ward', kind: 'relief', cost: 8, cooldown: 20, days: 30 },
+  { id: 'supplies', kind: 'aid', cost: 6, cooldown: 20, days: 60 },
 ];
 
 export const TEST_DECISIONS: readonly DecisionDef[] = [
@@ -266,6 +273,7 @@ export function testConfig(
     events: TEST_EVENTS,
     calendar: [],
     skills: TEST_SKILLS,
+    deployments: TEST_DEPLOYMENTS,
     decisions: TEST_DECISIONS,
     tasks: TEST_TASKS,
     rules: {

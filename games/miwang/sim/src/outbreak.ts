@@ -124,6 +124,8 @@ function hash(state: OutbreakState): number {
     state.unrestUntil,
     state.reliefUntil,
     state.leakUntil,
+    state.aidUntil,
+    state.deployReadyAt,
     state.task,
     state.taskStart,
     state.taskExpires,

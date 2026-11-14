@@ -33,6 +33,7 @@ import {
 } from 'lucide';
 import { placeName, useFormats, useUi } from '../i18n.ts';
 import { RULES } from '../rules.ts';
+import { DeployBar } from './DeployBar.tsx';
 
 const styles = css.create({
   team: {
@@ -143,6 +144,8 @@ export const CommandPanel = _component(
               <Note>{ui.teamsHint(RULES.teamTravelDays)}</Note>
             </>
           )}
+
+          <DeployBar view={view} selected={selected} onCommand={onCommand} readonly={readonly} />
 
           <Note>{ui.priority}</Note>
           <Segmented

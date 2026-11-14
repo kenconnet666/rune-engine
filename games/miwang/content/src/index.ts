@@ -11,6 +11,7 @@ export { CHAPTER_IDS, CHAPTERS, type ChapterDef, type ChapterId } from './tables
 export { CONDITIONS, drawConditions, type ConditionDef } from './tables/conditions.ts';
 export { CREDITS, type Credit, type CreditId, type CreditSection } from './tables/credits.ts';
 export { DECISIONS } from './tables/decisions.ts';
+export { DEPLOYMENTS } from './tables/deployments.ts';
 export { EVENTS } from './tables/events.ts';
 export { DEFAULT_PATHOGEN, PATHOGENS, SOURCES, type Source } from './tables/pathogens.ts';
 export { SKILLS } from './tables/skills.ts';

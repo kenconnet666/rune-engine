@@ -6,6 +6,7 @@
  */
 import { bounds, regions } from '@miwang/content';
 import {
+  HAS_AID,
   HAS_DISASTER,
   HAS_GATHERING,
   HAS_LEAK,
@@ -25,6 +26,7 @@ import {
   Flame,
   Footprints,
   Megaphone,
+  Package,
   PartyPopper,
   Tent,
 } from 'lucide';
@@ -194,6 +196,11 @@ export const MapOverlay = _component(
                 {(marks & HAS_RELIEF) !== 0 && (
                   <span data-mark="relief" {...css.attrs(styles.mark, styles.gathering)}>
                     <Icon icon={Tent} size="0.875rem" />
+                  </span>
+                )}
+                {(marks & HAS_AID) !== 0 && (
+                  <span data-mark="aid" {...css.attrs(styles.mark, styles.gathering)}>
+                    <Icon icon={Package} size="0.875rem" />
                   </span>
                 )}
                 {(marks & HAS_LEAK) !== 0 && (

@@ -274,6 +274,21 @@ export const en: ContentText = {
       'Dormancy',
       'Harder to detect for a month, at the price of spreading a little slower. With fewer reports, attention drifts elsewhere.',
     ),
+    antigenicShift: label(
+      'Antigenic shift',
+      'A new face: a quarter of everyone who recovered or was vaccinated no longer recognises it and becomes susceptible again.',
+    ),
+  },
+
+  deployments: {
+    fieldHospital: label(
+      'Field hospital',
+      'Temporary wards in one region: for six weeks more of the sick there can be saved.',
+    ),
+    aidPackage: label(
+      'Aid package',
+      'Tests, medicine and staff for a region below middle income: for three months its testing, care and vaccination work like a middle-income region.',
+    ),
   },
 
   tasks: {

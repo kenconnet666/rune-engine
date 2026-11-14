@@ -47,6 +47,13 @@ export type AlertData =
   /** 自己派出了一支应急队（region 是 -1 时是召回） / 一支应急队到了 */
   | { readonly kind: 'teamSent'; readonly region: number; readonly days: number }
   | { readonly kind: 'teamArrived'; readonly region: number; readonly own: boolean }
+  /** 守方在一个地区放下了一样东西（野战医院、援助物资） */
+  | {
+      readonly kind: 'deployed';
+      readonly deployment: string;
+      readonly region: number;
+      readonly own: boolean;
+    }
   /** 开了发布会：信任从多少到多少 */
   | { readonly kind: 'briefing'; readonly from: number; readonly to: number; readonly own: boolean }
   /** 自己改了疫苗先给谁 */
@@ -306,6 +313,13 @@ export function watchAlerts(view: () => OutbreakView | null): Alerts {
       if (item.tick < before.tick || known.has(newsKey(item))) continue;
       if (item.kind === 'skill') {
         push('calm', { kind: 'skill', skill: item.subject, region: item.region });
+      } else if (item.kind === 'deploy') {
+        push(now.attacker ? 'danger' : 'calm', {
+          kind: 'deployed',
+          deployment: item.subject,
+          region: item.region,
+          own: !now.attacker,
+        });
       } else if (item.kind === 'synergy') {
         push(now.attacker ? 'calm' : 'danger', { kind: 'synergy', item });
       } else if (item.kind === 'devolve') {

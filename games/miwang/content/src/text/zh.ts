@@ -139,6 +139,10 @@ export const zh: ContentText = {
     ),
     surge: label('激增', '让一个已经到过的地区在两周里传得更快。'),
     dormancy: label('蛰伏', '一个月里更难被发现，代价是传得慢一些。上报少了，对面的注意力会挪开。'),
+    antigenicShift: label(
+      '抗原转变',
+      '换一副面孔：全世界得过、打过疫苗的人里，有四分之一又认不出它，重新变得易感。',
+    ),
   },
 
   tasks: {
@@ -151,6 +155,14 @@ export const zh: ContentText = {
     holdline: label('守住防线', '到期限为止，新上报病例的地区不能超过这个数。'),
     steady: label('稳住人心', '到期限为止，公众信任一直不能掉到线以下。'),
     flatten: label('压平曲线', '到期限时，上报的现有病例要比接到任务时少三成。'),
+  },
+
+  deployments: {
+    fieldHospital: label('野战医院', '在一个地区搭起临时的病房：一个半月里那里救得回来的人多。'),
+    aidPackage: label(
+      '援助物资',
+      '给一个低于中等收入的地区送去试剂、药品和人手：三个月里那里的检测、医疗、接种按中等收入地区算。',
+    ),
   },
 
   decisions: {

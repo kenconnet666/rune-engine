@@ -12,7 +12,15 @@ import {
 } from '../state.ts';
 import { rainsIn } from './calendar.ts';
 import { modifier } from './modifiers.ts';
-import { after, climateFit, detectionIn, effectiveWealth, teamAt, winter } from './regional.ts';
+import {
+  after,
+  aidIn,
+  climateFit,
+  detectionIn,
+  effectiveWealth,
+  teamAt,
+  winter,
+} from './regional.ts';
 
 /** 这一天全世界的合计：攻方的变异点、信任、胜负都要用 */
 export interface DayTally {
@@ -162,7 +170,7 @@ function fatalityIn(
   // 病人太多时医疗被挤兑；灾害期间医疗瘫痪
   const overload = strainIn(state, state.infectious[r]!, people);
   const care =
-    effectiveWealth(rules.careByWealth, regions[r]!.wealth, defense.aid) *
+    effectiveWealth(rules.careByWealth, regions[r]!.wealth, aidIn(state, r, defense)) *
     (1 - rules.overloadLoss * overload) *
     (state.disasterUntil[r]! > state.tick ? rules.disasterCare : 1);
   // 应急队驻着：医疗没能挽回的那部分，再挽回一些

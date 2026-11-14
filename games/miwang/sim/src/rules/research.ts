@@ -15,7 +15,7 @@ import {
   type OutbreakState,
 } from '../state.ts';
 import { modifier } from './modifiers.ts';
-import { effectiveWealth } from './regional.ts';
+import { aidIn, effectiveWealth } from './regional.ts';
 
 /** 做完的科技的效果之和 */
 export function defenseStats(state: OutbreakState): DefenseStats {
@@ -98,7 +98,7 @@ export function vaccinate(state: OutbreakState, defense: DefenseStats, comply: n
     const people = alive(state, r);
     if (people <= 0 || state.susceptible[r]! <= 0) continue;
     const base =
-      effectiveWealth(rules.rolloutByWealth, regions[r]!.wealth, defense.aid) *
+      effectiveWealth(rules.rolloutByWealth, regions[r]!.wealth, aidIn(state, r, defense)) *
       (1 + defense.rollout) *
       shift *
       comply;

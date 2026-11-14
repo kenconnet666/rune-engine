@@ -69,6 +69,10 @@ export function effectiveWealth(table: readonly number[], wealth: number, aid: n
   return wealth < 2 ? lerp(own, table[2] ?? own, clamp(aid, 0, 1)) : own;
 }
 
+/** 这个地区现在得到多少援助（0–1）：全局的国际援助（科技给的），或者这里放着援助物资 */
+export const aidIn = (state: OutbreakState, region: number, defense: DefenseStats): number =>
+  state.aidUntil[region]! > state.tick ? 1 : defense.aid;
+
 /** 病原体在这个地区的气候里有多适应：档案里的适宜程度，耐寒、耐热把不足的部分补回来 */
 export function climateFit(state: OutbreakState, region: number, pathogen: PathogenStats): number {
   const { climate } = state.config.regions[region]!;
@@ -89,7 +93,7 @@ export function detectionIn(
 ): number {
   const { rules, regions } = state.config;
   const base =
-    effectiveWealth(rules.detectByWealth, regions[region]!.wealth, defense.aid) +
+    effectiveWealth(rules.detectByWealth, regions[region]!.wealth, aidIn(state, region, defense)) +
     rules.detectPerSeverity * pathogen.severity -
     rules.detectPerStealth * pathogen.stealth +
     defense.detection +

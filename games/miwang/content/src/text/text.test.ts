@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CHAPTER_IDS, CHAPTERS } from '../tables/chapters.ts';
 import { CREDITS } from '../tables/credits.ts';
 import { DECISIONS } from '../tables/decisions.ts';
+import { DEPLOYMENTS } from '../tables/deployments.ts';
 import { CALENDAR } from '../tables/calendar.ts';
 import { CONDITIONS } from '../tables/conditions.ts';
 import { EVENTS } from '../tables/events.ts';
@@ -25,6 +26,7 @@ describe('内容的文案', () => {
       expect(Object.keys(text.conditions).sort()).toEqual(ids(CONDITIONS));
       expect(Object.keys(text.skills).sort()).toEqual(ids(SKILLS));
       expect(Object.keys(text.synergies).sort()).toEqual(ids(SYNERGIES));
+      expect(Object.keys(text.deployments).sort()).toEqual(ids(DEPLOYMENTS));
       expect(Object.keys(text.tasks).sort()).toEqual(ids(TASKS));
       expect(Object.keys(text.decisions).sort()).toEqual(ids(DECISIONS));
       for (const decision of DECISIONS) {
@@ -47,6 +49,7 @@ describe('内容的文案', () => {
         text.calendar,
         text.conditions,
         text.synergies,
+        text.deployments,
         text.skills,
         text.tasks,
         text.measures,

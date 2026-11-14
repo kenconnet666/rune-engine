@@ -65,6 +65,7 @@ import {
   Skull,
   Snowflake,
   Sparkles,
+  Tent,
   SprayCan,
   Sprout,
   Sun,
@@ -183,6 +184,7 @@ const NEWS: Readonly<Record<NewsKind, IconData>> = {
   report: MapPin,
   evolve: Dna,
   synergy: Sparkles,
+  deploy: Package,
   research: FlaskConical,
   vaccine: Syringe,
   event: Zap,
@@ -215,7 +217,14 @@ const SKILLS: Readonly<Record<string, IconData>> = {
   spillover: PawPrint,
   surge: Flame,
   dormancy: Moon,
+  antigenicShift: Shuffle,
 };
+
+const DEPLOYMENTS: Readonly<Record<string, IconData>> = {
+  fieldHospital: Tent,
+  aidPackage: Package,
+};
+export const deploymentIcon = (id: string): IconData => DEPLOYMENTS[id] ?? Package;
 
 export const skillIcon = (id: string): IconData => SKILLS[id] ?? Zap;
 export const pathogenIcon = (id: string): IconData => PATHOGENS[id] ?? Biohazard;

@@ -63,6 +63,8 @@ export interface ContentText {
   /** 日程上的事（出行高峰、雨季、国际赛事） */
   readonly calendar: Readonly<Record<string, Label>>;
   readonly skills: Readonly<Record<string, Label>>;
+  /** 守方的部署（野战医院、援助物资） */
+  readonly deployments: Readonly<Record<string, Label>>;
   readonly decisions: Readonly<Record<string, DecisionText>>;
   /** 短期任务：名字和一句话说要做什么（具体的数界面从任务表和进度里取） */
   readonly tasks: Readonly<Record<string, Label>>;

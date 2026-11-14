@@ -15,4 +15,6 @@ export const SKILLS: readonly SkillDef[] = [
     days: 30,
     modifiers: { detect: -0.15, spread: -0.12 },
   },
+  // 抗原转变：换一副面孔，得过、打过疫苗的人里有四分之一又认不出它。很贵、冷却很长——留给疫苗铺开之后
+  { id: 'antigenicShift', kind: 'shift', cost: 20, cooldown: 120, amount: 0.25 },
 ];

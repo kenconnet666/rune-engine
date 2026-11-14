@@ -19,6 +19,7 @@ import {
   Hourglass,
   Lock,
   Megaphone,
+  Package,
   Scale,
   ShieldCheck,
   Siren,
@@ -61,6 +62,7 @@ const ICONS: Readonly<Record<AlertData['kind'], IconData>> = {
   deadline: Hourglass,
   trait: Dna,
   synergy: Sparkles,
+  deployed: Package,
   research: FlaskConical,
   measure: ShieldCheck,
   measures: ShieldCheck,
@@ -190,6 +192,13 @@ export const AlertStack = _component(
             return {
               title: data.region < 0 ? ui.skill(name) : ui.skillAt(name, placeName(data.region)),
               detail: content.skills[data.skill]?.detail,
+            };
+          }
+          case 'deployed': {
+            const name = content.deployments[data.deployment]?.name ?? data.deployment;
+            return {
+              title: (data.own ? ui.deployed : ui.deployedTheirs)(name, placeName(data.region)),
+              detail: content.deployments[data.deployment]?.detail,
             };
           }
           case 'synergy':

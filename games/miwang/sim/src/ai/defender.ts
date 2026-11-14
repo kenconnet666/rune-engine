@@ -6,6 +6,7 @@
  *           普通和困难档在开不起、养不起的时候会退一档再试（轻的铺开总比不开强），手头宽了再往上加。
  *   应急队——派去上报病例最重的几个地区；原来驻的地方还排在前几名就不挪（来回跑的路上什么都干不了）。
  *   发布会——信任掉得厉害、手头又有余钱时开。疫苗——困难档会把疫苗优先给疫情重的地方。
+ *   部署——野战医院放在医疗最吃紧的地区，援助物资放在病例最多的穷地区（普通档起）。
  * 花钱有两条约束：手里要留一点应急的，维持费不能超过收入太多。
  * 性格（见 shared.ts）在这套做法上偏一偏：设防早还是晚、钱先给研究还是先给措施、维持费压到多低。
  */
@@ -23,7 +24,7 @@ import {
   type TechDef,
 } from '../config.ts';
 import { setupCost, upkeepOf } from '../rules/defense.ts';
-import type { OutbreakView } from '../view.ts';
+import { HAS_AID, HAS_RELIEF, type OutbreakView } from '../view.ts';
 import type { AiLevel, DefendStyle } from './shared.ts';
 
 /**
@@ -157,6 +158,35 @@ function dispatch(view: OutbreakView, config: OutbreakConfig): Command[] {
   return commands;
 }
 
+/** 医疗吃紧到这个程度（0–1）才值得放一座野战医院 */
+const WARD_STRAIN = 0.5;
+
+/** 该放的部署：野战医院给医疗最吃紧的地区，援助物资给病例最多的穷地区；那里已经有的不重复放 */
+function deployments(view: OutbreakView, config: OutbreakConfig, reserve: number): Command[] {
+  const commands: Command[] = [];
+  let budget = view.resource - reserve;
+  for (const item of view.defense.deployments) {
+    const def = config.deployments.find((candidate) => candidate.id === item.id);
+    if (!def || item.readyIn > 0 || item.cost > budget) continue;
+    const taken = def.kind === 'relief' ? HAS_RELIEF : HAS_AID;
+    let best = -1;
+    let most = 0;
+    for (let region = 0; region < config.regions.length; region++) {
+      const cases = view.cases[region]!;
+      if (cases <= most || (view.happening[region]! & taken) !== 0) continue;
+      const fits =
+        def.kind === 'relief'
+          ? view.strain[region]! >= WARD_STRAIN
+          : config.regions[region]!.wealth < 2;
+      if (fits) [best, most] = [region, cases];
+    }
+    if (best < 0) continue;
+    budget -= item.cost;
+    commands.push({ type: 'deploy', deployment: def.id, region: best });
+  }
+  return commands;
+}
+
 export function defend(
   view: OutbreakView,
   config: OutbreakConfig,
@@ -172,6 +202,7 @@ export function defend(
 
   if (level >= 1) {
     commands.push(...dispatch(view, config));
+    commands.push(...deployments(view, config, reserve));
     // 信任掉得厉害、手头又有余钱：开发布会
     const spare = view.resource - reserve - rules.briefingCost;
     if (view.defense.briefingIn === 0 && view.defense.trust < 0.55 && spare > 20) {

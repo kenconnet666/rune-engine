@@ -7,6 +7,7 @@
  */
 import { regions } from '@miwang/content';
 import {
+  HAS_AID,
   HAS_DISASTER,
   HAS_GATHERING,
   HAS_LEAK,
@@ -45,6 +46,7 @@ import {
   CloudRainWind,
   Footprints,
   Megaphone,
+  Package,
   Tent,
   Copy,
   Eye,
@@ -261,6 +263,11 @@ export const RegionPanel = _component(
           {(happening & HAS_RELIEF) !== 0 && (
             <Note icon={Tent} tone={view.attacker ? 'danger' : 'signal'}>
               {ui.region.relief}
+            </Note>
+          )}
+          {(happening & HAS_AID) !== 0 && (
+            <Note icon={Package} tone={view.attacker ? 'danger' : 'signal'}>
+              {ui.region.aid}
             </Note>
           )}
           {(happening & HAS_LEAK) !== 0 && (

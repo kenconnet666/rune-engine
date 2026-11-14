@@ -32,6 +32,7 @@ export const FOR_BOTH = 3;
  *   milestone 头一回越过一条线（subject 是 firstDeath、regions.50、calamity.25 这样的）
  *   calendar 日程上的一件事预告了、开始了（subject 是“事.soon”或“事.begin”，region 是赛事的主办地）
  *   synergy 凑齐了一组协同（subject 是协同的 id）
+ *   deploy 守方在一个地区放下了一样东西（subject 是部署的 id）
  */
 export type NewsKind =
   | 'spread'
@@ -50,7 +51,8 @@ export type NewsKind =
   | 'task'
   | 'milestone'
   | 'calendar'
-  | 'synergy';
+  | 'synergy'
+  | 'deploy';
 
 export interface NewsItem {
   readonly tick: number;
@@ -162,10 +164,13 @@ export interface OutbreakState {
   /** 各地区的封锁、关着的口子各连着多少天了（危机用，见 rules/crises.ts） */
   lockedDays: Uint16Array;
   sealedDays: Uint16Array;
-  /** 闹事、医疗支援、口子漏风在各地区持续到哪一步（不含） */
+  /** 闹事、医疗支援、口子漏风、援助物资在各地区持续到哪一步（不含） */
   unrestUntil: Int32Array;
   reliefUntil: Int32Array;
   leakUntil: Int32Array;
+  aidUntil: Int32Array;
+  /** 各种部署下一次能放的那一步（下标同 config.deployments） */
+  deployReadyAt: Int32Array;
   /**
    * 双方手里的短期任务（下标是玩家）：是 config.tasks 里的第几件（-1 是没有）、接到时那个数是多少、
    * 到哪一步为止、下一件最早哪一步发；各自做到了几件；每件任务发过几次
@@ -271,6 +276,8 @@ export function createState(config: OutbreakConfig): OutbreakState {
     unrestUntil: new Int32Array(count),
     reliefUntil: new Int32Array(count),
     leakUntil: new Int32Array(count),
+    aidUntil: new Int32Array(count),
+    deployReadyAt: new Int32Array(config.deployments.length),
     task: new Int16Array(2).fill(-1),
     taskStart: new Float64Array(2),
     taskExpires: new Int32Array(2),

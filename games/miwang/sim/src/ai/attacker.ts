@@ -100,6 +100,8 @@ const WAIT_WITHIN = 2;
 
 /** 各难度用技能之前手里要留多少点（简单档不用技能） */
 const SKILL_CUSHION = [Infinity, 12, 4] as const;
+/** 接种的人占到世界人口这么多，才值得用抗原转变 */
+const SHIFT_IMMUNE = 0.1;
 /** 平均一个病人传给这么多人以上，才舍得用蛰伏（它让传播弱一截：本来就勉强在涨的话会把自己闷死） */
 const VEIL_REPRODUCTION = 1.3;
 
@@ -138,6 +140,18 @@ function skill(
   if (surge && view.totals.cases > surgeAt) {
     const region = top((r) => view.cases[r]!);
     if (region >= 0) return [{ type: 'skill', skill: surge.id, region }];
+  }
+  // 抗原转变：疫苗已经打开了一片（接种的人占到世界的一成以上）才值得用
+  const shift = ready('shift');
+  if (shift) {
+    let vaccinated = 0;
+    let people = 0;
+    for (let r = 0; r < config.regions.length; r++) {
+      vaccinated += view.immune[r]! * config.regions[r]!.population;
+      people += config.regions[r]!.population;
+    }
+    if (people > 0 && vaccinated / people >= SHIFT_IMMUNE)
+      return [{ type: 'skill', skill: shift.id }];
   }
   if (level < 2) return [];
   const spillover = ready('spillover');

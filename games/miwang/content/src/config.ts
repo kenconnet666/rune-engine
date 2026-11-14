@@ -4,6 +4,7 @@ import { CALENDAR } from './tables/calendar.ts';
 import { applyConditions, drawConditions } from './tables/conditions.ts';
 import type { ChapterDef } from './tables/chapters.ts';
 import { DECISIONS } from './tables/decisions.ts';
+import { DEPLOYMENTS } from './tables/deployments.ts';
 import { EVENTS } from './tables/events.ts';
 import { DEFAULT_PATHOGEN, PATHOGENS } from './tables/pathogens.ts';
 import { SKILLS } from './tables/skills.ts';
@@ -62,6 +63,7 @@ export function createConfig(
     events: EVENTS,
     calendar: CALENDAR,
     skills: SKILLS,
+    deployments: DEPLOYMENTS,
     decisions: DECISIONS,
     tasks: TASKS,
     rules: chapter

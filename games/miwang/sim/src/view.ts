@@ -46,6 +46,8 @@ export const HAS_SURGE = 4;
 export const HAS_UNREST = 8;
 export const HAS_RELIEF = 16;
 export const HAS_LEAK = 32;
+/** 这个地区放着援助物资（检测、医疗、接种按中等收入算） */
+export const HAS_AID = 64;
 
 /** 能买的一样东西（性状或科技）和它现在的价格 */
 export interface Offer {
@@ -142,6 +144,12 @@ export interface OutbreakView {
     readonly priority: VaccinePolicy;
     /** 再过几天才能开发布会（0 是现在就能开） */
     readonly briefingIn: number;
+    /** 守方能部署的东西：要多少预算、还要等几天才能再放（0 是现在就能放）；攻方是空的 */
+    readonly deployments: readonly {
+      readonly id: string;
+      readonly cost: number;
+      readonly readyIn: number;
+    }[];
   };
 
   /** 正在起作用的临时修正（这一方看得到的）：把哪个数改了多少、还剩几天 */
@@ -242,7 +250,8 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
       (attacker && state.surgeUntil[r]! > state.tick ? HAS_SURGE : 0) |
       (state.unrestUntil[r]! > state.tick ? HAS_UNREST : 0) |
       (state.reliefUntil[r]! > state.tick ? HAS_RELIEF : 0) |
-      (attacker && state.leakUntil[r]! > state.tick ? HAS_LEAK : 0);
+      (attacker && state.leakUntil[r]! > state.tick ? HAS_LEAK : 0) |
+      (state.aidUntil[r]! > state.tick ? HAS_AID : 0);
     if (known) {
       const spread = reproductionIn(state, r, pathogen, defense, comply);
       reproduction[r] = spread.now;
@@ -346,6 +355,13 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
       })),
       priority: VACCINE_POLICIES[state.priority] ?? 'even',
       briefingIn: Math.max(0, state.briefingReadyAt - state.tick),
+      deployments: attacker
+        ? []
+        : state.config.deployments.map((def, index) => ({
+            id: def.id,
+            cost: def.cost,
+            readyIn: Math.max(0, state.deployReadyAt[index]! - state.tick),
+          })),
     },
     modifiers: state.modifiers.flatMap((item) =>
       (item.audience & audience) !== 0 && item.until > state.tick

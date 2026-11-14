@@ -2,6 +2,7 @@ import type { PlayerId } from '@rune-engine/core';
 import { MEASURES, type Measure, type MeasureLevel, type VaccinePolicy } from './config.ts';
 import { holdBriefing, sendTeam, setMeasure, setMeasures, setPriority } from './rules/defense.ts';
 import { resolveDecision } from './rules/decisions.ts';
+import { deploy } from './rules/deployments.ts';
 import { devolve, evolve } from './rules/pathogen.ts';
 import { startResearch } from './rules/research.ts';
 import { useSkill } from './rules/skills.ts';
@@ -37,6 +38,8 @@ export type Command =
   | { readonly type: 'priority'; readonly policy: VaccinePolicy }
   /** 守方：开一次发布会 */
   | { readonly type: 'briefing' }
+  /** 守方：在一个地区放下一样东西（野战医院、援助物资） */
+  | { readonly type: 'deploy'; readonly deployment: string; readonly region: number }
   /** 守方：开始一项研究 */
   | { readonly type: 'research'; readonly tech: string };
 
@@ -85,6 +88,11 @@ export function applyCommand(state: OutbreakState, player: PlayerId, command: Co
       return;
     case 'briefing':
       if (player === DEFENDER) holdBriefing(state);
+      return;
+    case 'deploy':
+      if (player === DEFENDER && typeof command.deployment === 'string') {
+        deploy(state, command.deployment, command.region);
+      }
       return;
     case 'research':
       if (player === DEFENDER && typeof command.tech === 'string') {

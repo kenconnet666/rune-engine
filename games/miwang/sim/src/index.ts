@@ -43,6 +43,8 @@ export {
   type DefenseEffects,
   type DefenseKey,
   type DefenseStats,
+  type DeploymentDef,
+  type DeploymentKind,
   type EffectKey,
   type Effects,
   type EventDef,
@@ -87,6 +89,7 @@ export {
   type OutbreakState,
 } from './state.ts';
 export {
+  HAS_AID,
   HAS_DISASTER,
   HAS_GATHERING,
   HAS_LEAK,

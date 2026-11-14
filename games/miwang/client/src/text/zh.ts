@@ -97,6 +97,8 @@ export const zh = {
     teamRecalled: '应急队召回待命',
     teamArrived: (place: string) => `应急队抵达${place}`,
     teamArrivedTheirs: (place: string) => `守方的应急队到了${place}`,
+    deployed: (name: string, place: string) => `${name}放在了${place}`,
+    deployedTheirs: (name: string, place: string) => `守方在${place}放下了${name}`,
     teamDetail: '那里发现得更多，救得回来的也更多',
     briefingOwn: '开了发布会',
     briefingTheirs: '守方开了发布会',
@@ -129,6 +131,7 @@ export const zh = {
     traced: (place: string) => `溯源完成：起源地是${place}`,
     eventAt: (place: string, name: string) => `${place}：${name}`,
     team: (place: string) => `应急队抵达${place}`,
+    deploy: (place: string, name: string) => `${place}：${name}`,
     briefing: '守方召开了发布会',
     skill: (name: string) => `用了技能：${name}`,
     skillAt: (place: string, name: string) => `${place}：${name}`,
@@ -213,6 +216,13 @@ export const zh = {
     paused: '时间停下了：选好就接着走。',
   },
 
+  deploy: {
+    title: '部署',
+    needRegion: '先在地图上选一个地区。',
+    needReported: '要选一个上报过病例的地区。',
+    needPoor: '援助物资只给低于中等收入的地区。',
+  },
+
   skills: {
     title: '技能',
     cost: (points: number) => `${points} 点`,
@@ -241,6 +251,7 @@ export const zh = {
       `陆路 ${land} · 航线 ${air} · 海运 ${sea}`,
     gathering: '这里正有大型集会。',
     unrest: '这里在闹事：措施还开着，听的人少了。',
+    aid: '这里有援助物资：检测、医疗、接种按中等收入地区算。',
     relief: '这里有临时的医疗支援：救得回来的人多一些。',
     leak: '这里的口子在漏风：关着也拦不住多少。',
     surge: '这里正在激增：传得更快。',

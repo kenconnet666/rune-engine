@@ -110,6 +110,8 @@ export const en: ClientText = {
     teamRecalled: 'Response team recalled to standby',
     teamArrived: (place) => `Response team arrived in ${place}`,
     teamArrivedTheirs: (place) => `A response team reached ${place}`,
+    deployed: (name, place) => `${name} deployed in ${place}`,
+    deployedTheirs: (name, place) => `The response deployed a ${name} in ${place}`,
     teamDetail: 'More cases get found there, and more patients pull through',
     briefingOwn: 'Briefing held',
     briefingTheirs: 'The response held a briefing',
@@ -142,6 +144,7 @@ export const en: ClientText = {
     traced: (place) => `Origin traced to ${place}`,
     eventAt: (place, name) => `${place}: ${name}`,
     team: (place) => `A response team arrived in ${place}`,
+    deploy: (place, name) => `${place}: ${name}`,
     briefing: 'The response held a public briefing',
     skill: (name) => `Skill used: ${name}`,
     skillAt: (place, name) => `${place}: ${name}`,
@@ -222,6 +225,13 @@ export const en: ClientText = {
     paused: 'Time is paused: choose and it carries on.',
   },
 
+  deploy: {
+    title: 'Deploy',
+    needRegion: 'Select a region on the map first.',
+    needReported: 'Select a region that has reported cases.',
+    needPoor: 'Aid packages only go to regions below middle income.',
+  },
+
   skills: {
     title: 'Skills',
     cost: (points) => `${points} pts`,
@@ -249,6 +259,7 @@ export const en: ClientText = {
     routeCounts: (land, air, sea) => `Land ${land} · Air ${air} · Sea ${sea}`,
     gathering: 'A mass gathering is under way here.',
     unrest: 'There is unrest here: the measures are still on, but fewer people follow them.',
+    aid: 'An aid package is here: testing, care and vaccination work like a middle-income region.',
     relief: 'Temporary medical support is here: more of the sick can be saved.',
     leak: 'The crossings here leak: closing them holds back little.',
     surge: 'A surge is under way here: it spreads faster.',

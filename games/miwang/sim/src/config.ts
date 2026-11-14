@@ -104,8 +104,9 @@ export type Modifiers = Readonly<Partial<Record<ModifierKey, number>>>;
  *   spillover 外溢：在一个还没到过的地区凭空落脚，冒出 amount 个感染者（不管它和别处通不通）
  *   surge     激增：一个到过的地区在 days 天里传播加强（倍数是规则里的 surgeBoost）
  *   veil      蛰伏：全世界在 days 天里按 modifiers 改（更难被发现，也传得慢一些）
+ *   shift     抗原转变：全世界康复过、接种过的人里，amount 这么大的比例重新变得易感
  */
-export type SkillKind = 'spillover' | 'surge' | 'veil';
+export type SkillKind = 'spillover' | 'surge' | 'veil' | 'shift';
 
 export interface SkillDef {
   readonly id: string;
@@ -116,6 +117,24 @@ export interface SkillDef {
   readonly days?: number;
   readonly amount?: number;
   readonly modifiers?: Modifiers;
+}
+
+// ───── 守方的部署 ─────
+
+/**
+ * 部署的种类（规则见 rules/deployments.ts）：
+ *   relief 野战医院：那个地区在 days 天里救得回来的人多（Rules.reliefCare）
+ *   aid    援助物资：那个地区在 days 天里的检测、医疗、接种按中等收入地区算
+ */
+export type DeploymentKind = 'relief' | 'aid';
+
+export interface DeploymentDef {
+  readonly id: string;
+  readonly kind: DeploymentKind;
+  /** 放一次要多少预算，之后要等几天才能再放 */
+  readonly cost: number;
+  readonly cooldown: number;
+  readonly days: number;
 }
 
 // ───── 抉择 ─────
@@ -605,6 +624,7 @@ export interface OutbreakConfig {
   readonly events: readonly EventDef[];
   readonly calendar: readonly CalendarDef[];
   readonly skills: readonly SkillDef[];
+  readonly deployments: readonly DeploymentDef[];
   readonly decisions: readonly DecisionDef[];
   readonly tasks: readonly TaskDef[];
   readonly rules: Rules;

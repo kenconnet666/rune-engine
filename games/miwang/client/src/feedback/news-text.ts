@@ -47,6 +47,8 @@ export function newsSentence(item: NewsItem, attacker: boolean): string {
     }
     case 'team':
       return ui.team(place);
+    case 'deploy':
+      return ui.deploy(place, content.deployments[item.subject]?.name ?? item.subject);
     case 'briefing':
       return ui.briefing;
     case 'skill': {
