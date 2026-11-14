@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyCommand } from '../commands.ts';
-import { MEASURE_BITS } from '../config.ts';
+import { measuresOf } from '../config.ts';
 import { outbreak } from '../outbreak.ts';
 import { ATTACKER, createState, DEFENDER, TECH_DONE, type OutbreakState } from '../state.ts';
 import { testConfig } from '../testing/world.ts';
@@ -115,20 +115,20 @@ describe('措施与经济', () => {
     const cost = setupCost(config, 2, 'lockdown');
     expect(cost).toBeCloseTo(upkeepOf(config, 2, 'lockdown') * 3);
     state.budget = cost / 2;
-    applyCommand(state, DEFENDER, { type: 'measure', region: 2, measure: 'lockdown', on: true });
+    applyCommand(state, DEFENDER, { type: 'measure', region: 2, measure: 'lockdown', level: 3 });
     expect(state.measures[2]).toBe(0);
     state.budget = cost;
-    applyCommand(state, DEFENDER, { type: 'measure', region: 2, measure: 'lockdown', on: true });
-    expect(state.measures[2]).toBe(MEASURE_BITS.lockdown);
+    applyCommand(state, DEFENDER, { type: 'measure', region: 2, measure: 'lockdown', level: 3 });
+    expect(state.measures[2]).toBe(measuresOf({ lockdown: 3 }));
     expect(state.budget).toBeCloseTo(0);
-    applyCommand(state, DEFENDER, { type: 'measure', region: 2, measure: 'lockdown', on: false });
+    applyCommand(state, DEFENDER, { type: 'measure', region: 2, measure: 'lockdown', level: 0 });
     expect(state.measures[2]).toBe(0);
   });
 
   it('封锁让这个地区贡献的预算变少', () => {
     const state = createState(testConfig());
     const open = dailyBalance(state);
-    state.measures[2] = MEASURE_BITS.lockdown;
+    state.measures[2] = measuresOf({ lockdown: 3 });
     const locked = dailyBalance(state);
     expect(locked.income).toBeLessThan(open.income);
     expect(locked.upkeep).toBeGreaterThan(0);
@@ -138,7 +138,7 @@ describe('措施与经济', () => {
   it('维持费付不起时，措施的效果按付得起的比例打折', () => {
     const state = createState(testConfig({ eventChance: 0, budgetPerDay: 0.01 }));
     state.budget = 0;
-    state.measures.fill(MEASURE_BITS.lockdown);
+    state.measures.fill(measuresOf({ lockdown: 3 }));
     const before = compliance(state);
     outbreak.step(state, []);
     expect(state.funding).toBeLessThan(0.5);
@@ -148,7 +148,7 @@ describe('措施与经济', () => {
   it('长期封锁消耗信任', () => {
     const state = createState(testConfig({ eventChance: 0 }));
     state.budget = 1e6;
-    state.measures.fill(MEASURE_BITS.lockdown);
+    state.measures.fill(measuresOf({ lockdown: 3 }));
     run(state, 30);
     expect(state.trust).toBeLessThan(0.6);
   });
@@ -186,7 +186,7 @@ describe('出行', () => {
         }),
       );
       state.budget = 1e6;
-      if (grounded) state.measures[0] = MEASURE_BITS.airports;
+      if (grounded) state.measures[0] = measuresOf({ airports: 3 });
       run(state, 120);
       return state.reached[7] !== 0;
     };

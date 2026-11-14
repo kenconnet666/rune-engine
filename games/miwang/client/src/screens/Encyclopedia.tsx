@@ -131,6 +131,9 @@ export const Encyclopedia = _component(({ onClose }: { onClose: () => void }) =>
     const names = (ids: readonly string[], table: Readonly<Record<string, { name: string }>>) =>
       ids.length ? ui.list(ids.map((id) => table[id]?.name ?? id)) : e.none;
 
+    /** 轻、中、全力三档各是全力的几成 */
+    const shares = (byLevel: readonly number[]) => byLevel.slice(1).map(format.percent).join(' / ');
+
     const detail = (): VNodeChild => {
       if (section === 'pathogens') return <PathogenDetail id={current} />;
       if (section === 'traits') {
@@ -156,7 +159,16 @@ export const Encyclopedia = _component(({ onClose }: { onClose: () => void }) =>
           content.measures[measure].detail,
           ui.workbench.effects,
           [],
-          [{ label: e.cost, value: e.upkeep(format.amount(DEFAULT_RULES.upkeep[measure])) }],
+          [
+            { label: e.cost, value: e.upkeep(format.amount(DEFAULT_RULES.upkeep[measure])) },
+            {
+              label: e.levels,
+              value: e.levelsValue(
+                shares(DEFAULT_RULES.levelEffect),
+                shares(DEFAULT_RULES.levelCost),
+              ),
+            },
+          ],
         );
       }
       const tech = TECHS.find((candidate) => candidate.id === current);

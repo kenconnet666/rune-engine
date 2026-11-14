@@ -72,7 +72,7 @@ export interface TraitDef {
 // ───── 防控的数值 ─────
 
 /**
- * 守方的地区措施，各占 measures 里的一位：
+ * 守方的地区措施。每项有档位（0 没开，1 轻，2 中，3 全力），各占 measures 里的两位：
  *   testing 加强检测   isolation 隔离病例   masks 口罩与距离   lockdown 封锁
  *   borders 关闭陆路口岸   airports 停飞   ports 封港
  *   sanitation 净水与消毒   vectorControl 灭蚊   screening 入境筛查
@@ -90,9 +90,39 @@ export const MEASURES = [
   'screening',
 ] as const;
 export type Measure = (typeof MEASURES)[number];
-export const MEASURE_BITS = Object.fromEntries(
-  MEASURES.map((measure, index) => [measure, 1 << index]),
+
+/** 一项措施的档位：0 没开，1 轻，2 中，3 全力。档位越高效果越大、越贵（各档是全力的几成见 Rules 的 levelEffect、levelCost） */
+export type MeasureLevel = 0 | 1 | 2 | 3;
+export const MAX_LEVEL = 3;
+export const LEVELS: readonly MeasureLevel[] = [0, 1, 2, 3];
+
+/** 各项措施在一个地区的“措施”那个数里从第几位开始（每项两位） */
+const MEASURE_SHIFT = Object.fromEntries(
+  MEASURES.map((measure, index) => [measure, index * 2]),
 ) as Readonly<Record<Measure, number>>;
+
+/** 一个地区的措施（那个数）里，某一项开到了第几档 */
+export const measureLevel = (bits: number, measure: Measure): MeasureLevel =>
+  ((bits >>> MEASURE_SHIFT[measure]) & 3) as MeasureLevel;
+
+/** 把某一项改成 level 档之后的那个数 */
+export const withMeasure = (bits: number, measure: Measure, level: MeasureLevel): number =>
+  ((bits & ~(3 << MEASURE_SHIFT[measure])) | (level << MEASURE_SHIFT[measure])) >>> 0;
+
+/** 把几项措施各自的档位拼成那个数（没写的是没开） */
+export const measuresOf = (levels: Readonly<Partial<Record<Measure, MeasureLevel>>>): number =>
+  MEASURES.reduce((bits, measure) => withMeasure(bits, measure, levels[measure] ?? 0), 0);
+
+/**
+ * 疫苗先给谁：
+ *   even       各地区按自己的接种能力打，不偏向谁
+ *   hotspots   上报病例多的地方优先
+ *   vulnerable 医疗弱的（穷的）地方优先
+ *   productive 经济贡献大的地方优先（保住预算）
+ * 一天能打的总量大致不变，变的是分给谁。
+ */
+export const VACCINE_POLICIES = ['even', 'hotspots', 'vulnerable', 'productive'] as const;
+export type VaccinePolicy = (typeof VACCINE_POLICIES)[number];
 
 /**
  * 科技的效果（做完的科技的效果相加）：
@@ -279,9 +309,12 @@ export interface Rules {
   readonly startBudget: number;
   /** 全世界都正常运转时每天的预算 */
   readonly budgetPerDay: number;
-  /** 各措施每天的维持费（人口 5000 万的地区；别的地区按人口开方折算） */
+  /** 各措施开到全力时每天的维持费（人口 5000 万的地区；别的地区按人口开方折算） */
   readonly upkeep: Readonly<Record<Measure, number>>;
-  /** 开一项措施要预付几天的维持费 */
+  /** 各档的效果、花费各是全力的几成（下标是档位，0 档是 0）。轻的那一档花得少、效果打折没那么狠：铺得开 */
+  readonly levelEffect: readonly number[];
+  readonly levelCost: readonly number[];
+  /** 把一项措施往上加档要预付几天的维持费（加出来的那部分） */
   readonly setupDays: number;
   /** 各措施让这个地区的经济贡献损失的比例 */
   readonly economyLoss: Readonly<Partial<Record<Measure, number>>>;
@@ -293,6 +326,20 @@ export interface Rules {
   readonly driftVaccineDelay: number;
   /** 每天接种的人口比例，按富裕程度 */
   readonly rolloutByWealth: readonly number[];
+  /** 优先的地区接种速度是别处的几倍（疫苗分配） */
+  readonly priorityBoost: number;
+
+  // 应急队：数量有限，派到一个地区要走几天，到了以后那里发现得多、救得回来的多
+  readonly teams: number;
+  readonly teamTravelDays: number;
+  /** 应急队驻着的地区：发现率加多少；医疗没能挽回的那部分再挽回多少 */
+  readonly teamDetect: number;
+  readonly teamCare: number;
+
+  // 发布会：花预算换信任，开过之后要隔一阵
+  readonly briefingCost: number;
+  readonly briefingTrust: number;
+  readonly briefingCooldown: number;
 
   // 信任
   readonly startTrust: number;

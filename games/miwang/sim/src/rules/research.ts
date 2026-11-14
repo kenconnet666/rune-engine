@@ -1,5 +1,10 @@
 /** 守方的研究：科技的效果、开始一项研究、每天推进、疫苗接种 */
-import { DEFENSE_KEYS, type DefenseStats, type PathogenStats } from '../config.ts';
+import {
+  DEFENSE_KEYS,
+  VACCINE_POLICIES,
+  type DefenseStats,
+  type PathogenStats,
+} from '../config.ts';
 import {
   alive,
   FOR_BOTH,
@@ -70,18 +75,45 @@ export function vaccineReady(state: OutbreakState, defense: DefenseStats): boole
   return defense.vaccine >= state.config.rules.vaccineStages;
 }
 
-/** 疫苗量产之后每天接种：各地区按富裕程度（援助会把穷地区往上拉）把一部分易感者变成免疫者 */
+/** 上报的在病人数占人口到这个比例，就算“疫情重的地方”（疫苗优先给热点时用） */
+const HOTSPOT_SHARE = 2e-4;
+
+/**
+ * 疫苗量产之后每天接种：各地区按富裕程度（援助会把穷地区往上拉）把一部分易感者变成免疫者。
+ * 疫苗分配决定偏向谁：被优先的地区速度是别处的 priorityBoost 倍，然后整体按比例缩回去——
+ * 一天能打的总量和不偏向谁时大致一样，变的是分给谁。
+ */
 export function vaccinate(state: OutbreakState, defense: DefenseStats, comply: number) {
   if (!vaccineReady(state, defense)) return;
   const { regions, rules } = state.config;
-  for (let r = 0; r < regions.length; r++) {
-    const waiting = state.susceptible[r]!;
-    if (waiting <= 0) continue;
-    const pace =
+  const policy = VACCINE_POLICIES[state.priority] ?? 'even';
+  const count = regions.length;
+  const pace = new Float64Array(count);
+  let plain = 0;
+  let weighted = 0;
+  for (let r = 0; r < count; r++) {
+    const people = alive(state, r);
+    if (people <= 0 || state.susceptible[r]! <= 0) continue;
+    const base =
       effectiveWealth(rules.rolloutByWealth, regions[r]!.wealth, defense.aid) *
       (1 + defense.rollout) *
       comply;
-    const doses = Math.min(waiting, Math.ceil(alive(state, r) * pace));
+    const favoured =
+      policy === 'hotspots'
+        ? state.visible[r]! / people > HOTSPOT_SHARE
+        : policy === 'vulnerable'
+          ? regions[r]!.wealth < 2
+          : policy === 'productive'
+            ? regions[r]!.economy > 1 / count
+            : false;
+    pace[r] = base * (favoured ? rules.priorityBoost : 1);
+    plain += people * base;
+    weighted += people * pace[r]!;
+  }
+  const scale = weighted > 0 ? plain / weighted : 1;
+  for (let r = 0; r < count; r++) {
+    if (pace[r] === 0) continue;
+    const doses = Math.min(state.susceptible[r]!, Math.ceil(alive(state, r) * pace[r]! * scale));
     state.susceptible[r]! -= doses;
     state.immune[r]! += doses;
   }

@@ -3,6 +3,7 @@
  * 排成网格就是一面“可以做的事”：性状、科技、地区措施。
  *   state  owned 已经有了（或者开关开着）、locked 还不能要（前置没满足）、不写是可以要
  *   selected  正在看它的详情
+ *   level / levels  分档的东西（措施的力度）：名字下面一排小点，亮着几个就是开到第几档
  *
  *   <Tile icon={Wind} label="飞沫传播" detail="8 点" tip="咳嗽、说话时的飞沫带着病原体。" onPress={() => select(id)} />
  */
@@ -26,6 +27,9 @@ export interface TileProps extends PartProps<'button', 'type'> {
   tip?: VNodeChild;
   state?: TileState;
   selected?: boolean;
+  /** 开到了第几档（0 是没开），和一共有几档；写了 levels 才画那排小点 */
+  level?: number;
+  levels?: number;
   onPress?: () => void;
 }
 
@@ -58,6 +62,14 @@ const styles = css.create({
   locked: { color: colors.textMuted, borderStyle: 'dashed', opacity: 0.6 },
   // 正在看的那一块：一圈实线框（和键盘聚焦的那圈是同一个位置，颜色不同）
   selected: { boxShadow: `0 0 0 2px ${colors.text}` },
+  pips: { display: 'flex', gap: '0.1875rem' },
+  pip: {
+    width: '0.625rem',
+    height: '0.1875rem',
+    backgroundColor: 'currentColor',
+    opacity: 0.25,
+  },
+  pipOn: { opacity: 1 },
   detail: {
     fontFamily: fonts.numeric,
     fontSize: '0.75rem',
@@ -67,7 +79,18 @@ const styles = css.create({
 });
 
 export const Tile = _component(
-  ({ icon, label, detail, tip, state = 'available', selected, onPress, ...rest }: TileProps) => {
+  ({
+    icon,
+    label,
+    detail,
+    tip,
+    state = 'available',
+    selected,
+    level = 0,
+    levels = 0,
+    onPress,
+    ...rest
+  }: TileProps) => {
     const tipId = useId();
     return () => (
       <>
@@ -95,6 +118,13 @@ export const Tile = _component(
         >
           {icon && <Icon icon={icon} size="1.375rem" weight={1.75} />}
           <span>{label}</span>
+          {levels > 0 && (
+            <span aria-hidden="true" {...css.attrs(styles.pips)}>
+              {Array.from({ length: levels }, (_, index) => (
+                <span key={index} {...css.attrs(styles.pip, index < level && styles.pipOn)} />
+              ))}
+            </span>
+          )}
           {detail != null && <span {...css.attrs(styles.detail)}>{detail}</span>}
         </button>
         {tip != null && <Tip id={tipId}>{tip}</Tip>}

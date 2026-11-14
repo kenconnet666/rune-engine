@@ -10,7 +10,7 @@ import {
   REPORTED,
   type OutbreakState,
 } from '../state.ts';
-import { after, climateFit, detectionIn, effectiveWealth, winter } from './regional.ts';
+import { after, climateFit, detectionIn, effectiveWealth, teamAt, winter } from './regional.ts';
 
 /** 这一天全世界的合计：攻方的变异点、信任、胜负都要用 */
 export interface DayTally {
@@ -59,29 +59,30 @@ export function transmissionIn(
     pathogen.air *
     (rules.densityAir[region.density] ?? 1) *
     (1 + rules.seasonAir * cold) *
-    after(bits, 'masks', rules.masksAir, comply) *
-    after(bits, 'lockdown', rules.lockdownAir, comply);
+    after(rules, bits, 'masks', rules.masksAir, comply) *
+    after(rules, bits, 'lockdown', rules.lockdownAir, comply);
   const contact =
     pathogen.contact *
     (rules.densityContact[region.density] ?? 1) *
-    after(bits, 'lockdown', rules.lockdownContact, comply);
+    after(rules, bits, 'lockdown', rules.lockdownContact, comply);
   // 蚊子：热带全年，温带、寒带只在夏天（冬天的程度是负数时才有）
   const mosquitoSeason = region.climate === TROPICAL ? 1 : Math.max(0, -cold);
   const others =
     (pathogen.water *
       effectiveWealth(rules.waterByWealth, region.wealth, 0) *
       (struck ? rules.disasterWater : 1) *
-      after(bits, 'sanitation', rules.sanitationWater, comply) +
+      after(rules, bits, 'sanitation', rules.sanitationWater, comply) +
       pathogen.vector *
         (rules.vectorByClimate[region.climate] ?? 0) *
         mosquitoSeason *
-        after(bits, 'vectorControl', rules.vectorControlEffect, comply) +
+        after(rules, bits, 'vectorControl', rules.vectorControlEffect, comply) +
       pathogen.blood * (rules.bloodByWealth[region.wealth] ?? 1)) *
-    after(bits, 'lockdown', rules.lockdownOther, comply);
+    after(rules, bits, 'lockdown', rules.lockdownOther, comply);
 
   const gathering = state.gatheringUntil[r]! > state.tick ? rules.gatheringBoost : 1;
   // 隔离只对被发现的病人有用：效果跟着发现率走
   const isolation = after(
+    rules,
     bits,
     'isolation',
     Math.min(1, rules.isolationEffect * detection * (1 + defense.isolation)),
@@ -146,9 +147,15 @@ function fatalityIn(
     effectiveWealth(rules.careByWealth, regions[r]!.wealth, defense.aid) *
     (1 - rules.overloadLoss * overload) *
     (state.disasterUntil[r]! > state.tick ? rules.disasterCare : 1);
+  // 应急队驻着：医疗没能挽回的那部分，再挽回一些
+  const helped = teamAt(state, r) ? care + (1 - care) * rules.teamCare : care;
   // 耐药对药物是全额抵消，对一般的医疗（补液、吸氧、护理）只抵消一半
   const untreated = 1 - clamp(defense.treatment, 0, 0.95) * (1 - pathogen.resistance);
-  return clamp(pathogen.lethality * (1 - care * (1 - 0.5 * pathogen.resistance)) * untreated, 0, 1);
+  return clamp(
+    pathogen.lethality * (1 - helped * (1 - 0.5 * pathogen.resistance)) * untreated,
+    0,
+    1,
+  );
 }
 
 /** 所有地区过一天 */

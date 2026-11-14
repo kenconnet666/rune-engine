@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyCommand } from '../commands.ts';
-import { MEASURE_BITS } from '../config.ts';
+import { measuresOf } from '../config.ts';
 import { outbreak } from '../outbreak.ts';
 import { ATTACKER, createState, DEFENDER, type OutbreakState } from '../state.ts';
 import { testConfig } from '../testing/world.ts';
@@ -28,7 +28,7 @@ describe('传播数、措施压掉的传播、医疗挤兑（给界面看的）'
   it('开了措施，那里的传播数下来，压掉的比例上去；别的地区不受影响', () => {
     const state = createState(testConfig(steady));
     const before = outbreak.observe(state, ATTACKER);
-    state.measures[0] = MEASURE_BITS.lockdown | MEASURE_BITS.masks;
+    state.measures[0] = measuresOf({ lockdown: 3, masks: 3 });
     const after = outbreak.observe(state, ATTACKER);
     expect(after.reproduction[0]).toBeLessThan(before.reproduction[0]!);
     expect(after.suppression[0]).toBeGreaterThan(0.3);

@@ -29,10 +29,13 @@ describe('数字与日期的写法', () => {
     expect(formatsFor('en').longDate('2026-11-13')).toBe('November 13, 2026');
   });
 
-  it('百分比不带小数，小额保留一位', () => {
+  it('百分比不带小数；小额保留一位，不到 1 的留两位', () => {
     const formats = formatsFor('zh-CN');
     expect(formats.percent(0.426)).toBe('43%');
     expect(formats.amount(3)).toBe('3.0');
+    expect(formats.amount(0.036)).toBe('0.04');
+    expect(formats.amount(-0.5)).toBe('-0.50');
+    expect(formats.amount(0)).toBe('0.0');
     expect(formats.whole(12345.6)).toBe('12,346');
   });
 });

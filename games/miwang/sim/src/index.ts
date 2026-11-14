@@ -15,11 +15,16 @@ export {
   COLD,
   DEFENSE_KEYS,
   EFFECT_KEYS,
-  MEASURE_BITS,
+  LEVELS,
+  MAX_LEVEL,
+  measureLevel,
   MEASURES,
+  measuresOf,
   ROUTES,
   TEMPERATE,
   TROPICAL,
+  VACCINE_POLICIES,
+  withMeasure,
   type Climate,
   type DefenseEffects,
   type DefenseKey,
@@ -32,6 +37,7 @@ export {
   type GoalMetric,
   type Links,
   type Measure,
+  type MeasureLevel,
   type OutbreakConfig,
   type PathogenProfile,
   type PathogenStats,
@@ -42,6 +48,7 @@ export {
   type TechDef,
   type TraitDef,
   type TraitGroup,
+  type VaccinePolicy,
 } from './config.ts';
 export { DEFAULT_RULES } from './defaults.ts';
 export { outbreak } from './outbreak.ts';

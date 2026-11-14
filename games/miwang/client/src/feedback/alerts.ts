@@ -2,11 +2,12 @@
  * 提示：对局里值得打断你说一声的事。三类——
  *   里程碑  头一回越过某条线：第一例死亡、波及第 10 / 50 / 100 个地区、灾厄线过了几成、信任跌破、预算快见底
  *   警报    某个地方出了状况：医疗被挤兑
- *   回应    你做的事起了什么作用（换了性状、开了措施之后那里的传播被压掉了多少）；对面做了什么要紧的事
+ *   回应    你做的事起了什么作用（换了性状、开了措施之后那里的传播被压掉了多少、应急队到了、发布会涨了多少信任）；
+ *           对面做了什么要紧的事
  * 都是从“上一份状态”和“这一份状态”的差别里看出来的，看的只是这一方自己看得到的东西。
  * 每条留几秒就走；带地区的同时在地图上闪一下（pings）。文字怎么写在面板那头（panels/AlertStack.tsx）。
  */
-import { MEASURE_BITS, type OutbreakView } from '@miwang/sim';
+import { measureLevel, type Measure, type OutbreakView, type VaccinePolicy } from '@miwang/sim';
 import { shallowRef, watchEffect, type ShallowRef } from 'vue';
 
 export type AlertTone = 'signal' | 'danger' | 'calm';
@@ -39,7 +40,14 @@ export type AlertData =
   /** 自己一次在好几个地区改了措施 */
   | { readonly kind: 'measures'; readonly count: number }
   /** 守方在几个地区开始封锁或者切断往来（region 是其中一个，点了飞过去） */
-  | { readonly kind: 'crackdown'; readonly count: number; readonly region: number };
+  | { readonly kind: 'crackdown'; readonly count: number; readonly region: number }
+  /** 自己派出了一支应急队（region 是 -1 时是召回） / 一支应急队到了 */
+  | { readonly kind: 'teamSent'; readonly region: number; readonly days: number }
+  | { readonly kind: 'teamArrived'; readonly region: number; readonly own: boolean }
+  /** 开了发布会：信任从多少到多少 */
+  | { readonly kind: 'briefing'; readonly from: number; readonly to: number; readonly own: boolean }
+  /** 自己改了疫苗先给谁 */
+  | { readonly kind: 'priority'; readonly policy: VaccinePolicy };
 
 export interface Alert {
   readonly id: number;
@@ -76,9 +84,10 @@ const TRUST_STEPS = [0.6, 0.4, 0.25];
 const STRAIN_STEPS = [5, 20, 50, 100];
 const GOAL_STEPS = [0.5, 0.9];
 const DEADLINE_STEPS = [60, 30, 10];
-/** 守方的这几样措施一开，攻方就该知道：封锁和切断往来 */
-const CRACKDOWN =
-  MEASURE_BITS.lockdown | MEASURE_BITS.borders | MEASURE_BITS.airports | MEASURE_BITS.ports;
+/** 守方的这几样措施一加码，攻方就该知道：封锁和切断往来 */
+const CRACKDOWN: readonly Measure[] = ['lockdown', 'borders', 'airports', 'ports'];
+const tightened = (before: number, now: number) =>
+  CRACKDOWN.some((measure) => measureLevel(now, measure) > measureLevel(before, measure));
 
 /** 盯着这一方的状态出提示。要在组件的 setup 里调（它用了 watchEffect） */
 export function watchAlerts(view: () => OutbreakView | null): Alerts {
@@ -197,7 +206,7 @@ export function watchAlerts(view: () => OutbreakView | null): Alerts {
       const old = before.measures[region]!;
       if (bits === old) return;
       changed.push(region);
-      if ((bits & ~old & CRACKDOWN) !== 0) cracked.push(region);
+      if (tightened(old, bits)) cracked.push(region);
     });
     if (!now.attacker) {
       const [only] = changed;
@@ -215,6 +224,29 @@ export function watchAlerts(view: () => OutbreakView | null): Alerts {
     } else if (cracked.length > 0) {
       push('danger', { kind: 'crackdown', count: cracked.length, region: cracked[0]! });
       for (const region of cracked.slice(1, 12)) ping(region, 'danger');
+    }
+
+    const own = !now.attacker;
+    now.defense.teams.forEach((team, index) => {
+      const old = before.defense.teams[index];
+      if (!old) return;
+      if (team.region !== old.region) {
+        // 派出去、召回：只有下命令的那一方要听回音
+        if (own) push('calm', { kind: 'teamSent', region: team.region, days: team.arrivesIn });
+      } else if (team.region >= 0 && old.arrivesIn > 0 && team.arrivesIn === 0) {
+        push(own ? 'calm' : 'danger', { kind: 'teamArrived', region: team.region, own });
+      }
+    });
+    if (now.defense.briefingIn > before.defense.briefingIn) {
+      push(own ? 'calm' : 'danger', {
+        kind: 'briefing',
+        from: before.defense.trust,
+        to: now.defense.trust,
+        own,
+      });
+    }
+    if (own && now.defense.priority !== before.defense.priority) {
+      push('calm', { kind: 'priority', policy: now.defense.priority });
     }
   }
 

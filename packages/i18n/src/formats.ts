@@ -9,7 +9,7 @@ export interface Formats {
   readonly whole: (value: number) => string;
   /** 百分比，不带小数：0.42 → 42% */
   readonly percent: (value: number) => string;
-  /** 保留一位小数的数：预算、每天的收支这类小额 */
+  /** 预算、每天的收支这类小额：保留一位小数；不到 1 的留两位（一项措施一天只要零点零几） */
   readonly amount: (value: number) => string;
   /** 'YYYY-MM-DD' → 这种语言的长日期（2026年11月13日、November 13, 2026） */
   readonly longDate: (date: string) => string;
@@ -28,13 +28,17 @@ export function formatsFor(tag: string): Formats {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   });
+  const small = new Intl.NumberFormat(tag, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
   // 游戏里的日期没有时区：按 UTC 格式化，哪里的玩家看到的都是同一天
   const date = new DateFormatter(tag, { dateStyle: 'long', timeZone: 'UTC' });
   const formats: Formats = {
     compact: (value) => compact.format(value),
     whole: (value) => whole.format(value),
     percent: (value) => percent.format(value),
-    amount: (value) => amount.format(value),
+    amount: (value) => (value !== 0 && Math.abs(value) < 1 ? small : amount).format(value),
     longDate: (text) => date.format(parseDate(text).toDate('UTC')),
   };
   cache.set(tag, formats);

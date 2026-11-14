@@ -2,11 +2,12 @@
 import { clamp, lerp } from '@rune-engine/core';
 import {
   COLD,
-  MEASURE_BITS,
+  measureLevel,
   TROPICAL,
   type DefenseStats,
   type Measure,
   type PathogenStats,
+  type Rules,
 } from '../config.ts';
 import type { OutbreakState } from '../state.ts';
 
@@ -27,20 +28,38 @@ export function winter(state: OutbreakState, region: number): number {
   return config.south ? -north : north;
 }
 
-/** 一个地区的措施（按位）里某一项开着没有 */
+/** 一个地区的措施里某一项开着没有（不管哪一档） */
 export const measureOn = (bits: number, measure: Measure): boolean =>
-  (bits & MEASURE_BITS[measure]) !== 0;
+  measureLevel(bits, measure) > 0;
 
 export function hasMeasure(state: OutbreakState, region: number, measure: Measure): boolean {
   return measureOn(state.measures[region]!, measure);
 }
 
+/** 一项措施现在这一档是全力的几成（没开是 0） */
+export const strengthOf = (rules: Rules, bits: number, measure: Measure): number =>
+  rules.levelEffect[measureLevel(bits, measure)] ?? 0;
+
 /**
- * 一项措施打完折剩下的比例：没开是 1，开了是 1 − 效果 × 配合程度。
+ * 一项措施打完折剩下的比例：没开是 1，开了是 1 − 效果 × 这一档的成数 × 配合程度。
  * bits 是那个地区的措施；传 0 就是“假如一项都没开”（算措施一共压掉了多少时用）
  */
-export function after(bits: number, measure: Measure, effect: number, comply: number): number {
-  return measureOn(bits, measure) ? 1 - effect * comply : 1;
+export function after(
+  rules: Rules,
+  bits: number,
+  measure: Measure,
+  effect: number,
+  comply: number,
+): number {
+  return 1 - effect * strengthOf(rules, bits, measure) * comply;
+}
+
+/** 这个地区现在有没有应急队驻着（派了但还在路上的不算） */
+export function teamAt(state: OutbreakState, region: number): boolean {
+  for (let team = 0; team < state.teamRegion.length; team++) {
+    if (state.teamRegion[team] === region && state.teamArrives[team]! <= state.tick) return true;
+  }
+  return false;
 }
 
 /** 按富裕程度查表；国际援助把低于中等（2）的地区往中等的数值拉 */
@@ -73,7 +92,8 @@ export function detectionIn(
     rules.detectPerSeverity * pathogen.severity -
     rules.detectPerStealth * pathogen.stealth +
     defense.detection +
-    (measureOn(bits, 'testing') ? rules.testingDetect * comply : 0);
+    rules.testingDetect * strengthOf(rules, bits, 'testing') * comply +
+    (teamAt(state, region) ? rules.teamDetect : 0);
   const struck = state.disasterUntil[region]! > state.tick ? rules.disasterCare : 1;
   return clamp(base * struck, rules.detectMin, rules.detectMax);
 }

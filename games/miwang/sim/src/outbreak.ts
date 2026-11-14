@@ -4,7 +4,7 @@
 import { fnv1a, hashNumbers, type Simulation, type Stamped } from '@rune-engine/core';
 import { applyCommand, type Command } from './commands.ts';
 import type { OutbreakConfig } from './config.ts';
-import { compliance, settleEconomy, updateTrust } from './rules/defense.ts';
+import { arriveTeams, compliance, settleEconomy, updateTrust } from './rules/defense.ts';
 import { progress, type DayTally } from './rules/epidemic.ts';
 import { rollEvents } from './rules/events.ts';
 import { recordHistory } from './rules/history.ts';
@@ -35,6 +35,7 @@ function step(state: OutbreakState, commands: readonly Stamped<Command>[]) {
   const tally: DayTally = { infections: 0, deaths: 0, newRegions: 0 };
 
   recordHistory(state);
+  arriveTeams(state);
   rollEvents(state);
   travel(state, pathogen, comply, tally);
   progress(state, pathogen, defense, comply, tally);
@@ -67,6 +68,8 @@ function hash(state: OutbreakState): number {
     state.economyLost,
     state.infectedTotal,
     state.clearStreak,
+    state.priority,
+    state.briefingReadyAt,
     state.news.length,
     state.hops.length,
     state.history.cases.length,
@@ -88,6 +91,8 @@ function hash(state: OutbreakState): number {
     state.measures,
     state.gatheringUntil,
     state.disasterUntil,
+    state.teamRegion,
+    state.teamArrives,
     state.traits,
     state.techs,
     state.techRemaining,

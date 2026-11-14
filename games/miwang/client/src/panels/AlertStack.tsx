@@ -8,6 +8,7 @@ import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import {
   Activity,
+  Ambulance,
   Coins,
   Dna,
   FlaskConical,
@@ -16,6 +17,7 @@ import {
   HeartPulse,
   Hourglass,
   Lock,
+  Megaphone,
   Microscope,
   ShieldCheck,
   Skull,
@@ -54,6 +56,10 @@ const ICONS: Readonly<Record<AlertData['kind'], IconData>> = {
   measure: ShieldCheck,
   measures: ShieldCheck,
   crackdown: Lock,
+  teamSent: Ambulance,
+  teamArrived: Ambulance,
+  briefing: Megaphone,
+  priority: Syringe,
 };
 
 export const AlertStack = _component(
@@ -69,7 +75,8 @@ export const AlertStack = _component(
     onDismiss: (id: number) => void;
   }) =>
     () => {
-      const ui = useUi().alerts;
+      const all = useUi();
+      const ui = all.alerts;
       const content = useContent();
       const format = useFormats();
 
@@ -131,6 +138,23 @@ export const AlertStack = _component(
             return { title: ui.measures(data.count) };
           case 'crackdown':
             return { title: ui.crackdown(placeName(data.region), data.count) };
+          case 'teamSent':
+            return {
+              title:
+                data.region < 0 ? ui.teamRecalled : ui.teamSent(placeName(data.region), data.days),
+            };
+          case 'teamArrived':
+            return {
+              title: (data.own ? ui.teamArrived : ui.teamArrivedTheirs)(placeName(data.region)),
+              detail: ui.teamDetail,
+            };
+          case 'briefing':
+            return {
+              title: data.own ? ui.briefingOwn : ui.briefingTheirs,
+              detail: ui.briefingEffect(format.percent(data.from), format.percent(data.to)),
+            };
+          case 'priority':
+            return { title: ui.priority(all.command.policies[data.policy].name) };
         }
       };
 

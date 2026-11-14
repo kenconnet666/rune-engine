@@ -8,7 +8,7 @@
  * 地图上的弧线也在这里定：选中的地区画出它的航线和海运；疾病跳到新地区的那一下画一道走动的光（只有攻方看得到）。
  */
 import { regions } from '@miwang/content';
-import { MEASURE_BITS, type Command, type OutbreakView } from '@miwang/sim';
+import { measureLevel, type Command, type OutbreakView } from '@miwang/sim';
 import {
   connectSession,
   type ClientMessage,
@@ -121,9 +121,9 @@ function show(view: OutbreakView) {
   latestView = view;
   if (!renderer) return;
   renderer.setValues(layerValues(view, layer), performance.now());
-  // 地图上现在只画封锁（斜纹）；别的措施在地区面板里看
+  // 地图上现在只画封锁（斜纹，不分档）；别的措施在地区面板里看
   renderer.setFlags(
-    Uint8Array.from(view.measures, (bits) => ((bits & MEASURE_BITS.lockdown) !== 0 ? 1 : 0)),
+    Uint8Array.from(view.measures, (bits) => (measureLevel(bits, 'lockdown') > 0 ? 1 : 0)),
   );
   hops = view.hops;
   today = view.tick;

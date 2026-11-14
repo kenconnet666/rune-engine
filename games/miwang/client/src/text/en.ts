@@ -105,6 +105,15 @@ export const en: ClientText = {
       count > 1
         ? `The response tightened in ${place} and ${count - 1} more`
         : `The response tightened in ${place}`,
+    teamSent: (place, days) => `Response team heading to ${place}, ${days} days out`,
+    teamRecalled: 'Response team recalled to standby',
+    teamArrived: (place) => `Response team arrived in ${place}`,
+    teamArrivedTheirs: (place) => `A response team reached ${place}`,
+    teamDetail: 'More cases get found there, and more patients pull through',
+    briefingOwn: 'Briefing held',
+    briefingTheirs: 'The response held a briefing',
+    briefingEffect: (from, to) => `Public trust ${from} → ${to}`,
+    priority: (name) => `Vaccine allocation: ${name}`,
   },
 
   news: {
@@ -119,6 +128,8 @@ export const en: ClientText = {
     vaccine: 'Vaccination begins everywhere',
     traced: (place) => `Origin traced to ${place}`,
     eventAt: (place, name) => `${place}: ${name}`,
+    team: (place) => `A response team arrived in ${place}`,
+    briefing: 'The response held a public briefing',
   },
 
   region: {
@@ -135,13 +146,88 @@ export const en: ClientText = {
     gathering: 'A mass gathering is under way here.',
     disaster: 'A natural disaster has struck here.',
     measures: 'Measures',
-    measuresOn: (count) => `${count} active`,
+    plans: 'Playbooks',
     defenderHere: (names) => `The response here: ${names}`,
     defenderNone: 'The response has taken no measures here yet.',
+    levels: ['Off', 'Light', 'Medium', 'Full'],
+    leveled: (name, level) => `${name} (${level})`,
+    brush: 'Strength',
+    brushHint: (effect, cost) =>
+      `Click a measure to set it to this strength; click again to turn it off. This strength gives ${effect} of the full effect at ${cost} of the cost.`,
     daily: (cost) => `${cost} per day`,
     setup: (cost) => `${cost} to start`,
     measureHint: (name, detail, setup, daily) =>
-      `${name}: ${detail} (${setup} to start, then ${daily} per day)`,
+      `${name}: ${detail} (${setup} up front, then ${daily} per day)`,
+    presets: 'Playbooks',
+    presetNames: {
+      watch: 'Watch',
+      mitigate: 'Mitigate',
+      contain: 'Contain',
+      clear: 'Lift all',
+      custom: 'Custom',
+    },
+    presetHints: {
+      watch: 'See clearly first: some testing and isolation, screening at the gates.',
+      mitigate: 'No lockdown; testing, isolation and masks done properly.',
+      contain: 'Lock down and cut travel: the hardest, costliest and most trust-draining.',
+      clear: 'Lift every measure here.',
+      custom: 'The set you saved.',
+    },
+    presetCost: (cost) => `Costs ${cost}`,
+    presetSame: 'In place',
+    saveCustom: 'Save this region’s setup as “Custom”',
+    savedCustom: 'Saved',
+    copy: 'Apply this region’s setup to',
+    copyTargets: {
+      neighbors: (count) => `${count} neighbouring regions`,
+      reported: (count) => `${count} regions with cases`,
+      all: (count) => `All ${count} other regions`,
+    },
+    copyHint:
+      'Changes start with the worst-hit regions; if the budget runs out, the rest stay as they are.',
+    teamHere: 'A response team is stationed here: more cases found, more patients saved.',
+    teamSend: 'Send a response team here',
+    teamIdle: (count) => `${count} on standby`,
+    teamNone: 'All deployed',
+    teamNoneHint: 'No team on standby: redirect one from Command, or recall one first.',
+    teamRecall: 'Recall the team here',
+    teamComing: (days) => `A response team is on its way: ${days} days out.`,
+  },
+
+  command: {
+    title: 'Command',
+    teams: 'Response teams',
+    teamsHint: (days) =>
+      `Where a team is stationed, more cases get found and more patients pull through. Moving takes ${days} days, and a team does nothing on the road.`,
+    idle: 'On standby',
+    travelling: (place, days) => `To ${place} · ${days} days out`,
+    stationed: (place) => `Stationed in ${place}`,
+    send: 'Send to the selected region',
+    sendNone: 'Select a region on the map first',
+    recall: 'Recall',
+    priority: 'Who gets the vaccine first',
+    policies: {
+      even: { name: 'No preference', detail: 'Every region vaccinates at its own pace.' },
+      hotspots: {
+        name: 'Hotspots first',
+        detail: 'Regions reporting many cases go faster; the rest go slower.',
+      },
+      vulnerable: {
+        name: 'Weak health systems first',
+        detail: 'Regions with weak care go faster: that is where the most patients die.',
+      },
+      productive: {
+        name: 'Big economies first',
+        detail: 'Regions that fund the budget go faster: it protects income.',
+      },
+    },
+    policyLine: (name, detail) => `${name}: ${detail}`,
+    priorityPending: 'No vaccine yet: set it now and it applies the day rollout begins.',
+    briefing: 'Hold a briefing',
+    briefingCost: (cost, trust) => `Budget ${cost} · trust +${trust}`,
+    briefingWait: (days) => `${days} days to go`,
+    briefingHint:
+      'Spend budget to explain the plan and public trust rises; briefings need a pause between them.',
   },
 
   pathogen: {
@@ -342,7 +428,11 @@ export const en: ClientText = {
     cost: 'Cost',
     requires: 'Requires',
     none: 'nothing',
-    upkeep: (cost) => `${cost} per day in a region of 50 million, scaled by population`,
+    upkeep: (cost) =>
+      `At full strength, ${cost} per day in a region of 50 million, scaled by population`,
+    levels: 'Strengths',
+    levelsValue: (effects, costs) =>
+      `Light / Medium / Full: ${effects} of the full effect at ${costs} of the cost`,
     research: (cost, days) => `Budget ${cost} · ${days} days`,
   },
 

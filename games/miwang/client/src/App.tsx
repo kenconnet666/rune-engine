@@ -2,7 +2,7 @@
  * 主界面：整屏的地图（画布在渲染 Worker 里画），上面压一层界面。
  * 界面层自己不接收指针，只有面板和按钮接收：拖得动、点得到下面的地图。
  *
- * 布局：左边一列是态势和新闻，右边一列是选中的地区和双方的概况，底下一排是时间和地图的控制。
+ * 布局：左边一列是态势和新闻，右边一列是选中的地区、守方的指挥和双方的概况，底下一排是时间和地图的控制。
  * 进化、研究这两件要细看的事在盖住画面的工作台里做（从右边的概况打开）。
  *
  * 目录：panels/ 是对局里一直在的那几块面板，screens/ 是盖住画面的那几层（主菜单、开局设置、工作台、百科、设置、结算）。
@@ -22,6 +22,7 @@ import { placeName, useFormats, useUi } from './i18n.ts';
 import { createMapController, type MapController } from './map.ts';
 import { palette } from './palette.ts';
 import { AlertStack } from './panels/AlertStack.tsx';
+import { CommandPanel } from './panels/CommandPanel.tsx';
 import { ControlBar } from './panels/ControlBar.tsx';
 import { GoalPanel } from './panels/GoalPanel.tsx';
 import { HintPanel } from './panels/HintPanel.tsx';
@@ -235,9 +236,7 @@ export const App = _component(() => {
                   index={selected}
                   view={view}
                   onClose={() => map?.select(-1)}
-                  onMeasure={(measure, on) =>
-                    game?.send({ type: 'measure', region: selected, measure, on })
-                  }
+                  onCommand={(command) => game?.send(command)}
                   readonly={watching}
                 />
               )}
@@ -253,6 +252,13 @@ export const App = _component(() => {
                 </>
               ) : (
                 <>
+                  <CommandPanel
+                    view={view}
+                    selected={selected}
+                    onCommand={(command) => game?.send(command)}
+                    onLocate={locate}
+                    readonly={watching}
+                  />
                   <ResearchPanel
                     view={view}
                     onOpen={() => (overlay = 'workbench')}

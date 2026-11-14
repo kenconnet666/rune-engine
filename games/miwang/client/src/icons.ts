@@ -7,6 +7,7 @@ import type { Measure, NewsKind, TraitGroup } from '@miwang/sim';
 import { FaceMask, Lungs, Mosquito, PlaneOff, type IconData } from '@rune-engine/ui';
 import {
   AirVent,
+  Ambulance,
   Anchor,
   Annoyed,
   Baby,
@@ -179,6 +180,8 @@ const NEWS: Readonly<Record<NewsKind, IconData>> = {
   event: Zap,
   traced: Radar,
   outcome: Trophy,
+  team: Ambulance,
+  briefing: Megaphone,
 };
 
 const PATHOGENS: Readonly<Record<string, IconData>> = {

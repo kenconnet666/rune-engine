@@ -1,5 +1,5 @@
 /**
- * 压在地图上、跟着地图走的那一层：地区的名字，和地区上正在发生的事的标记（集会、灾害、起源地）。
+ * 压在地图上、跟着地图走的那一层：地区的名字，和地区上正在发生的事的标记（集会、灾害、起源地、应急队）。
  * 它们是 DOM 元素，位置用和渲染线程同一套换算从相机算出来，所以拖动、缩放时和地图对得上。
  * 名字只给在屏幕上够大的地区标（放大以后小的地区才露出名字），而且最多标那么多个，免得糊成一片。
  * 整层不接收指针：点下去点到的是地图。
@@ -10,7 +10,7 @@ import { mapScale, type MapBounds } from '@rune-engine/render/map-view';
 import { colors, fonts, Icon } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { CloudRainWind, Crosshair, PartyPopper } from 'lucide';
+import { Ambulance, CloudRainWind, Crosshair, PartyPopper } from 'lucide';
 import type { Ping } from '../feedback/alerts.ts';
 import { placeName } from '../i18n.ts';
 import type { MapController } from '../map.ts';
@@ -68,6 +68,9 @@ const styles = css.create({
   gathering: { color: colors.signal },
   disaster: { color: colors.danger },
   origin: { color: colors.calm },
+  team: { color: colors.calm },
+  // 还在路上的应急队：虚线圈
+  coming: { borderStyle: 'dashed', opacity: 0.7 },
   // 闪一下：一个圈从小到大、由实到淡，告诉你“这里刚出了事”。
   // 外面一层只管摆位置，里面一层只管动：缩放要是和定位写在同一个元素上，会连位置一起缩
   pingAt: { position: 'absolute', insetBlockStart: 0, insetInlineStart: 0 },
@@ -114,13 +117,21 @@ export const MapOverlay = _component(
       const viewport = { width: canvas.clientWidth, height: canvas.clientHeight };
       const scale = mapScale(bounds as unknown as MapBounds, viewport, camera.zoom);
 
+      /** 各地区的应急队：到了的是 0，还在路上的是剩下的天数 */
+      const teams = new Map<number, number>();
+      for (const team of view.defense.teams) {
+        if (team.region < 0) continue;
+        teams.set(team.region, Math.min(team.arrivesIn, teams.get(team.region) ?? Infinity));
+      }
+
       const items = [];
       let labels = 0;
       for (const index of bySize) {
         const marks = view.happening[index] ?? 0;
         const origin = view.origin === index;
         const named = labels < LABEL_LIMIT && sizes[index]! * scale >= LABEL_MIN_SIZE;
-        if (!named && marks === 0 && !origin) continue;
+        const team = teams.get(index);
+        if (!named && marks === 0 && !origin && team === undefined) continue;
         const center = regions[index]!.center;
         const [x, y] = map.toScreen(center[0]!, center[1]!);
         // 屏幕外面的不画
@@ -128,8 +139,16 @@ export const MapOverlay = _component(
         if (named) labels++;
         items.push(
           <div key={index} {...css.attrs(styles.item, places.at(Math.round(x), Math.round(y)))}>
-            {(marks !== 0 || origin) && (
+            {(marks !== 0 || origin || team !== undefined) && (
               <span {...css.attrs(styles.marks)}>
+                {team !== undefined && (
+                  <span
+                    data-mark="team"
+                    {...css.attrs(styles.mark, styles.team, team > 0 && styles.coming)}
+                  >
+                    <Icon icon={Ambulance} size="0.875rem" />
+                  </span>
+                )}
                 {origin && (
                   <span {...css.attrs(styles.mark, styles.origin)}>
                     <Icon icon={Crosshair} size="0.875rem" />

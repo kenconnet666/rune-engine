@@ -92,6 +92,15 @@ export const zh = {
     measures: (count: number) => `${count} 个地区的措施变了`,
     crackdown: (place: string, count: number) =>
       count > 1 ? `守方在${place}等 ${count} 个地区收紧了` : `守方在${place}收紧了`,
+    teamSent: (place: string, days: number) => `应急队出发去${place}，${days} 天后到`,
+    teamRecalled: '应急队召回待命',
+    teamArrived: (place: string) => `应急队抵达${place}`,
+    teamArrivedTheirs: (place: string) => `守方的应急队到了${place}`,
+    teamDetail: '那里发现得更多，救得回来的也更多',
+    briefingOwn: '开了发布会',
+    briefingTheirs: '守方开了发布会',
+    briefingEffect: (from: string, to: string) => `公众信任 ${from} → ${to}`,
+    priority: (name: string) => `疫苗分配改成：${name}`,
   },
 
   news: {
@@ -106,6 +115,8 @@ export const zh = {
     vaccine: '疫苗开始在各地接种',
     traced: (place: string) => `溯源完成：起源地是${place}`,
     eventAt: (place: string, name: string) => `${place}：${name}`,
+    team: (place: string) => `应急队抵达${place}`,
+    briefing: '守方召开了发布会',
   },
 
   region: {
@@ -123,13 +134,78 @@ export const zh = {
     gathering: '这里正有大型集会。',
     disaster: '这里正遭受自然灾害。',
     measures: '措施',
-    measuresOn: (count: number) => `${count} 项开着`,
+    plans: '预案与推广',
     defenderHere: (names: string) => `守方在这里：${names}`,
     defenderNone: '守方还没有在这里采取措施。',
+    /** 档位的叫法，下标就是档位 */
+    levels: ['没开', '轻', '中', '全力'],
+    leveled: (name: string, level: string) => `${name}（${level}）`,
+    brush: '力度',
+    brushHint: (effect: string, cost: string) =>
+      `点一项措施就开到这一档，再点一下关掉。这一档的效果是全力的 ${effect}，花费是 ${cost}。`,
     daily: (cost: string) => `每天 ${cost}`,
     setup: (cost: string) => `开启 ${cost}`,
     measureHint: (name: string, detail: string, setup: string, daily: string) =>
-      `${name}：${detail}（开启 ${setup}，之后每天 ${daily}）`,
+      `${name}：${detail}（预付 ${setup}，之后每天 ${daily}）`,
+    presets: '预案',
+    presetNames: {
+      watch: '监测',
+      mitigate: '缓解',
+      contain: '围堵',
+      clear: '全撤',
+      custom: '自定',
+    },
+    presetHints: {
+      watch: '先看清楚：检测、隔离开一点，口岸筛查。',
+      mitigate: '不封锁，把检测、隔离、口罩做足。',
+      contain: '封锁并切断往来：最狠，也最贵、最伤信任。',
+      clear: '这里的措施全部撤掉。',
+      custom: '你存下来的那一套。',
+    },
+    presetCost: (cost: string) => `预付 ${cost}`,
+    presetSame: '已是这样',
+    saveCustom: '把这里的做法存成“自定”',
+    savedCustom: '存好了',
+    copy: '把这里的做法用到',
+    copyTargets: {
+      neighbors: (count: number) => `相邻的 ${count} 个地区`,
+      reported: (count: number) => `有病例的 ${count} 个地区`,
+      all: (count: number) => `其余全部 ${count} 个地区`,
+    },
+    copyHint: '从病例最重的地区开始改；预算不够的话，后面的地区不生效。',
+    teamHere: '应急队驻在这里：发现得更多，救得回来的也更多。',
+    teamSend: '派应急队来这里',
+    teamIdle: (count: number) => `${count} 支待命`,
+    teamNone: '都派出去了',
+    teamNoneHint: '没有待命的队伍了：在“指挥”里把别处的调过来，或者先召回一支。',
+    teamRecall: '召回这里的应急队',
+    teamComing: (days: number) => `应急队正在赶来，还要 ${days} 天。`,
+  },
+
+  command: {
+    title: '指挥',
+    teams: '应急队',
+    teamsHint: (days: number) =>
+      `驻着的地区发现得更多、救得回来的也更多。换地方要走 ${days} 天，路上不起作用。`,
+    idle: '待命',
+    travelling: (place: string, days: number) => `去${place} · 还要 ${days} 天`,
+    stationed: (place: string) => `驻在${place}`,
+    send: '派到选中的地区',
+    sendNone: '先在地图上选一个地区',
+    recall: '召回',
+    priority: '疫苗先给谁',
+    policies: {
+      even: { name: '不偏向', detail: '各地区按自己的接种能力打。' },
+      hotspots: { name: '重灾区优先', detail: '上报病例多的地方打得快，别处慢一些。' },
+      vulnerable: { name: '医疗弱的优先', detail: '医疗弱的地方打得快：那里病死的比例最高。' },
+      productive: { name: '经济重的优先', detail: '交预算多的地方打得快：保住收入。' },
+    },
+    policyLine: (name: string, detail: string) => `${name}：${detail}`,
+    priorityPending: '疫苗还没做出来：先定下，接种一开始就照这个办。',
+    briefing: '开发布会',
+    briefingCost: (cost: string, trust: string) => `预算 ${cost} · 信任 +${trust}`,
+    briefingWait: (days: number) => `还要 ${days} 天`,
+    briefingHint: '花预算把话讲清楚，公众信任涨一截；开过一次要隔一阵才能再开。',
   },
 
   pathogen: {
@@ -324,7 +400,10 @@ export const zh = {
     cost: '代价',
     requires: '前置',
     none: '无',
-    upkeep: (cost: string) => `人口 5000 万的地区每天 ${cost}，按人口折算`,
+    upkeep: (cost: string) => `全力时，人口 5000 万的地区每天 ${cost}，按人口折算`,
+    levels: '档位',
+    levelsValue: (effects: string, costs: string) =>
+      `轻 / 中 / 全力：效果是全力的 ${effects}，花费是 ${costs}`,
     research: (cost: number, days: number) => `预算 ${cost} · ${days} 天`,
   },
 

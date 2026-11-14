@@ -8,7 +8,7 @@ describe('消息的编码', () => {
       tick: 42,
       view: {
         intensity: new Float32Array([0, 0.25, 1]),
-        measures: new Uint16Array([0, 8, 1023]),
+        measures: new Uint32Array([0, 8, 1048575]),
         cases: new Float64Array([1e12, 0.5]),
         flags: new Uint8Array([1, 2, 3, 4, 5]),
         news: [{ kind: 'spread', region: 3 }],
@@ -19,7 +19,7 @@ describe('消息的编码', () => {
     const decoded = decodeMessage(encodeMessage(message)) as typeof message;
     expect(decoded).toEqual(message);
     expect(decoded.view.intensity).toBeInstanceOf(Float32Array);
-    expect(decoded.view.measures).toBeInstanceOf(Uint16Array);
+    expect(decoded.view.measures).toBeInstanceOf(Uint32Array);
   });
 
   it('数组是原样的字节，不是数字列表：一千个数只占四千多字节', () => {

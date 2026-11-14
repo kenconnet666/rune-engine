@@ -167,6 +167,37 @@ try {
   await page.waitFor(hasText('加强检测'), { what: '选中地区之后的措施' });
   await done('地图：点选一个地区，出现它的措施');
 
+  // 守方的操作。命令到下一天才生效，所以让时间走着
+  await page.evaluate(`document.querySelector('[aria-label="1 倍速"]').click()`);
+  const measure = (id) => `document.querySelector('[data-measure="${id}"]')`;
+  const preset = (id) => `document.querySelector('[data-preset="${id}"]')`;
+  await page.clickButton('轻');
+  await page.evaluate(`${measure('testing')}.click()`);
+  await page.waitFor(`${measure('testing')}?.dataset.level === '1'`, {
+    what: '“加强检测”开到轻的那一档',
+  });
+  await page.clickButton('预案与推广');
+  await page.waitFor(`${preset('contain')} && !${preset('contain')}.disabled`, {
+    what: '“围堵”预案',
+  });
+  await page.evaluate(`${preset('contain')}.click()`);
+  // 这里已经是预案的样子时，那块预案亮着、点不动
+  await page.waitFor(`${preset('contain')}?.disabled`, { what: '“围堵”预案生效' });
+  await page.clickButton('措施');
+  await page.waitFor(`${measure('lockdown')}?.dataset.level === '3'`, { what: '封锁开到了全力' });
+  await done('措施：分档开了一项，再用预案一次设到位');
+
+  await page.clickButton('派应急队来这里');
+  await page.waitFor(
+    `document.querySelector('[data-mark="team"]') && ${hasButton('召回这里的应急队')}`,
+    { what: '应急队出发，地图上有它的标记' },
+  );
+  await page.clickButton('开发布会');
+  await page.waitFor(`${hasText('开了发布会')} && !${canPress('开发布会')}`, {
+    what: '发布会开了，进入冷却',
+  });
+  await done('指挥：派出应急队，开了发布会');
+
   await page.clickButton('菜单');
   await page.waitFor(hasButton('继续这一局'), { what: '主菜单里的“继续”' });
   await done('菜单：回到主菜单，可以继续');
@@ -178,9 +209,13 @@ try {
   await page.evaluate(`document.querySelector('[aria-label="从头回放"]').click()`);
   await page.waitFor(hasButton('退出回放'), { what: '回放的进度条' });
   await page.waitFor(hasText(' 天 / 共 '), { what: '回放的进度' });
-  // 回放时不能操作：进化、研究的入口都不在
-  if (await page.evaluate(`${hasButton('进化')} || ${hasButton('安排研究')}`)) {
-    throw new Error('回放时还能看到进化或研究的入口');
+  // 回放时不能操作：进化、研究、发布会的入口都不在
+  if (
+    await page.evaluate(
+      `${hasButton('进化')} || ${hasButton('安排研究')} || ${hasButton('开发布会')}`,
+    )
+  ) {
+    throw new Error('回放时还能看到进化、研究或发布会的入口');
   }
   await page.clickButton('退出回放');
   await page.waitFor(`!${hasButton('退出回放')} && /第 [0-9]+ 天/.test(document.body.innerText)`, {

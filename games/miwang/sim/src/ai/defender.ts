@@ -1,14 +1,17 @@
 /**
  * 守方的电脑对手。它和玩家一样只看得到上报的数字：
  *   研究——按“每一点预算换来多少效果”挑；疫情越重越看重疫苗和药物，信任越低越看重沟通。
- *   措施——每个地区按上报的病例占人口的比例，一档一档往上加：检测、隔离 → 口罩 → 封锁并关口岸；
- *           降下来之后再一档一档撤（撤的线比加的线低，免得来回开关）。
+ *   措施——每个地区按上报的病例占人口的比例，一步一步往上加：检测、隔离 → 口罩 → 封锁并关口岸；
+ *           降下来之后再一步一步撤（撤的线比加的线低，免得来回开关）。它开的都是全力那一档。
+ *   应急队——派去上报病例最重的几个地区；原来驻的地方还排在前几名就不挪（来回跑的路上什么都干不了）。
+ *   发布会——信任掉得厉害、手头又有余钱时开。疫苗——困难档会把疫苗优先给疫情重的地方。
  * 花钱有两条约束：手里要留一点应急的，维持费不能超过收入太多。
  */
 import type { Command } from '../commands.ts';
 import {
   DEFENSE_KEYS,
-  MEASURE_BITS,
+  MAX_LEVEL,
+  measureLevel,
   MEASURES,
   TROPICAL,
   type DefenseKey,
@@ -64,56 +67,87 @@ function research(view: OutbreakView, config: OutbreakConfig, reserve: number): 
   return best && best.cost + reserve <= view.resource ? [{ type: 'research', tech: best.id }] : [];
 }
 
-/** 这个地区现在该开哪些措施（按位） */
+/** 这个地区现在该开哪些措施 */
 function wanted(
   view: OutbreakView,
   config: OutbreakConfig,
   region: number,
   lockAt: number,
   targeted: boolean,
-): number {
+): Set<Measure> {
   const { population, wealth, climate } = config.regions[region]!;
   const share = population > 0 ? view.cases[region]! / population : 0;
   const current = view.measures[region]!;
-  const has = (measure: Measure) => (current & MEASURE_BITS[measure]) !== 0;
+  const has = (measure: Measure) => measureLevel(current, measure) > 0;
   /** 到了线就开；已经开着的，降到线的六分之一以下才撤 */
   const hold = (measure: Measure, line: number) =>
     share >= line || (has(measure) && share >= line / 6);
 
-  let bits = 0;
-  if (share > 0) bits |= MEASURE_BITS.testing | MEASURE_BITS.isolation;
-  if (hold('masks', lockAt / 8)) bits |= MEASURE_BITS.masks;
-  if (hold('lockdown', lockAt)) {
-    bits |=
-      MEASURE_BITS.lockdown | MEASURE_BITS.airports | MEASURE_BITS.borders | MEASURE_BITS.ports;
-  }
+  const open = new Set<Measure>();
+  if (share > 0) open.add('testing').add('isolation');
+  if (hold('masks', lockAt / 8)) open.add('masks');
+  if (hold('lockdown', lockAt)) open.add('lockdown').add('airports').add('borders').add('ports');
   if (targeted && view.pathogen.stats && share >= lockAt / 8) {
     // 知道了传播途径才知道该不该净水、灭蚊
-    if (view.pathogen.stats.water > 0.12 && wealth < 2) bits |= MEASURE_BITS.sanitation;
-    if (view.pathogen.stats.vector > 0.12 && climate === TROPICAL) {
-      bits |= MEASURE_BITS.vectorControl;
-    }
+    if (view.pathogen.stats.water > 0.12 && wealth < 2) open.add('sanitation');
+    if (view.pathogen.stats.vector > 0.12 && climate === TROPICAL) open.add('vectorControl');
   }
-  return bits;
+  return open;
+}
+
+/** 应急队该去哪里：上报病例占人口最重的几个地区；原来驻的地方还在前几名里就不动 */
+function dispatch(view: OutbreakView, config: OutbreakConfig): Command[] {
+  const { teams } = view.defense;
+  const worst = Array.from(view.cases, (cases, region) => ({
+    region,
+    share: cases / Math.max(1, config.regions[region]!.population),
+  }))
+    .filter((it) => it.share > 0)
+    .sort((a, b) => b.share - a.share)
+    .slice(0, teams.length + 2)
+    .map((it) => it.region);
+  const covered = new Set(teams.map((team) => team.region).filter((r) => worst.includes(r)));
+  const commands: Command[] = [];
+  teams.forEach((team, index) => {
+    if (covered.has(team.region)) return;
+    const target = worst.find((region) => !covered.has(region));
+    if (target === undefined) return;
+    covered.add(target);
+    commands.push({ type: 'team', team: index, region: target });
+  });
+  return commands;
 }
 
 export function defend(view: OutbreakView, config: OutbreakConfig, level: AiLevel): Command[] {
   const { every, lockAt, commands: limit, reserve, targeted } = LEVELS[level];
   if (view.tick % every !== 0) return [];
   const commands: Command[] = research(view, config, reserve);
+  const { rules } = config;
+
+  if (level >= 1) {
+    commands.push(...dispatch(view, config));
+    // 信任掉得厉害、手头又有余钱：开发布会
+    const spare = view.resource - reserve - rules.briefingCost;
+    if (view.defense.briefingIn === 0 && view.defense.trust < 0.55 && spare > 20) {
+      commands.push({ type: 'briefing' });
+    }
+  }
+  if (level >= 2 && view.defense.vaccinating && view.defense.priority !== 'hotspots') {
+    commands.push({ type: 'priority', policy: 'hotspots' });
+  }
 
   // 先撤（不花钱），再按病例比例从重到轻开
   const openings: { region: number; measure: Measure; share: number }[] = [];
   for (let region = 0; region < config.regions.length; region++) {
     const current = view.measures[region]!;
     const target = wanted(view, config, region, lockAt, targeted);
-    if (current === target) continue;
+    if (current === 0 && target.size === 0) continue;
     const share = view.cases[region]! / Math.max(1, config.regions[region]!.population);
     for (const measure of MEASURES) {
-      const bit = MEASURE_BITS[measure];
-      if ((current & bit) !== 0 && (target & bit) === 0) {
-        commands.push({ type: 'measure', region, measure, on: false });
-      } else if ((current & bit) === 0 && (target & bit) !== 0) {
+      const on = measureLevel(current, measure) > 0;
+      if (on && !target.has(measure)) {
+        commands.push({ type: 'measure', region, measure, level: 0 });
+      } else if (!on && target.has(measure)) {
         openings.push({ region, measure, share });
       }
     }
@@ -130,7 +164,7 @@ export function defend(view: OutbreakView, config: OutbreakConfig, level: AiLeve
     if (cost > budget || !sustainable) continue;
     budget -= cost;
     upkeep += daily;
-    commands.push({ type: 'measure', region, measure, on: true });
+    commands.push({ type: 'measure', region, measure, level: MAX_LEVEL });
   }
   return commands.slice(0, limit);
 }

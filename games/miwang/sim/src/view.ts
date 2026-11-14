@@ -1,6 +1,6 @@
 /** 一方能看到的部分：攻方看真实的感染，守方只看得到上报；对手的底牌要满足条件才看得到 */
 import { dateAtTick, dateFromText, dateToText, type PlayerId } from '@rune-engine/core';
-import type { Goal, PathogenStats } from './config.ts';
+import { VACCINE_POLICIES, type Goal, type PathogenStats, type VaccinePolicy } from './config.ts';
 import { compliance, dailyBalance } from './rules/defense.ts';
 import { reproductionIn, strainIn } from './rules/epidemic.ts';
 import { HISTORY_EVERY, type History } from './rules/history.ts';
@@ -43,8 +43,8 @@ export interface OutbreakView {
   // 各地区（下标同配置里的地区）
   /** 涂在地图上的“感染程度”（0–1） */
   readonly intensity: Float32Array;
-  /** 措施（按 MEASURE_BITS 的位），双方都看得到 */
-  readonly measures: Uint16Array;
+  /** 措施：每项两位，是它的档位（见 measureLevel）；双方都看得到 */
+  readonly measures: Uint32Array;
   /** 现在的病例：攻方是真实的潜伏加发病，守方是按上报估的 */
   readonly cases: Float64Array;
   /** 累计死亡：攻方是真实的，守方是上报的 */
@@ -105,6 +105,12 @@ export interface OutbreakView {
     readonly vaccinating: boolean;
     /** 累计的经济损失（少收的预算） */
     readonly economyLost: number;
+    /** 各支应急队在哪个地区（-1 是待命）、还要走几天才到（0 是已经到了）；双方都看得到 */
+    readonly teams: readonly { readonly region: number; readonly arrivesIn: number }[];
+    /** 疫苗先给谁 */
+    readonly priority: VaccinePolicy;
+    /** 再过几天才能开发布会（0 是现在就能开） */
+    readonly briefingIn: number;
   };
 
   /** 起源地：攻方总是知道，守方要做完溯源；不知道时是 -1 */
@@ -239,6 +245,12 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
           ),
       vaccinating: vaccineReady(state, defense),
       economyLost: state.economyLost,
+      teams: Array.from(state.teamRegion, (region, team) => ({
+        region,
+        arrivesIn: region < 0 ? 0 : Math.max(0, state.teamArrives[team]! - state.tick),
+      })),
+      priority: VACCINE_POLICIES[state.priority] ?? 'even',
+      briefingIn: Math.max(0, state.briefingReadyAt - state.tick),
     },
     origin: attacker || defense.trace >= 1 ? state.config.origin : -1,
     hops: attacker ? state.hops.filter((hop) => state.tick - hop.tick <= HOPS_SHOWN_DAYS) : [],

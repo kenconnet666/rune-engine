@@ -79,16 +79,24 @@ export const NewsPanel = _component(
             const name = content.events[item.subject]?.name ?? item.subject;
             return place ? ui.eventAt(place, name) : name;
           }
+          case 'team':
+            return ui.team(place);
+          case 'briefing':
+            return ui.briefing;
           case 'outcome':
             return content.outcomes[item.subject as keyof typeof content.outcomes] ?? item.subject;
         }
       };
 
-      /** 这条消息对这一方是好是坏：攻方乐见扩散和变异，守方乐见研究和疫苗 */
+      /** 这条消息对这一方是好是坏：攻方乐见扩散和变异，守方乐见研究、疫苗、应急队到位和发布会 */
       const mood = (item: NewsItem) => {
         const forAttacker = item.kind === 'spread' || item.kind === 'evolve';
         const forDefender =
-          item.kind === 'research' || item.kind === 'vaccine' || item.kind === 'traced';
+          item.kind === 'research' ||
+          item.kind === 'vaccine' ||
+          item.kind === 'traced' ||
+          item.kind === 'team' ||
+          item.kind === 'briefing';
         if (forAttacker) return attacker ? styles.good : styles.bad;
         if (forDefender) return attacker ? styles.bad : styles.good;
         return item.kind === 'report' && !attacker ? styles.bad : null;

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ATTACKER,
   DEFENDER,
-  MEASURE_BITS,
+  measureLevel,
   outbreak,
   type Command,
   type OutbreakConfig,
@@ -25,19 +25,19 @@ const recording: Recording<OutbreakConfig, Command> = {
     {
       tick: 60,
       player: DEFENDER,
-      command: { type: 'measure', region: 0, measure: 'testing', on: true },
+      command: { type: 'measure', region: 0, measure: 'testing', level: 3 },
     },
     {
       tick: 60,
       player: DEFENDER,
-      command: { type: 'measure', region: 1, measure: 'lockdown', on: true },
+      command: { type: 'measure', region: 1, measure: 'lockdown', level: 3 },
     },
     { tick: 90, player: DEFENDER, command: { type: 'research', tech: 'vaccine1' } },
     { tick: 120, player: ATTACKER, command: { type: 'evolve', trait: 'fever' } },
     {
       tick: 200,
       player: DEFENDER,
-      command: { type: 'measure', region: 1, measure: 'lockdown', on: false },
+      command: { type: 'measure', region: 1, measure: 'lockdown', level: 0 },
     },
   ],
 };
@@ -84,8 +84,8 @@ describe('《迷惘》的模拟', () => {
     expect(attacker.totals.cases).not.toBe(defender.totals.cases);
     expect(attacker.totals.infected).toBeGreaterThan(defender.totals.infected);
     // 措施是公开的，双方都看得到
-    expect(attacker.measures[1]! & MEASURE_BITS.lockdown).not.toBe(0);
-    expect(defender.measures[1]! & MEASURE_BITS.lockdown).not.toBe(0);
+    expect(measureLevel(attacker.measures[1]!, 'lockdown')).toBe(3);
+    expect(measureLevel(defender.measures[1]!, 'lockdown')).toBe(3);
   });
 
   it('对手的底牌要满足条件才看得到', () => {
@@ -105,7 +105,7 @@ describe('《迷惘》的模拟', () => {
 
   it('不是自己这一方的、内容不对的命令都不生效，也不会让模拟出错', () => {
     const bad = [
-      { type: 'measure', region: 1, measure: 'lockdown', on: true },
+      { type: 'measure', region: 1, measure: 'lockdown', level: 3 },
       { type: 'research', tech: 'identify' },
     ] as const;
     const wrong: Recording<OutbreakConfig, Command> = {
@@ -120,13 +120,13 @@ describe('《迷惘》的模拟', () => {
         {
           tick: 2,
           player: DEFENDER,
-          command: { type: 'measure', region: 99, measure: 'lockdown', on: true },
+          command: { type: 'measure', region: 99, measure: 'lockdown', level: 3 },
         },
         {
           tick: 2,
           player: DEFENDER,
           // 来自网络的命令不一定守类型：措施的名字可能是任何字符串
-          command: { type: 'measure', region: 1, measure: 'toString', on: true } as never,
+          command: { type: 'measure', region: 1, measure: 'toString', level: 3 } as never,
         },
       ],
     };
@@ -216,4 +216,4 @@ describe('《迷惘》的模拟', () => {
 });
 
 // 跨机器核对用的定值：规则或默认数值改了之后在 x64 上重新算出来填进去
-const GOLDEN_OUTBREAK = 484618813;
+const GOLDEN_OUTBREAK = 1408460653;

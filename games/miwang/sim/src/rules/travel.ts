@@ -3,7 +3,7 @@ import { chance } from '@rune-engine/core';
 import type { Links, PathogenStats } from '../config.ts';
 import { REACHED, type Hop, type OutbreakState } from '../state.ts';
 import { expose, type DayTally } from './epidemic.ts';
-import { after, hasMeasure } from './regional.ts';
+import { after, strengthOf } from './regional.ts';
 
 /** 期望值小到这个数以下就不掷了：省掉绝大多数没有意义的随机数 */
 const NEGLIGIBLE = 1e-7;
@@ -26,21 +26,27 @@ export function travel(
   // 潜伏的人照常出行；发病的人病得越重越走不动
   const mobility = 1 / (1 + rules.severityImmobility * pathogen.severity);
 
-  /** 一个口子（口岸、机场、港口）：出发地或目的地任意一头关了就算关了 */
+  /** 一个口子（口岸、机场、港口）：出发地和目的地谁管得严就按谁的档位算 */
   const gate = (
     from: number,
     to: number,
     measure: 'borders' | 'airports' | 'ports',
     effect: number,
   ) =>
-    hasMeasure(state, from, measure) || hasMeasure(state, to, measure) ? 1 - effect * comply : 1;
+    1 -
+    effect *
+      Math.max(
+        strengthOf(rules, state.measures[from]!, measure),
+        strengthOf(rules, state.measures[to]!, measure),
+      ) *
+      comply;
 
   const send = (from: number, to: number, route: Hop['route'], expected: number) => {
     // 目的地封锁、入境筛查都会拦下一部分
     const admitted =
       expected *
-      after(state.measures[to]!, 'lockdown', rules.lockdownTravel, comply) *
-      after(state.measures[to]!, 'screening', rules.screeningEffect, comply);
+      after(rules, state.measures[to]!, 'lockdown', rules.lockdownTravel, comply) *
+      after(rules, state.measures[to]!, 'screening', rules.screeningEffect, comply);
     if (admitted < NEGLIGIBLE || state.susceptible[to]! <= 0) return;
     const whole = Math.floor(admitted);
     const landed = whole + (chance(state.random, admitted - whole) ? 1 : 0);
@@ -70,7 +76,7 @@ export function travel(
     const carriers = state.exposed[from]! + state.infectious[from]! * mobility;
     if (carriers <= 0) continue;
     const leaving =
-      carriers * after(state.measures[from]!, 'lockdown', rules.lockdownTravel, comply);
+      carriers * after(rules, state.measures[from]!, 'lockdown', rules.lockdownTravel, comply);
     const region = regions[from]!;
     for (const to of region.neighbors) {
       send(

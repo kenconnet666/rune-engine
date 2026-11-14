@@ -65,7 +65,13 @@ const styles = css.create({
   },
   // 文字占满中间：图标靠左、小字靠右
   label: { flexGrow: 1, minWidth: 0 },
-  detail: { fontFamily: fonts.numeric, fontSize: '0.8125rem', color: colors.textMuted },
+  // 小字不折行：地方不够时折的是中间的文字
+  detail: {
+    fontFamily: fonts.numeric,
+    fontSize: '0.8125rem',
+    whiteSpace: 'nowrap',
+    color: colors.textMuted,
+  },
 });
 
 export const ActionButton = _component(

@@ -25,9 +25,19 @@ export const FOR_BOTH = 3;
  *   spread 病原体出现在一个新地区（只有攻方知道）   report 一个地区第一次上报病例
  *   evolve 病原体换了一个性状   research 一项研究完成   vaccine 开始接种
  *   event 发生了一件事（subject 是事件的 id）   traced 找到了起源地   outcome 分出了胜负
+ *   team 应急队抵达一个地区   briefing 守方开了发布会
  */
 export type NewsKind =
-  'spread' | 'report' | 'evolve' | 'research' | 'vaccine' | 'event' | 'traced' | 'outcome';
+  | 'spread'
+  | 'report'
+  | 'evolve'
+  | 'research'
+  | 'vaccine'
+  | 'event'
+  | 'traced'
+  | 'outcome'
+  | 'team'
+  | 'briefing';
 
 export interface NewsItem {
   readonly tick: number;
@@ -82,8 +92,15 @@ export interface OutbreakState {
   /** 各地区按位：REACHED、REPORTED */
   reached: Uint8Array;
 
-  /** 各地区的措施，按 MEASURE_BITS 的位 */
-  measures: Uint16Array;
+  /** 各地区的措施：每项两位，是它的档位（见 config 的 measureLevel） */
+  measures: Uint32Array;
+  /** 各支应急队派去了哪个地区（下标，-1 是待命），和到达的那一步（到了才起作用） */
+  teamRegion: Int16Array;
+  teamArrives: Int32Array;
+  /** 疫苗先给谁（VACCINE_POLICIES 的下标） */
+  priority: number;
+  /** 下一次能开发布会的那一步 */
+  briefingReadyAt: number;
   /** 大型集会、自然灾害在各地区持续到哪一步（不含） */
   gatheringUntil: Int32Array;
   disasterUntil: Int32Array;
@@ -156,7 +173,11 @@ export function createState(config: OutbreakConfig): OutbreakState {
     reportedDeaths: new Float64Array(count),
     visible: new Float64Array(count),
     reached: new Uint8Array(count),
-    measures: new Uint16Array(count),
+    measures: new Uint32Array(count),
+    teamRegion: new Int16Array(rules.teams).fill(-1),
+    teamArrives: new Int32Array(rules.teams),
+    priority: 0,
+    briefingReadyAt: 0,
     gatheringUntil: new Int32Array(count),
     disasterUntil: new Int32Array(count),
     traits: new Uint8Array(config.traits.length),
