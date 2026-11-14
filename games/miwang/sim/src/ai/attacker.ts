@@ -6,7 +6,7 @@
  */
 import type { Command } from '../commands.ts';
 import { EFFECT_KEYS, type EffectKey, type OutbreakConfig, type TraitDef } from '../config.ts';
-import type { OutbreakView } from '../view.ts';
+import type { Offer, OutbreakView } from '../view.ts';
 import { noise, type AiLevel } from './shared.ts';
 
 type Weights = Readonly<Record<EffectKey, number>>;
@@ -55,15 +55,29 @@ const LEVELS = [
   { every: 2, reserve: 0, random: 0, killAt: 0.35 },
 ] as const;
 
+/** 最想要的性状比手里能花的贵到这个倍数以上，就不等它了 */
+const WAIT_WITHIN = 2;
+
 /** 各难度用技能之前手里要留多少点（简单档不用技能） */
 const SKILL_CUSHION = [Infinity, 12, 4] as const;
+/** 平均一个病人传给这么多人以上，才舍得用蛰伏（它让传播弱一截：本来就勉强在涨的话会把自己闷死） */
+const VEIL_REPRODUCTION = 1.3;
 
-/** 现在该用哪个技能（最多一个） */
-function skill(view: OutbreakView, config: OutbreakConfig, level: AiLevel, spreading: boolean) {
+/**
+ * 现在该用哪个技能（最多一个）。saving 是正攒着要买的那个性状的价钱：用完技能还得买得起它——
+ * 性状是长久的，技能是一阵子的，不能为了技能把进化饿着。
+ */
+function skill(
+  view: OutbreakView,
+  config: OutbreakConfig,
+  level: AiLevel,
+  spreading: boolean,
+  saving: number,
+): Command[] {
   const ready = (kind: string) => {
     const def = config.skills.find((candidate) => candidate.kind === kind);
     const state = view.pathogen.skills.find((candidate) => candidate.id === def?.id);
-    return def && state?.readyIn === 0 && view.resource >= def.cost + SKILL_CUSHION[level]
+    return def && state?.readyIn === 0 && view.resource >= def.cost + SKILL_CUSHION[level] + saving
       ? def
       : undefined;
   };
@@ -81,7 +95,7 @@ function skill(view: OutbreakView, config: OutbreakConfig, level: AiLevel, sprea
   const surge = ready('surge');
   if (surge && view.totals.cases > 200) {
     const region = top((r) => view.cases[r]!);
-    if (region >= 0) return [{ type: 'skill', skill: surge.id, region } as const];
+    if (region >= 0) return [{ type: 'skill', skill: surge.id, region }];
   }
   if (level < 2) return [];
   const spillover = ready('spillover');
@@ -90,11 +104,19 @@ function skill(view: OutbreakView, config: OutbreakConfig, level: AiLevel, sprea
     const region = top((r) =>
       view.cases[r] === 0 && view.deaths[r] === 0 ? config.regions[r]!.population : 0,
     );
-    if (region >= 0) return [{ type: 'skill', skill: spillover.id, region } as const];
+    if (region >= 0) return [{ type: 'skill', skill: spillover.id, region }];
   }
   const veil = ready('veil');
-  const guarded = view.measures.reduce((count, bits) => count + (bits !== 0 ? 1 : 0), 0);
-  if (veil && spreading && guarded >= 3) return [{ type: 'skill', skill: veil.id } as const];
+  if (veil && spreading) {
+    const guarded = view.measures.reduce((count, bits) => count + (bits !== 0 ? 1 : 0), 0);
+    // 按病例加权的平均传播数
+    let weighted = 0;
+    for (let r = 0; r < view.cases.length; r++) weighted += view.cases[r]! * view.reproduction[r]!;
+    const reproduction = view.totals.cases > 0 ? weighted / view.totals.cases : 0;
+    if (guarded >= 3 && reproduction >= VEIL_REPRODUCTION) {
+      return [{ type: 'skill', skill: veil.id }];
+    }
+  }
   return [];
 }
 
@@ -102,13 +124,6 @@ function worth(trait: TraitDef, weights: Weights): number {
   let value = 0;
   for (const key of EFFECT_KEYS) value += (trait.effects[key] ?? 0) * weights[key];
   return value;
-}
-
-export function attack(view: OutbreakView, config: OutbreakConfig, level: AiLevel): Command[] {
-  const { every } = LEVELS[level];
-  if (view.tick % every !== 0) return [];
-  const killing = harvesting(view, config, level);
-  return [...evolution(view, config, level, killing), ...skill(view, config, level, !killing)];
 }
 
 /** 是不是该从“铺开”转到“收割”了 */
@@ -122,36 +137,35 @@ function harvesting(view: OutbreakView, config: OutbreakConfig, level: AiLevel):
   return infectedShare >= LEVELS[level].killAt || vaccineSteps >= 2 || view.tick > 420;
 }
 
-/** 换哪个性状 */
-function evolution(
-  view: OutbreakView,
-  config: OutbreakConfig,
-  level: AiLevel,
-  killing: boolean,
-): Command[] {
-  const { reserve, random } = LEVELS[level];
-  if (view.pathogen.offers.length === 0) return [];
+/** offers 里最想要的性状（值不值按这个阶段的权重算，再除以价钱）；没有值得要的是 undefined */
+function wanted(offers: readonly Offer[], config: OutbreakConfig, killing: boolean) {
   const weights = killing ? KILL : SPREAD;
-
-  const affordable = view.pathogen.offers.filter(
-    (offer) => offer.cost <= view.resource * (1 - reserve),
-  );
-  if (affordable.length === 0) return [];
-
-  if (noise(view.tick, 1) < random) {
-    const pick = affordable[Math.floor(noise(view.tick, 2) * affordable.length)]!;
-    return [{ type: 'evolve', trait: pick.id }];
-  }
-  let best: { id: string; score: number } | undefined;
-  for (const offer of view.pathogen.offers) {
+  let best: { id: string; cost: number; score: number } | undefined;
+  for (const offer of offers) {
     const trait = config.traits.find((candidate) => candidate.id === offer.id);
     if (!trait) continue;
     const score = worth(trait, weights) / offer.cost;
-    if (!best || score > best.score) best = { id: offer.id, score };
+    if (!best || score > best.score) best = { ...offer, score };
   }
-  // 最想要的那个还买不起就攒着，不退而求其次（除非它根本不值）
-  if (!best || best.score <= 0) return [];
-  return affordable.some((offer) => offer.id === best.id)
-    ? [{ type: 'evolve', trait: best.id }]
-    : [];
+  return best && best.score > 0 ? best : undefined;
+}
+
+export function attack(view: OutbreakView, config: OutbreakConfig, level: AiLevel): Command[] {
+  const { every, reserve, random } = LEVELS[level];
+  if (view.tick % every !== 0) return [];
+  const killing = harvesting(view, config, level);
+  const spendable = view.resource * (1 - reserve);
+  const affordable = view.pathogen.offers.filter((offer) => offer.cost <= spendable);
+
+  if (affordable.length > 0 && noise(view.tick, 1) < random) {
+    const pick = affordable[Math.floor(noise(view.tick, 2) * affordable.length)]!;
+    return [{ type: 'evolve', trait: pick.id }];
+  }
+  // 最想要的那个差一点就买得起：攒着，不退而求其次。还差得远（手里连一半都没有）就先买个买得起、
+  // 也值得要的——传得慢的病原体点数来得也慢，干等会把整局等过去
+  const want = wanted(view.pathogen.offers, config, killing);
+  const next =
+    want && want.cost > spendable * WAIT_WITHIN ? wanted(affordable, config, killing) : want;
+  if (next && next.cost <= spendable) return [{ type: 'evolve', trait: next.id }];
+  return skill(view, config, level, !killing, want?.cost ?? 0);
 }

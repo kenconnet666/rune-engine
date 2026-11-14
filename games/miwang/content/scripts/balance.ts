@@ -7,6 +7,7 @@
  * 环境变量 PATHOGEN 选病原体档案（默认 novel）；写 all 就把每个档案各跑一遍、每个只打一行总结。
  * 环境变量 CHAPTER 选章节（见 src/tables/chapters.ts）：按那一章的条件和目标打，用来定目标的数；
  * 这时 GOALS 可以临时换目标，比如 GOALS='[{"metric":"regions","target":20}]'，DAYS 换期限。
+ * PLAIN=1 把技能、抉择、短期任务都拿掉：和带着它们的结果一比，就知道它们把天平往哪边推了多少。
  */
 import {
   ATTACKER,
@@ -59,7 +60,11 @@ interface Result {
 
 function play(seed: number, pathogen: PathogenProfile): Result {
   const base = createConfig(seed, '2026-01-01', { pathogen, chapter });
-  const config = { ...base, rules: { ...base.rules, ...overrides } };
+  const config = {
+    ...base,
+    ...(process.env['PLAIN'] === '1' && { skills: [], decisions: [], tasks: [] }),
+    rules: { ...base.rules, ...overrides },
+  };
   const state = outbreak.create(config);
   let attacker: OutbreakView = outbreak.observe(state, ATTACKER);
   let vaccineDay = -1;

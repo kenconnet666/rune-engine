@@ -56,7 +56,10 @@ export type AlertData =
   /** 自己用了一个技能（region 是 -1 时不对着地区） */
   | { readonly kind: 'skill'; readonly skill: string; readonly region: number }
   /** 退掉了一个性状（守方知道底细时也看得到） */
-  | { readonly kind: 'devolve'; readonly trait: string; readonly own: boolean };
+  | { readonly kind: 'devolve'; readonly trait: string; readonly own: boolean }
+  /** 接到一件短期任务 / 一件任务有了结果 */
+  | { readonly kind: 'taskNew'; readonly task: string }
+  | { readonly kind: 'taskResult'; readonly task: string; readonly done: boolean };
 
 export interface Alert {
   readonly id: number;
@@ -265,6 +268,9 @@ export function watchAlerts(view: () => OutbreakView | null): Alerts {
     if (now.decision && now.decision.id !== before.decision?.id) {
       push('signal', { kind: 'decisionPending', decision: now.decision.id });
     }
+    if (now.task && now.task.id !== before.task?.id) {
+      push('signal', { kind: 'taskNew', task: now.task.id });
+    }
     // 这几样在模拟里都记成了新闻：上一份状态之后新出的那几条各说一声
     for (const item of now.news) {
       if (item.tick < before.tick) continue;
@@ -275,6 +281,13 @@ export function watchAlerts(view: () => OutbreakView | null): Alerts {
           kind: 'devolve',
           trait: item.subject,
           own: now.attacker,
+        });
+      } else if (item.kind === 'task') {
+        const done = item.subject.endsWith('.done');
+        push(done ? 'calm' : 'danger', {
+          kind: 'taskResult',
+          task: item.subject.slice(0, item.subject.indexOf('.')),
+          done,
         });
       } else if (item.kind === 'decision') {
         // 攻方那边的事只有攻方看得到；守方的决定是公开的

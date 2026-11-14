@@ -74,7 +74,17 @@ try {
   if (!passed && !(await page.evaluate(hasText('这一章没有通过')))) {
     throw new Error('结算里没有说这一章通过没有');
   }
-  await done(`第一章打完了：${passed ? '通过' : '没通过'}（第 ${await dayOf(page)} 天）`);
+  // 结算带着回顾：一个等级，和大事记（至少有“分出胜负”那一条）
+  const review = await page.evaluate(`(() => {
+    const panel = document.querySelector('[data-review]');
+    return panel && { grade: panel.dataset.review, moments: panel.querySelectorAll('ol li').length };
+  })()`);
+  if (!review || !'SABCD'.includes(review.grade) || review.moments < 1) {
+    throw new Error(`结算里的回顾不对：${JSON.stringify(review)}`);
+  }
+  await done(
+    `第一章打完了：${passed ? '通过' : '没通过'}（第 ${await dayOf(page)} 天），评价 ${review.grade}，大事记 ${review.moments} 条`,
+  );
 
   if (passed) {
     await page.clickButton('下一章');

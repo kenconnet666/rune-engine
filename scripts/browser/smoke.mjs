@@ -110,7 +110,11 @@ try {
   await page.evaluate(`document.querySelector('[aria-label="10 倍速"]').click()`);
   await page.waitFor(dayPast(before + 20), { what: '时间在走' });
   await page.evaluate(`document.querySelector('[aria-label="暂停"]').click()`);
-  await done(`时间在走：从第 ${before} 天到了第 ${await dayOf(page)} 天`);
+  // 开局十来天就会发第一件短期任务
+  await page.waitFor(`document.querySelector('[data-task]') && ${hasText('短期任务')}`, {
+    what: '短期任务',
+  });
+  await done(`时间在走：从第 ${before} 天到了第 ${await dayOf(page)} 天，手里有了一件短期任务`);
 
   // 图层：换到“传播数”，地图照样有东西；再换回来
   await page.evaluate(`document.querySelector('[aria-label="传播数"]').click()`);
@@ -205,7 +209,11 @@ try {
   await page.waitFor(`${measure('lockdown')}?.dataset.level === '3'`, { what: '封锁开到了全力' });
   await done('措施：分档开了一项，再用预案一次设到位');
 
-  await page.clickButton('派应急队来这里');
+  // 换到守方之前电脑替守方管着，可能已经把队伍派到这里了：那就不用再派
+  if (!(await page.evaluate(hasButton('召回这里的应急队')))) {
+    await page.waitFor(canPress('派应急队来这里'), { what: '有待命的应急队' });
+    await page.clickButton('派应急队来这里');
+  }
   await page.waitFor(
     `document.querySelector('[data-mark="team"]') && ${hasButton('召回这里的应急队')}`,
     { what: '应急队出发，地图上有它的标记' },

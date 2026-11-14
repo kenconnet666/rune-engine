@@ -194,6 +194,30 @@ export const en: ContentText = {
     ),
   },
 
+  tasks: {
+    reach: label('New ground', 'Reach a few more regions before the deadline.'),
+    multiply: label('Multiply', 'Multiply total infections before the deadline.'),
+    affluent: label(
+      'Through the front door',
+      'Enter a high-income region before the deadline: strong care, quick detection.',
+    ),
+    adapt: label('Adapt', 'Acquire a few more traits before the deadline.'),
+    toll: label('Heavier toll', 'Double total deaths before the deadline.'),
+    labwork: label('Lab push', 'Complete one more research project before the deadline.'),
+    holdline: label(
+      'Hold the line',
+      'Until the deadline, no more than this many new regions may report cases.',
+    ),
+    steady: label(
+      'Keep the public',
+      'Until the deadline, public trust must never drop below the line.',
+    ),
+    flatten: label(
+      'Flatten the curve',
+      'At the deadline, reported active cases must be 30% lower than when the task began.',
+    ),
+  },
+
   decisions: {
     aidOffer: {
       name: 'Aid with strings attached',

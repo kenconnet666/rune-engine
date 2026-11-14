@@ -28,6 +28,8 @@ export const FOR_BOTH = 3;
  *   team 应急队抵达一个地区   briefing 守方开了发布会
  *   skill 攻方用了一个技能（subject 是技能的 id）   devolve 病原体退掉了一个性状
  *   decision 一方对一件事拿了主意（subject 是“事.选项”）
+ *   task 一件短期任务有了结果（subject 是“任务.done”或“任务.failed”）
+ *   milestone 头一回越过一条线（subject 是 firstDeath、regions.50、calamity.25 这样的）
  */
 export type NewsKind =
   | 'spread'
@@ -42,7 +44,9 @@ export type NewsKind =
   | 'briefing'
   | 'skill'
   | 'devolve'
-  | 'decision';
+  | 'decision'
+  | 'task'
+  | 'milestone';
 
 export interface NewsItem {
   readonly tick: number;
@@ -82,6 +86,19 @@ export interface Modifier {
 
 /** 新闻最多留这么多条，旧的丢掉 */
 export const NEWS_LIMIT = 80;
+
+/** 这几种新闻同时记进大事记（整局都留着，结算时回看）：一局里数得过来的要紧时刻 */
+const CHRONICLED: ReadonlySet<NewsKind> = new Set([
+  'evolve',
+  'devolve',
+  'research',
+  'vaccine',
+  'traced',
+  'skill',
+  'decision',
+  'milestone',
+  'outcome',
+]);
 
 export interface OutbreakState {
   tick: number;
@@ -129,6 +146,18 @@ export interface OutbreakState {
   pendingDecision: Int16Array;
   decisionExpires: Int32Array;
   decisionSeen: Uint8Array;
+  /**
+   * 双方手里的短期任务（下标是玩家）：是 config.tasks 里的第几件（-1 是没有）、接到时那个数是多少、
+   * 到哪一步为止、下一件最早哪一步发；各自做到了几件；每件任务发过几次
+   */
+  task: Int16Array;
+  taskStart: Float64Array;
+  taskExpires: Int32Array;
+  taskNext: Int32Array;
+  tasksDone: Uint16Array;
+  taskSeen: Uint8Array;
+  /** 越过了哪些里程碑（按位，见 rules/review.ts） */
+  milestones: number;
 
   /** 攻方有没有某个性状（下标同 config.traits） */
   traits: Uint8Array;
@@ -151,6 +180,8 @@ export interface OutbreakState {
   clearStreak: number;
 
   news: NewsItem[];
+  /** 大事记：这一局的要紧时刻，整局都留着 */
+  chronicle: NewsItem[];
   /** 疾病每一次跳到新地区的记录，按先后排 */
   hops: Hop[];
   /** 态势随时间的记录：真实的一份、上报的一份 */
@@ -211,6 +242,13 @@ export function createState(config: OutbreakConfig): OutbreakState {
     pendingDecision: new Int16Array(2).fill(-1),
     decisionExpires: new Int32Array(2),
     decisionSeen: new Uint8Array(config.decisions.length),
+    task: new Int16Array(2).fill(-1),
+    taskStart: new Float64Array(2),
+    taskExpires: new Int32Array(2),
+    taskNext: new Int32Array(2),
+    tasksDone: new Uint16Array(2),
+    taskSeen: new Uint8Array(config.tasks.length),
+    milestones: 0,
     traits: new Uint8Array(config.traits.length),
     techs: new Uint8Array(config.techs.length),
     techRemaining: new Float64Array(config.techs.length),
@@ -222,6 +260,7 @@ export function createState(config: OutbreakConfig): OutbreakState {
     infectedTotal: 0,
     clearStreak: 0,
     news: [],
+    chronicle: [],
     hops: [],
     history: emptyHistory(),
     reportedHistory: emptyHistory(),
@@ -250,7 +289,9 @@ export function report(
   region = -1,
   subject = '',
 ) {
-  state.news.push({ tick: state.tick, kind, region, subject, audience });
+  const item = { tick: state.tick, kind, region, subject, audience };
+  if (CHRONICLED.has(kind)) state.chronicle.push(item);
+  state.news.push(item);
   if (state.news.length > NEWS_LIMIT) state.news.splice(0, state.news.length - NEWS_LIMIT);
 }
 

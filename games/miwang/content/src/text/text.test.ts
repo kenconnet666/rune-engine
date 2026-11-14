@@ -5,6 +5,7 @@ import { DECISIONS } from '../tables/decisions.ts';
 import { EVENTS } from '../tables/events.ts';
 import { PATHOGENS, SOURCES } from '../tables/pathogens.ts';
 import { SKILLS } from '../tables/skills.ts';
+import { TASKS } from '../tables/tasks.ts';
 import { TECHS } from '../tables/techs.ts';
 import { TRAITS } from '../tables/traits.ts';
 import { CONTENT_TEXT } from './index.ts';
@@ -18,6 +19,7 @@ describe('内容的文案', () => {
       expect(Object.keys(text.techs).sort()).toEqual(ids(TECHS));
       expect(Object.keys(text.events).sort()).toEqual(ids(EVENTS));
       expect(Object.keys(text.skills).sort()).toEqual(ids(SKILLS));
+      expect(Object.keys(text.tasks).sort()).toEqual(ids(TASKS));
       expect(Object.keys(text.decisions).sort()).toEqual(ids(DECISIONS));
       for (const decision of DECISIONS) {
         const words = text.decisions[decision.id]!;
@@ -32,7 +34,14 @@ describe('内容的文案', () => {
           .map((credit) => credit.id)
           .sort(),
       );
-      for (const group of [text.traits, text.techs, text.events, text.skills, text.measures]) {
+      for (const group of [
+        text.traits,
+        text.techs,
+        text.events,
+        text.skills,
+        text.tasks,
+        text.measures,
+      ]) {
         for (const label of Object.values(group)) {
           expect(label.name.length).toBeGreaterThan(0);
           expect(label.detail.length).toBeGreaterThan(0);
@@ -60,6 +69,7 @@ describe('性状表与科技表', () => {
     expect(new Set(ids(EVENTS)).size).toBe(EVENTS.length);
     expect(new Set(ids(SKILLS)).size).toBe(SKILLS.length);
     expect(new Set(ids(DECISIONS)).size).toBe(DECISIONS.length);
+    expect(new Set(ids(TASKS)).size).toBe(TASKS.length);
   });
 });
 

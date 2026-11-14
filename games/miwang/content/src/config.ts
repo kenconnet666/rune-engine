@@ -5,6 +5,7 @@ import { DECISIONS } from './tables/decisions.ts';
 import { EVENTS } from './tables/events.ts';
 import { DEFAULT_PATHOGEN, PATHOGENS } from './tables/pathogens.ts';
 import { SKILLS } from './tables/skills.ts';
+import { TASKS } from './tables/tasks.ts';
 import { TECHS } from './tables/techs.ts';
 import { TRAITS } from './tables/traits.ts';
 import { regions } from './world.ts';
@@ -54,6 +55,7 @@ export function createConfig(
     events: EVENTS,
     skills: SKILLS,
     decisions: DECISIONS,
+    tasks: TASKS,
     rules: chapter ? { ...DEFAULT_RULES, ...chapter.rules } : DEFAULT_RULES,
     // 普通对局的配置里没有这一项（不是 undefined）：存档里的配置要和重新生成的逐字相同
     ...(chapter && { scenario: { id: chapter.id, goals: chapter.goals, days: chapter.days } }),

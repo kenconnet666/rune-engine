@@ -108,6 +108,9 @@ export const zh = {
     skillAt: (name: string, place: string) => `${name}：${place}`,
     devolved: (name: string) => `退掉了：${name}`,
     devolvedTheirs: (name: string) => `病原体失去了：${name}`,
+    taskNew: (name: string) => `新的短期任务：${name}`,
+    taskDone: (name: string) => `任务完成：${name}`,
+    taskFailed: (name: string) => `任务没做到：${name}`,
   },
 
   news: {
@@ -129,6 +132,22 @@ export const zh = {
     devolved: (name: string) => `退掉性状：${name}`,
     devolvedSeen: (name: string) => `病原体失去了一个性状：${name}`,
     decision: (name: string, option: string) => `${name}——${option}`,
+    taskDone: (name: string) => `任务完成：${name}`,
+    taskFailed: (name: string) => `任务没做到：${name}`,
+  },
+
+  tasks: {
+    title: '短期任务',
+    daysLeft: (days: number) => `还剩 ${days} 天`,
+    reward: (what: string) => `做到了：${what}`,
+    /** 进度怎么写，按任务的判法 */
+    progress: {
+      gain: (have: string, need: string) => `${have} / ${need}`,
+      grow: (have: string, need: string) => `${have} / ${need}`,
+      cap: (have: string, need: string) => `已经 ${have}，不能超过 ${need}`,
+      hold: (have: string, need: string) => `现在 ${have}，不能低于 ${need}`,
+      shrink: (have: string, need: string) => `现在 ${have}，要降到 ${need}`,
+    },
   },
 
   /** 抉择、技能、临时修正的得失怎么写 */
@@ -546,11 +565,11 @@ export const zh = {
       spread: '它走到了新的地区：地图上亮起来的弧线是它刚走过的路。陆路只通相邻的地区。',
       countered: '守方开始采取措施了（地区上的小图标）。措施会压低那里的传播，也要花对面的预算。',
       firstReport:
-        '有地区上报了病例。点它，在右边开“加强检测”和“隔离病例”——发现得越早、越多，隔离越有用。上报的只是冰山一角。',
+        '有地区上报了病例。点它，在右边开“加强检测”和“隔离病例”（或者在“预案与推广”里点“监测”一次设好）——发现得越早、越多，隔离越有用。上报的只是冰山一角。',
       budget:
         '预算见底了。每项措施每天都要维持费，付不起的时候效果会打折：关掉用处不大的，或者等收入攒起来。',
       points:
-        '变异点够换一个性状了：打开右边的“进化”。传播途径让它传得更开，症状让它更重（也更容易被发现），能力让它更难对付。',
+        '变异点够换一个性状了：打开右边的“进化”。传播途径让它传得更开，症状让它更重（也更容易被发现），能力让它更难对付。换错了可以退掉，拿回一半。',
       tradeoff: '每多一个性状，之后的都更贵。症状重了，对面发现得也快——先传开，还是先变重？',
       research: '打开右边的“安排研究”。先做“病原鉴定”：做完才看得到对手是什么、换了哪些性状。',
       identified: '鉴定完成了：右边“病原体”那一块现在看得到它的底细和每一次变异。',
@@ -559,7 +578,14 @@ export const zh = {
       borders:
         '它在沿着陆路走。看它下一步会到哪里，在它**到之前**关掉那里的陆路口岸，比等它到了再封要划算。',
       trust:
-        '公众信任在掉。封锁开久了消耗信任，死的人多了也消耗信任；信任低了，所有措施的效果都打折。',
+        '公众信任在掉。封锁开久了消耗信任，死的人多了也消耗信任；信任低了，所有措施的效果都打折。“指挥”里可以开发布会，花预算把信任拉回来一截。',
+      levels:
+        '维持费快赶上收入了。措施有三档：先在地区面板里把力度选成“轻”，花三成的钱有四成半的效果——把轻的铺开，比只在一处管到最严划算。',
+      team: '“指挥”里有三支应急队。选中疫情最重的地区，点“派应急队来这里”：它驻着的地方发现得更多、救得回来的也更多。',
+      skills:
+        '变异点够用一个技能了（右边“病原体”那一块的下面）。激增、外溢要先在地图上选一个地区；用了技能只有你自己知道。',
+      decision: '右上角有一件事等你拿主意：每个选项下面写着得失。不选的话，到期按第一个办。',
+      task: '左边多了一件短期任务：在期限内做到，有一点奖励；没做到也不罚。它是给“接下来干什么”指个方向。',
       defended:
         '富裕地区医疗强、发现得快，一有动静就会动手。“隐匿”让它晚点被发现，耐受类的能力让它扛得住那里的手段。',
       economy: '封锁、停飞、封港都让那个地区交上来的预算变少。经济损失记在结算里——防线是有价钱的。',
@@ -585,6 +611,23 @@ export const zh = {
     trust: '公众信任',
     economy: '经济损失',
     restart: '新开一局',
+    grade: '评价',
+    score: (points: number) => `${points} 分`,
+    parts: {
+      victory: '获胜',
+      pace: '赢得快',
+      progress: '推进了多少',
+      reach: '铺开的范围',
+      lives: '离灾厄线的距离',
+      trust: '公众信任',
+      economy: '保住的经济',
+      endurance: '撑住的时间',
+      tasks: '短期任务',
+    },
+    truth: '实际发生的（对局结束后公开）',
+    tasks: '做到的短期任务',
+    tasksValue: (attacker: number, defender: number) => `攻方 ${attacker} · 守方 ${defender}`,
+    chronicle: '大事记',
   },
 };
 

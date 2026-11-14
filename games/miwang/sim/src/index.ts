@@ -52,6 +52,8 @@ export {
   type Scenario,
   type SkillDef,
   type SkillKind,
+  type TaskDef,
+  type TaskMetric,
   type TechDef,
   type TraitDef,
   type TraitGroup,
@@ -61,6 +63,7 @@ export { DEFAULT_RULES } from './defaults.ts';
 export { outbreak } from './outbreak.ts';
 export { setupCost, upkeepOf } from './rules/defense.ts';
 export type { History } from './rules/history.ts';
+export type { Grade, Review, ReviewPart } from './rules/review.ts';
 export {
   ATTACKER,
   DEFENDER,

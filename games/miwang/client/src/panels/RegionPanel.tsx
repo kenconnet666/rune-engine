@@ -276,7 +276,9 @@ export const RegionPanel = _component(
             )
           ) : (
             <Stack>
+              {/* 有的章节没有应急队：那就没有这个按钮 */}
               {!readonly &&
+                teams.length > 0 &&
                 (team ? (
                   <ActionButton
                     icon={Undo2}

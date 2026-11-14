@@ -107,6 +107,18 @@ export const zh: ContentText = {
     dormancy: label('蛰伏', '一个月里更难被发现，代价是传得慢一些。上报少了，对面的注意力会挪开。'),
   },
 
+  tasks: {
+    reach: label('开疆', '在期限内再波及几个地区。'),
+    multiply: label('倍增', '在期限内让累计感染翻上几倍。'),
+    affluent: label('登堂入室', '在期限内进入一个高收入地区：那里医疗强、发现得快。'),
+    adapt: label('应变', '在期限内再换到几个性状。'),
+    toll: label('加重', '在期限内让累计死亡翻倍。'),
+    labwork: label('攻关', '在期限内再完成一项研究。'),
+    holdline: label('守住防线', '到期限为止，新上报病例的地区不能超过这个数。'),
+    steady: label('稳住人心', '到期限为止，公众信任一直不能掉到线以下。'),
+    flatten: label('压平曲线', '到期限时，上报的现有病例要比接到任务时少三成。'),
+  },
+
   decisions: {
     aidOffer: {
       name: '带条件的援助',

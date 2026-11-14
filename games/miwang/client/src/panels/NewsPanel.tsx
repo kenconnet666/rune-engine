@@ -1,10 +1,14 @@
-/** 新闻：最近发生的事，新的在上面，每条前面一个图标。点一条和地区有关的，地图飞过去 */
+/**
+ * 新闻：最近发生的事，新的在上面，每条前面一个图标。点一条和地区有关的，地图飞过去。
+ * 每条怎么写成一句话在 feedback/news-text.ts（结算的大事记也用它）。
+ */
 import type { NewsItem, OutbreakView } from '@miwang/sim';
 import { colors, fonts, Frame, Icon, Note, space } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { Newspaper } from 'lucide';
-import { placeName, useContent, useUi } from '../i18n.ts';
+import { newsSentence } from '../feedback/news-text.ts';
+import { useUi } from '../i18n.ts';
 import { newsIcon } from '../icons.ts';
 
 /** 一次显示几条 */
@@ -54,53 +58,7 @@ export const NewsPanel = _component(
   ({ view, onLocate }: { view: OutbreakView; onLocate: (region: number) => void }) =>
     () => {
       const ui = useUi().news;
-      const content = useContent();
       const { attacker } = view;
-
-      /** 一条新闻的一句话 */
-      const sentence = (item: NewsItem): string => {
-        const place = item.region >= 0 ? placeName(item.region) : '';
-        switch (item.kind) {
-          case 'spread':
-            return ui.spread(place);
-          case 'report':
-            return ui.report(place);
-          case 'evolve': {
-            const name = content.traits[item.subject]?.name ?? item.subject;
-            return attacker ? ui.evolved(name) : ui.evolvedSeen(name);
-          }
-          case 'research':
-            return ui.research(content.techs[item.subject]?.name ?? item.subject);
-          case 'vaccine':
-            return ui.vaccine;
-          case 'traced':
-            return ui.traced(place);
-          case 'event': {
-            const name = content.events[item.subject]?.name ?? item.subject;
-            return place ? ui.eventAt(place, name) : name;
-          }
-          case 'team':
-            return ui.team(place);
-          case 'briefing':
-            return ui.briefing;
-          case 'skill': {
-            const name = content.skills[item.subject]?.name ?? item.subject;
-            return place ? ui.skillAt(place, name) : ui.skill(name);
-          }
-          case 'devolve': {
-            const name = content.traits[item.subject]?.name ?? item.subject;
-            return attacker ? ui.devolved(name) : ui.devolvedSeen(name);
-          }
-          case 'decision': {
-            // subject 是“事.选项”
-            const [id = '', option = ''] = item.subject.split('.');
-            const text = content.decisions[id];
-            return ui.decision(text?.name ?? id, text?.options[option] ?? option);
-          }
-          case 'outcome':
-            return content.outcomes[item.subject as keyof typeof content.outcomes] ?? item.subject;
-        }
-      };
 
       /** 这条消息对这一方是好是坏：攻方乐见扩散和变异，守方乐见研究、疫苗、应急队到位和发布会 */
       const mood = (item: NewsItem) => {
@@ -112,6 +70,8 @@ export const NewsPanel = _component(
           item.kind === 'traced' ||
           item.kind === 'team' ||
           item.kind === 'briefing';
+        // 自己的任务：做到了是好消息，没做到是坏消息
+        if (item.kind === 'task') return item.subject.endsWith('.done') ? styles.good : styles.bad;
         if (forAttacker) return attacker ? styles.good : styles.bad;
         if (forDefender) return attacker ? styles.bad : styles.good;
         return item.kind === 'report' && !attacker ? styles.bad : null;
@@ -135,7 +95,7 @@ export const NewsPanel = _component(
                     size="0.9375rem"
                     sx={[styles.icon, mood(item)]}
                   />
-                  <span>{sentence(item)}</span>
+                  <span>{newsSentence(item, attacker)}</span>
                   <span {...css.attrs(styles.day)}>{ui.day(item.tick)}</span>
                 </button>
               </li>

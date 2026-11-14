@@ -13,6 +13,8 @@ import { expireModifiers } from './rules/modifiers.ts';
 import { judge } from './rules/outcome.ts';
 import { pathogenStats } from './rules/pathogen.ts';
 import { advanceResearch, defenseStats, vaccinate } from './rules/research.ts';
+import { recordMilestones } from './rules/review.ts';
+import { updateTasks } from './rules/tasks.ts';
 import { travel } from './rules/travel.ts';
 import { createState, type OutbreakState } from './state.ts';
 import { observe, type OutbreakView } from './view.ts';
@@ -22,7 +24,7 @@ const fourthRoot = (value: number) => Math.sqrt(Math.sqrt(value));
 
 /**
  * 一天。顺序是有讲究的：先执行命令（今天的决定今天生效），再发生事件、冒出要拿主意的事，然后人沿路线出行、各地区的病情发展，
- * 接着是守方的接种与研究、收支与信任，最后攻方按今天的“战果”拿变异点，看分没分出胜负。
+ * 接着是守方的接种与研究、收支与信任，最后攻方按今天的“战果”拿变异点，记里程碑、判短期任务，看分没分出胜负。
  * 每天一开始先把当时的态势记一笔（隔几天才真的记，见 rules/history.ts）。
  * 分出胜负之后状态不再变化（步数也不再走）。
  */
@@ -53,6 +55,8 @@ function step(state: OutbreakState, commands: readonly Stamped<Command>[]) {
     rules.pointsPerDeathRoot * fourthRoot(tally.deaths) +
     rules.pointsPerRegion * tally.newRegions;
 
+  recordMilestones(state);
+  updateTasks(state);
   judge(state);
   state.tick++;
 }
@@ -75,6 +79,8 @@ function hash(state: OutbreakState): number {
     state.priority,
     state.briefingReadyAt,
     state.news.length,
+    state.chronicle.length,
+    state.milestones,
     state.hops.length,
     state.modifiers.length,
     state.modifiers.reduce((sum, item) => sum + item.amount * item.until, 0),
@@ -104,6 +110,12 @@ function hash(state: OutbreakState): number {
     state.pendingDecision,
     state.decisionExpires,
     state.decisionSeen,
+    state.task,
+    state.taskStart,
+    state.taskExpires,
+    state.taskNext,
+    state.tasksDone,
+    state.taskSeen,
     state.traits,
     state.techs,
     state.techRemaining,

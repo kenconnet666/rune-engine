@@ -13,6 +13,7 @@ import {
   type RegionConfig,
   type Rules,
   type SkillDef,
+  type TaskDef,
   type TechDef,
   type TraitDef,
 } from '../config.ts';
@@ -139,9 +140,44 @@ export const TEST_DECISIONS: readonly DecisionDef[] = [
   },
 ];
 
+export const TEST_TASKS: readonly TaskDef[] = [
+  {
+    id: 'reach',
+    side: 'attacker',
+    weight: 1,
+    days: 20,
+    metric: 'regions',
+    mode: 'gain',
+    target: 1,
+    reward: { points: 5 },
+  },
+  {
+    id: 'steady',
+    side: 'defender',
+    weight: 1,
+    days: 10,
+    metric: 'trust',
+    mode: 'hold',
+    target: 0.5,
+    from: 0.55,
+    reward: { budget: 10 },
+  },
+  {
+    id: 'labwork',
+    side: 'defender',
+    weight: 1,
+    days: 15,
+    metric: 'techs',
+    mode: 'gain',
+    target: 1,
+    reward: { budget: 12, trust: 0.02 },
+  },
+];
+
 /**
  * 建一份测试配置；rules 里写要改的项，其余用默认值。
- * 抉择默认不出（decisionChance 是 0）：它会动预算、信任这些数，别的规则的测试不想被它搅进来；要测它的自己打开。
+ * 抉择和短期任务默认不出（decisionChance 是 0、taskGap 是负数）：它们会动预算、信任、变异点这些数，
+ * 别的规则的测试不想被搅进来；要测它们的自己打开。
  */
 export function testConfig(
   rules: Partial<Rules> = {},
@@ -164,7 +200,8 @@ export function testConfig(
     events: TEST_EVENTS,
     skills: TEST_SKILLS,
     decisions: TEST_DECISIONS,
-    rules: { ...DEFAULT_RULES, decisionChance: 0, ...rules },
+    tasks: TEST_TASKS,
+    rules: { ...DEFAULT_RULES, decisionChance: 0, taskGap: -1, ...rules },
     ...overrides,
   };
 }

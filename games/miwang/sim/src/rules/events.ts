@@ -2,19 +2,16 @@
 import { chance, clamp, nextFloat } from '@rune-engine/core';
 import type { EventDef } from '../config.ts';
 import { FOR_BOTH, REACHED, report, TECH_ACTIVE, type OutbreakState } from '../state.ts';
+import { pickWeighted } from './pick.ts';
 
 /** 按相对的常见程度抽一种事件 */
-function pickEvent(state: OutbreakState): EventDef | undefined {
-  const { events } = state.config;
-  let total = 0;
-  for (const event of events) total += event.weight;
-  let at = nextFloat(state.random) * total;
-  for (const event of events) {
-    at -= event.weight;
-    if (at < 0) return event;
-  }
-  return events.at(-1);
-}
+const pickEvent = (state: OutbreakState): EventDef | undefined =>
+  state.config.events[
+    pickWeighted(
+      state.random,
+      state.config.events.map((event) => event.weight),
+    )
+  ];
 
 /** 按人口抽一个地区：人多的地方更容易出事 */
 function pickRegion(state: OutbreakState): number {

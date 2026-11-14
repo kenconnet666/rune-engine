@@ -90,54 +90,59 @@ export const CommandPanel = _component(
       const { teams, priority, briefingIn, vaccinating } = view.defense;
       return (
         <Frame icon={Siren} title={ui.title}>
-          <Note>{ui.teams}</Note>
-          <Stack gap="xs">
-            {teams.map((team, index) => (
-              <div key={index} data-team={index} {...css.attrs(styles.team)}>
-                <button
-                  type="button"
-                  disabled={team.region < 0}
-                  onClick={() => onLocate(team.region)}
-                  {...css.attrs(
-                    focusRing.visible,
-                    styles.where,
-                    team.region >= 0 && styles.placed,
-                    team.region >= 0 && team.arrivesIn === 0 && styles.arrived,
-                  )}
-                >
-                  <Icon icon={Ambulance} size="1rem" />
-                  <span>
-                    {team.region < 0
-                      ? ui.idle
-                      : team.arrivesIn > 0
-                        ? ui.travelling(placeName(team.region), team.arrivesIn)
-                        : ui.stationed(placeName(team.region))}
-                  </span>
-                </button>
-                {!readonly && (
-                  <>
-                    <ActionButton
-                      compact
-                      icon={Navigation}
-                      aria-label={ui.send}
-                      tip={selected >= 0 ? ui.send : ui.sendNone}
-                      disabled={selected < 0 || team.region === selected}
-                      onPress={() => onCommand({ type: 'team', team: index, region: selected })}
-                    />
-                    <ActionButton
-                      compact
-                      icon={Undo2}
-                      aria-label={ui.recall}
-                      tip={ui.recall}
+          {/* 有的章节没有应急队 */}
+          {teams.length > 0 && (
+            <>
+              <Note>{ui.teams}</Note>
+              <Stack gap="xs">
+                {teams.map((team, index) => (
+                  <div key={index} data-team={index} {...css.attrs(styles.team)}>
+                    <button
+                      type="button"
                       disabled={team.region < 0}
-                      onPress={() => onCommand({ type: 'team', team: index, region: -1 })}
-                    />
-                  </>
-                )}
-              </div>
-            ))}
-          </Stack>
-          <Note>{ui.teamsHint(RULES.teamTravelDays)}</Note>
+                      onClick={() => onLocate(team.region)}
+                      {...css.attrs(
+                        focusRing.visible,
+                        styles.where,
+                        team.region >= 0 && styles.placed,
+                        team.region >= 0 && team.arrivesIn === 0 && styles.arrived,
+                      )}
+                    >
+                      <Icon icon={Ambulance} size="1rem" />
+                      <span>
+                        {team.region < 0
+                          ? ui.idle
+                          : team.arrivesIn > 0
+                            ? ui.travelling(placeName(team.region), team.arrivesIn)
+                            : ui.stationed(placeName(team.region))}
+                      </span>
+                    </button>
+                    {!readonly && (
+                      <>
+                        <ActionButton
+                          compact
+                          icon={Navigation}
+                          aria-label={ui.send}
+                          tip={selected >= 0 ? ui.send : ui.sendNone}
+                          disabled={selected < 0 || team.region === selected}
+                          onPress={() => onCommand({ type: 'team', team: index, region: selected })}
+                        />
+                        <ActionButton
+                          compact
+                          icon={Undo2}
+                          aria-label={ui.recall}
+                          tip={ui.recall}
+                          disabled={team.region < 0}
+                          onPress={() => onCommand({ type: 'team', team: index, region: -1 })}
+                        />
+                      </>
+                    )}
+                  </div>
+                ))}
+              </Stack>
+              <Note>{ui.teamsHint(RULES.teamTravelDays)}</Note>
+            </>
+          )}
 
           <Note>{ui.priority}</Note>
           <Segmented

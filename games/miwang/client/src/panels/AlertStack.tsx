@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Skull,
   Syringe,
+  Target,
   TriangleAlert,
   Undo2,
   Users,
@@ -68,6 +69,8 @@ const ICONS: Readonly<Record<AlertData['kind'], IconData>> = {
   decided: Scale,
   skill: Zap,
   devolve: Undo2,
+  taskNew: Target,
+  taskResult: Target,
 };
 
 export const AlertStack = _component(
@@ -184,6 +187,17 @@ export const AlertStack = _component(
               detail: content.skills[data.skill]?.detail,
             };
           }
+          case 'taskNew':
+            return {
+              title: ui.taskNew(content.tasks[data.task]?.name ?? data.task),
+              detail: content.tasks[data.task]?.detail,
+            };
+          case 'taskResult':
+            return {
+              title: (data.done ? ui.taskDone : ui.taskFailed)(
+                content.tasks[data.task]?.name ?? data.task,
+              ),
+            };
           case 'devolve': {
             const name = content.traits[data.trait]?.name ?? data.trait;
             return { title: (data.own ? ui.devolved : ui.devolvedTheirs)(name) };

@@ -360,6 +360,9 @@ export interface Rules {
   /** 每天每一方碰上一件要拿主意的事的概率（手里没有等着的事时）；开局的头几天不出 */
   readonly decisionChance: number;
   readonly decisionAfter: number;
+  /** 短期任务：开局第几天起发，一件完了隔几天发下一件；间隔写负数是不发任务 */
+  readonly taskAfter: number;
+  readonly taskGap: number;
 
   // 攻方的经济
   readonly startPoints: number;
@@ -447,6 +450,36 @@ export interface Goal {
   readonly target: number;
 }
 
+// ───── 短期任务 ─────
+
+/** 任务看哪个数：剧本目标的那几个，加上 techs 完成的研究数、trust 公众信任、cases 现在的病例 */
+export type TaskMetric = GoalMetric | 'techs' | 'trust' | 'cases';
+
+/**
+ * 一件短期任务（规则见 rules/tasks.ts）。看的是这一方自己看得到的数：攻方按真实的，守方按上报的。
+ * mode 是怎么判：gain 比接到时多 target；grow 涨到接到时的 target 倍；cap 到期时多出来的不超过 target；
+ * hold 到期前一直不低于 target；shrink 到期时不超过接到时的 target 倍。
+ */
+export interface TaskDef {
+  readonly id: string;
+  readonly side: 'attacker' | 'defender';
+  /** 相对的常见程度 */
+  readonly weight: number;
+  /** 期限（天） */
+  readonly days: number;
+  readonly metric: TaskMetric;
+  readonly mode: 'gain' | 'grow' | 'cap' | 'hold' | 'shrink';
+  readonly target: number;
+  /** 那个数到了这么多才发这件任务（比如“把病例压下来”要先有病例） */
+  readonly from?: number;
+  /** 做到了给什么：变异点、预算、信任 */
+  readonly reward: {
+    readonly points?: number;
+    readonly budget?: number;
+    readonly trust?: number;
+  };
+}
+
 /**
  * 剧本（章节）：给这一局另定胜负——攻方在期限内把几件事全做到就赢，到期没做到算守方守住了；
  * 病原体被清除照旧是守方赢。一件事都没列的剧本按普通对局的灾厄线分胜负，只是期限换成剧本的。
@@ -473,6 +506,7 @@ export interface OutbreakConfig {
   readonly events: readonly EventDef[];
   readonly skills: readonly SkillDef[];
   readonly decisions: readonly DecisionDef[];
+  readonly tasks: readonly TaskDef[];
   readonly rules: Rules;
   readonly scenario?: Scenario;
 }

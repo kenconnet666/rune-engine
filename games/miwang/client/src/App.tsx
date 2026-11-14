@@ -47,6 +47,7 @@ import { ResearchPanel } from './panels/ResearchPanel.tsx';
 import { Settings } from './screens/Settings.tsx';
 import { Setup } from './screens/Setup.tsx';
 import { StatusPanel } from './panels/StatusPanel.tsx';
+import { TaskPanel } from './panels/TaskPanel.tsx';
 import { TrendPanel } from './panels/TrendPanel.tsx';
 import { Workbench } from './screens/Workbench.tsx';
 import { createGameSession, type GameSession } from './session/index.ts';
@@ -218,6 +219,7 @@ export const App = _component(() => {
           <Scroll sx={[styles.column, styles.left]}>
             <StatusPanel view={view} />
             {view?.scenario && <GoalPanel view={view} />}
+            {view?.task && !view.outcome && <TaskPanel view={view} />}
             {hints.current.value && overlay === null && !watching && (
               <HintPanel hint={hints.current.value} onDismiss={hints.dismiss} />
             )}
@@ -233,7 +235,7 @@ export const App = _component(() => {
           {view && game && (
             <Scroll sx={[styles.column, styles.right]}>
               {/* 等着拿主意的事排在最前面：它有期限 */}
-              {view.decision && (
+              {view.decision && !view.outcome && (
                 <DecisionPanel
                   view={view}
                   onCommand={(command) => game?.send(command)}
@@ -310,7 +312,8 @@ export const App = _component(() => {
             </Callout>
           )}
         </div>
-        {view && overlay === null && (
+        {/* 分出胜负之后不再出提示：结算盖在中间，提示会压在它上面 */}
+        {view && overlay === null && !view.outcome && (
           <AlertStack
             alerts={alerts.list.value}
             view={view}

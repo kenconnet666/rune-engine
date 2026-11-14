@@ -3,7 +3,7 @@
  * 到期没选就按第一个选项办（表里把“什么都不做”放在第一个）。每一方同时最多有一件等着。
  * 有哪些事、各个选项的得失由抉择表定；这里只管什么时候冒出来、选了以后怎么生效。
  */
-import { chance, clamp, nextFloat, type PlayerId } from '@rune-engine/core';
+import { chance, clamp, type PlayerId } from '@rune-engine/core';
 import type { DecisionDef, DecisionOption } from '../config.ts';
 import {
   ATTACKER,
@@ -16,6 +16,7 @@ import {
   type OutbreakState,
 } from '../state.ts';
 import { addModifiers } from './modifiers.ts';
+import { pickWeighted } from './pick.ts';
 import { activeResearch } from './research.ts';
 
 /** “已经传开了”：到过这么多个地区 */
@@ -39,22 +40,15 @@ function eligible(state: OutbreakState, decision: DecisionDef): boolean {
 }
 
 /** 给这一方挑一件事：按表里的常见程度，出现过的降低权重（不老是同一件） */
-function pick(state: OutbreakState, player: PlayerId): number {
-  const { decisions } = state.config;
-  const weights = decisions.map((decision, index) =>
-    playerOf(decision) === player && eligible(state, decision)
-      ? decision.weight / (1 + 2 * state.decisionSeen[index]!)
-      : 0,
+const pick = (state: OutbreakState, player: PlayerId): number =>
+  pickWeighted(
+    state.random,
+    state.config.decisions.map((decision, index) =>
+      playerOf(decision) === player && eligible(state, decision)
+        ? decision.weight / (1 + 2 * state.decisionSeen[index]!)
+        : 0,
+    ),
   );
-  const total = weights.reduce((sum, weight) => sum + weight, 0);
-  if (total <= 0) return -1;
-  let at = nextFloat(state.random) * total;
-  for (let index = 0; index < weights.length; index++) {
-    at -= weights[index]!;
-    if (at < 0) return index;
-  }
-  return -1;
-}
 
 /** 一个选项生效 */
 function apply(state: OutbreakState, decision: DecisionDef, option: DecisionOption) {

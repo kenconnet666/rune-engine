@@ -31,6 +31,7 @@ import {
   EyeOff,
   Factory,
   Fence,
+  Flag,
   Flame,
   FlaskConical,
   Footprints,
@@ -68,6 +69,7 @@ import {
   Sun,
   Syringe,
   Tablets,
+  Target,
   TestTubeDiagonal,
   Thermometer,
   Timer,
@@ -189,6 +191,8 @@ const NEWS: Readonly<Record<NewsKind, IconData>> = {
   skill: Zap,
   devolve: Undo2,
   decision: Scale,
+  task: Target,
+  milestone: Flag,
 };
 
 const PATHOGENS: Readonly<Record<string, IconData>> = {

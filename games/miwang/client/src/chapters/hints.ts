@@ -29,6 +29,11 @@ export const HINT_IDS = [
   'routes',
   'vaccine',
   'calamity',
+  'levels',
+  'team',
+  'skills',
+  'decision',
+  'task',
 ] as const;
 export type HintId = (typeof HINT_IDS)[number];
 
@@ -42,6 +47,8 @@ interface HintDef {
 }
 
 const anyMeasure = (view: OutbreakView) => view.measures.some((bits) => bits !== 0);
+/** 头两章只学最基本的；应急队、分档、技能、抉择、短期任务从第三章起才讲 */
+const LATER: readonly ChapterId[] = ['wilds', 'hills', 'sky'];
 
 /** 排在前面的先讲 */
 const HINTS: readonly HintDef[] = [
@@ -136,6 +143,29 @@ const HINTS: readonly HintDef[] = [
     when: (view) => view.defense.done.includes('identify'),
   },
   { id: 'calamity', chapters: ['sky'], side: 'both', when: (view) => view.calamity > 0.3 },
+
+  // ───── 后三章里用得上的操作：碰上了再讲 ─────
+  {
+    id: 'team',
+    chapters: LATER,
+    side: 'defender',
+    when: (view) => view.totals.regions >= 1 && view.defense.teams.every((team) => team.region < 0),
+  },
+  {
+    id: 'levels',
+    chapters: LATER,
+    side: 'defender',
+    when: (view) => view.defense.upkeep > view.defense.income * 0.8,
+  },
+  {
+    id: 'skills',
+    chapters: LATER,
+    side: 'attacker',
+    when: (view) =>
+      view.pathogen.skills.some((skill) => skill.readyIn === 0 && skill.cost <= view.resource),
+  },
+  { id: 'decision', chapters: LATER, side: 'both', when: (view) => view.decision !== null },
+  { id: 'task', chapters: LATER, side: 'both', when: (view) => view.task !== null },
 ];
 
 export interface Hints {

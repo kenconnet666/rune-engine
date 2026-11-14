@@ -2,7 +2,8 @@
  * 守方的电脑对手。它和玩家一样只看得到上报的数字：
  *   研究——按“每一点预算换来多少效果”挑；疫情越重越看重疫苗和药物，信任越低越看重沟通。
  *   措施——每个地区按上报的病例占人口的比例，一步一步往上加：检测、隔离 → 口罩 → 封锁并关口岸；
- *           降下来之后再一步一步撤（撤的线比加的线低，免得来回开关）。它开的都是全力那一档。
+ *           降下来之后再一步一步撤（撤的线比加的线低，免得来回开关）。先试全力那一档；
+ *           普通和困难档在开不起、养不起的时候会退一档再试（轻的铺开总比不开强），手头宽了再往上加。
  *   应急队——派去上报病例最重的几个地区；原来驻的地方还排在前几名就不挪（来回跑的路上什么都干不了）。
  *   发布会——信任掉得厉害、手头又有余钱时开。疫苗——困难档会把疫苗优先给疫情重的地方。
  * 花钱有两条约束：手里要留一点应急的，维持费不能超过收入太多。
@@ -16,6 +17,7 @@ import {
   TROPICAL,
   type DefenseKey,
   type Measure,
+  type MeasureLevel,
   type OutbreakConfig,
   type TechDef,
 } from '../config.ts';
@@ -95,6 +97,9 @@ function wanted(
   return open;
 }
 
+/** 开一项措施时从高到低试的档位 */
+const TRY_LEVELS: readonly MeasureLevel[] = [3, 2, 1];
+
 /** 应急队该去哪里：上报病例占人口最重的几个地区；原来驻的地方还在前几名里就不动 */
 function dispatch(view: OutbreakView, config: OutbreakConfig): Command[] {
   const { teams } = view.defense;
@@ -136,19 +141,19 @@ export function defend(view: OutbreakView, config: OutbreakConfig, level: AiLeve
     commands.push({ type: 'priority', policy: 'hotspots' });
   }
 
-  // 先撤（不花钱），再按病例比例从重到轻开
-  const openings: { region: number; measure: Measure; share: number }[] = [];
+  // 先撤（不花钱），再按病例比例从重到轻开（没开到全力的也算，等着往上加）
+  const openings: { region: number; measure: Measure; share: number; from: MeasureLevel }[] = [];
   for (let region = 0; region < config.regions.length; region++) {
     const current = view.measures[region]!;
     const target = wanted(view, config, region, lockAt, targeted);
     if (current === 0 && target.size === 0) continue;
     const share = view.cases[region]! / Math.max(1, config.regions[region]!.population);
     for (const measure of MEASURES) {
-      const on = measureLevel(current, measure) > 0;
-      if (on && !target.has(measure)) {
+      const from = measureLevel(current, measure);
+      if (from > 0 && !target.has(measure)) {
         commands.push({ type: 'measure', region, measure, level: 0 });
-      } else if (!on && target.has(measure)) {
-        openings.push({ region, measure, share });
+      } else if (from < MAX_LEVEL && target.has(measure)) {
+        openings.push({ region, measure, share, from });
       }
     }
   }
@@ -156,15 +161,21 @@ export function defend(view: OutbreakView, config: OutbreakConfig, level: AiLeve
 
   let budget = view.resource - reserve;
   let upkeep = view.defense.upkeep;
-  for (const { region, measure } of openings) {
+  /** 最低肯开到第几档：简单档只开全力的，开不起就不开 */
+  const lowest = level === 0 ? MAX_LEVEL : 1;
+  for (const { region, measure, from } of openings) {
     if (commands.length >= limit) break;
-    const cost = setupCost(config, region, measure);
-    const daily = upkeepOf(config, region, measure);
-    const sustainable = upkeep + daily <= view.defense.income * UPKEEP_CAP || budget > RICH;
-    if (cost > budget || !sustainable) continue;
-    budget -= cost;
-    upkeep += daily;
-    commands.push({ type: 'measure', region, measure, level: MAX_LEVEL });
+    for (const to of TRY_LEVELS) {
+      if (to <= from || to < lowest) break;
+      const cost = setupCost(config, region, measure, to, from);
+      const daily = upkeepOf(config, region, measure, to) - upkeepOf(config, region, measure, from);
+      const sustainable = upkeep + daily <= view.defense.income * UPKEEP_CAP || budget > RICH;
+      if (cost > budget || !sustainable) continue;
+      budget -= cost;
+      upkeep += daily;
+      commands.push({ type: 'measure', region, measure, level: to });
+      break;
+    }
   }
   return commands.slice(0, limit);
 }

@@ -121,6 +121,9 @@ export const en: ClientText = {
     skillAt: (name, place) => `${name}: ${place}`,
     devolved: (name) => `Shed: ${name}`,
     devolvedTheirs: (name) => `The pathogen lost: ${name}`,
+    taskNew: (name) => `New objective: ${name}`,
+    taskDone: (name) => `Objective met: ${name}`,
+    taskFailed: (name) => `Objective missed: ${name}`,
   },
 
   news: {
@@ -142,6 +145,21 @@ export const en: ClientText = {
     devolved: (name) => `Trait shed: ${name}`,
     devolvedSeen: (name) => `The pathogen lost a trait: ${name}`,
     decision: (name, option) => `${name} — ${option}`,
+    taskDone: (name) => `Objective met: ${name}`,
+    taskFailed: (name) => `Objective missed: ${name}`,
+  },
+
+  tasks: {
+    title: 'Objective',
+    daysLeft: (days) => `${days} days left`,
+    reward: (what) => `Reward: ${what}`,
+    progress: {
+      gain: (have, need) => `${have} / ${need}`,
+      grow: (have, need) => `${have} / ${need}`,
+      cap: (have, need) => `${have} so far, no more than ${need}`,
+      hold: (have, need) => `${have} now, no lower than ${need}`,
+      shrink: (have, need) => `${have} now, down to ${need}`,
+    },
   },
 
   effects: {
@@ -584,11 +602,11 @@ export const en: ClientText = {
       countered:
         'The response has started taking measures (the small icons on regions). Measures cut transmission there and cost the other side budget.',
       firstReport:
-        'A region has reported cases. Click it and turn on “More testing” and “Isolate cases” on the right: the earlier and the more you find, the more isolation helps. Reports are the tip of the iceberg.',
+        'A region has reported cases. Click it and turn on “More testing” and “Isolate cases” on the right (or press “Watch” under Playbooks to set both at once): the earlier and the more you find, the more isolation helps. Reports are the tip of the iceberg.',
       budget:
         'The budget is running dry. Every measure has a daily upkeep and works less well when you cannot pay: turn off the least useful, or wait for income.',
       points:
-        'You have enough mutation points for a trait: open “Evolve” on the right. Routes spread it further, symptoms make it harsher (and easier to notice), abilities make it harder to deal with.',
+        'You have enough mutation points for a trait: open “Evolve” on the right. Routes spread it further, symptoms make it harsher (and easier to notice), abilities make it harder to deal with. A wrong pick can be shed for half its price.',
       tradeoff:
         'Each trait makes the next cost more. Harsher symptoms are noticed sooner: spread first, or hit harder first?',
       research:
@@ -600,7 +618,15 @@ export const en: ClientText = {
       borders:
         'It is walking along land routes. See where it goes next and close that land border **before** it arrives; that is cheaper than sealing it afterwards.',
       trust:
-        'Public trust is falling. Long lockdowns wear it down, and so do deaths; with low trust every measure works less well.',
+        'Public trust is falling. Long lockdowns wear it down, and so do deaths; with low trust every measure works less well. In Command you can hold a briefing: it spends budget to win some trust back.',
+      levels:
+        'Upkeep is catching up with income. Measures come in three strengths: set the strength to “Light” in the region panel for 45% of the effect at 30% of the cost. Light measures spread wide beat the strictest regime in one place.',
+      team: 'Command has three response teams. Select the worst-hit region and press “Send a response team here”: where a team is stationed, more cases are found and more patients are saved.',
+      skills:
+        'You can afford a skill (below the pathogen panel on the right). Surge and Spillover need a region selected on the map; only you know when a skill is used.',
+      decision:
+        'A decision is waiting at the top right: each option lists what it gains and costs. If you do not choose, the first option applies when time runs out.',
+      task: 'An objective has appeared on the left: meet it in time for a small reward; missing it costs nothing. It is there to suggest what to do next.',
       defended:
         'Wealthy regions have strong care and fast detection, and act at the first sign. Stealth delays detection; resistance abilities let it withstand what they use.',
       economy:
@@ -628,5 +654,22 @@ export const en: ClientText = {
     trust: 'Public trust',
     economy: 'Economic loss',
     restart: 'New game',
+    grade: 'Rating',
+    score: (points) => `${points} points`,
+    parts: {
+      victory: 'Victory',
+      pace: 'Speed of the win',
+      progress: 'How far it got',
+      reach: 'Spread',
+      lives: 'Distance from calamity',
+      trust: 'Public trust',
+      economy: 'Economy preserved',
+      endurance: 'Time held',
+      tasks: 'Objectives',
+    },
+    truth: 'What actually happened (revealed after the game)',
+    tasks: 'Objectives met',
+    tasksValue: (attacker, defender) => `Pathogen ${attacker} · Response ${defender}`,
+    chronicle: 'Chronicle',
   },
 };

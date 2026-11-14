@@ -32,8 +32,11 @@ export type ChapterId = (typeof CHAPTER_IDS)[number];
 
 /** 只走陆路：航线和海运不带病 */
 const LAND_ONLY = { airRate: 0, seaRate: 0 } as const;
-/** 头两章是学基本操作的：不出要拿主意的事，免得分心 */
-const CALM = { ...LAND_ONLY, decisionChance: 0 } as const;
+/**
+ * 头两章是学基本操作的：不出要拿主意的事、不发短期任务，也没有应急队——
+ * 免得分心；而且疫情还只有一两个地区的时候，一支应急队驻上去就能把它按住，攻方学不到东西
+ */
+const CALM = { ...LAND_ONLY, decisionChance: 0, taskGap: -1, teams: 0 } as const;
 
 export const CHAPTERS: readonly ChapterDef[] = [
   // 不盈一握之迷惘——起源：几个病例，在被拦住之前扎下根。只有陆路，地图上看得清它怎么一点点漫开

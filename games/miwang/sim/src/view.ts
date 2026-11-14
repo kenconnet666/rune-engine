@@ -19,6 +19,8 @@ import {
   traitCost,
 } from './rules/pathogen.ts';
 import { canResearch, defenseStats, vaccineReady } from './rules/research.ts';
+import { reviewOf, type Review } from './rules/review.ts';
+import { taskProgress } from './rules/tasks.ts';
 import {
   alive,
   ATTACKER,
@@ -143,6 +145,18 @@ export interface OutbreakView {
   /** 等着这一方拿主意的事：哪一件、还剩几天（到期按第一个选项办）；没有是 null */
   readonly decision: { readonly id: string; readonly daysLeft: number } | null;
 
+  /**
+   * 这一方手里的短期任务：哪一件、还剩几天、手里有多少、要到多少（cap、shrink 是不能超过多少）；没有是 null
+   */
+  readonly task: {
+    readonly id: string;
+    readonly daysLeft: number;
+    readonly have: number;
+    readonly need: number;
+  } | null;
+  /** 这一方做到了几件短期任务 */
+  readonly tasksDone: number;
+
   /** 起源地：攻方总是知道，守方要做完溯源；不知道时是 -1 */
   readonly origin: number;
   /** 疾病最近跳到新地区的那几下（只有攻方看得到：守方不知道它是从哪里来的） */
@@ -152,6 +166,8 @@ export interface OutbreakView {
   /** 这一方看得到的新闻，旧的在前 */
   readonly news: readonly NewsItem[];
   readonly outcome: Outcome | null;
+  /** 分出胜负之后的回顾：评分、真实的数、大事记；对局中是 null */
+  readonly review: Review | null;
   /**
    * 这一局的剧本（章节）：目标、期限、各个目标现在到了多少。普通对局是 null。
    * 攻方看到的进度是真实的；守方看到的是按上报算的（比真实的少），它还不知道的是 null。
@@ -224,6 +240,8 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
   const balance = attacker ? { income: 0, upkeep: 0 } : dailyBalance(state);
   const line = state.config.rules.calamityShare * state.worldPopulation;
   const pending = state.config.decisions[state.pendingDecision[player] ?? -1];
+  const task = state.config.tasks[state.task[player] ?? -1];
+  const taskNow = task && taskProgress(state, task, state.taskStart[player]!);
 
   return {
     tick: state.tick,
@@ -304,11 +322,22 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
     decision: pending
       ? { id: pending.id, daysLeft: Math.max(0, state.decisionExpires[player]! - state.tick) }
       : null,
+    task:
+      task && taskNow
+        ? {
+            id: task.id,
+            daysLeft: Math.max(0, state.taskExpires[player]! - state.tick),
+            have: taskNow.have,
+            need: taskNow.need,
+          }
+        : null,
+    tasksDone: state.tasksDone[player] ?? 0,
     origin: attacker || defense.trace >= 1 ? state.config.origin : -1,
     hops: attacker ? state.hops.filter((hop) => state.tick - hop.tick <= HOPS_SHOWN_DAYS) : [],
     history: { every: HISTORY_EVERY, ...(attacker ? state.history : state.reportedHistory) },
     news: state.news.filter((item) => (item.audience & audience) !== 0).slice(-NEWS_SHOWN),
     outcome: state.outcome,
+    review: reviewOf(state, player),
     scenario: scenario
       ? {
           id: scenario.id,

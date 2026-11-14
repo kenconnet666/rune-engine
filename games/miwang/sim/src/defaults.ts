@@ -55,6 +55,8 @@ export const DEFAULT_RULES: Rules = {
   disasterWater: 1.6,
   decisionChance: 0.035,
   decisionAfter: 25,
+  taskAfter: 12,
+  taskGap: 8,
 
   startPoints: 6,
   pointsPerInfectionRoot: 0.03,

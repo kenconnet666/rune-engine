@@ -45,7 +45,7 @@ export interface ChapterText {
   readonly lessons: readonly string[];
 }
 
-/** 内容的文案：每种语言一份，形状相同。性状、科技、事件、技能、抉择按各张表里的 id 取（text.test.ts 核对没有漏的） */
+/** 内容的文案：每种语言一份，形状相同。性状、科技、事件、技能、抉择、任务按各张表里的 id 取（text.test.ts 核对没有漏的） */
 export interface ContentText {
   /** 气候（热带、温带、寒带）、富裕程度（0–3）、密度（0–2）的叫法，下标就是取值 */
   readonly climates: readonly [string, string, string];
@@ -58,6 +58,8 @@ export interface ContentText {
   readonly events: Readonly<Record<string, Label>>;
   readonly skills: Readonly<Record<string, Label>>;
   readonly decisions: Readonly<Record<string, DecisionText>>;
+  /** 短期任务：名字和一句话说要做什么（具体的数界面从任务表和进度里取） */
+  readonly tasks: Readonly<Record<string, Label>>;
   readonly pathogens: Readonly<Record<string, PathogenText>>;
   readonly outcomes: Readonly<Record<Outcome['reason'], string>>;
   readonly chapters: Readonly<Record<ChapterId, ChapterText>>;
