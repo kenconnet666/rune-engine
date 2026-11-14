@@ -24,15 +24,23 @@ function fromAddress(): StageMode | undefined {
   return isMode(value) ? value : undefined;
 }
 
-export const stageMode: StageMode = fromAddress() ?? remembered() ?? 'canvas';
-
-/** 换一种摆法：记下来、整页重新加载（画布交给渲染线程之后收不回来，换摆法要一张新的画布） */
-export function switchStageMode(next: StageMode) {
+function remember(mode: StageMode) {
   try {
-    localStorage.setItem(KEY, next);
+    localStorage.setItem(KEY, mode);
   } catch {
     // 存不了（隐私模式）就只靠地址
   }
+}
+
+const asked = fromAddress();
+// 地址里指定的也记下来：站内换页之后地址里就没有它了，这时刷新不该换了摆法
+if (asked) remember(asked);
+
+export const stageMode: StageMode = asked ?? remembered() ?? 'canvas';
+
+/** 换一种摆法：记下来、整页重新加载（画布交给渲染线程之后收不回来，换摆法要一张新的画布） */
+export function switchStageMode(next: StageMode) {
+  remember(next);
   const url = new URL(location.href);
   url.searchParams.set('stage', next);
   location.assign(url);

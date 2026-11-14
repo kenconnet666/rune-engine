@@ -52,8 +52,9 @@ const DIFF = `async (a, b, tolerance) => {
 
 try {
   const pages = {
-    dom: await chrome.open(`${site}/?stage=dom`, { newWindow: true }),
-    canvas: await chrome.open(`${site}/?stage=canvas`, { newWindow: true }),
+    // 各用各的浏览器环境：摆法记在本地存储里，两个窗口不能共用一份
+    dom: await chrome.open(`${site}/?stage=dom`, { isolated: true }),
+    canvas: await chrome.open(`${site}/?stage=canvas`, { isolated: true }),
   };
   const judge = await chrome.open('about:blank', { newWindow: true });
   for (const page of Object.values(pages)) {
@@ -67,13 +68,6 @@ try {
     timeoutMs: 60_000,
   });
 
-  // 右下角换摆法的开关两边写的字本来就不一样：藏起来，不算进差异
-  for (const page of Object.values(pages)) {
-    await page.evaluate(
-      `document.querySelector('[data-stage-switch]').parentElement.style.visibility = 'hidden'`,
-    );
-  }
-
   const all = JSON.parse(
     await pages.dom.evaluate(
       `JSON.stringify([...new Set([...document.querySelectorAll('nav a[href^="/"]')].map((a) => a.getAttribute('href')))])`,
@@ -84,19 +78,29 @@ try {
     .slice(0, limit);
   console.log(`一共 ${paths.length} 页`);
 
-  /** 站内跳到一页（不重新加载：两种摆法都只初始化一次），等它的内容出来 */
+  /**
+   * 站内跳到一页（不重新加载：两种摆法都只初始化一次），等它换过去。
+   * 点的是页面上真的那个链接：路由要等那一页的代码加载完才改地址，所以地址变了就是真到了
+   * （自己改地址再通知路由的话，地址马上就对，内容却还是上一页的——头一版就这样比错过）
+   */
   const go = async (page, path) => {
+    await page.evaluate(`document.querySelector('a[href=${JSON.stringify(path)}]').click()`);
+    await page.waitFor(`location.pathname === ${JSON.stringify(path)}`, {
+      what: `换到 ${path}`,
+      timeoutMs: 120_000,
+    });
+  };
+  /**
+   * 截图之前核对：这个窗口确实还是它该有的那种摆法（页面中途被开发服务器刷新过的话可能变了），
+   * 再把右下角换摆法的开关藏起来——两边写的字本来就不一样，不算进差异
+   */
+  const prepare = async (page, mode) => {
+    const layers = await page.evaluate(`document.querySelectorAll('canvas > [drawable]').length`);
+    if ((mode === 'canvas') !== layers > 0) {
+      throw new Error(`${mode} 那个窗口现在不是 ${mode} 的摆法（画布里有 ${layers} 层）`);
+    }
     await page.evaluate(
-      `history.pushState({}, '', ${JSON.stringify(path)}); dispatchEvent(new PopStateEvent('popstate'))`,
-    );
-    // 地址是我们自己改的，马上就对；页面的代码要现加载，路由真正换过去之后侧栏的“当前页”才跟着变。
-    // 首页不在侧栏里：没有“当前页”就是到了
-    const current = `document.querySelector('nav a[aria-current="page"]')?.getAttribute('href')`;
-    await page.waitFor(
-      path === '/'
-        ? `location.pathname === '/' && !${current}`
-        : `${current} === ${JSON.stringify(path)}`,
-      { what: `${path} 的内容`, timeoutMs: 120_000 },
+      `document.querySelector('[data-stage-switch]').parentElement.style.visibility = 'hidden'`,
     );
   };
 
@@ -105,6 +109,7 @@ try {
     const name = path === '/' ? 'home' : path.slice(1).replaceAll('/', '-');
     try {
       await Promise.all(Object.values(pages).map((page) => go(page, path)));
+      await Promise.all(Object.entries(pages).map(([mode, page]) => prepare(page, mode)));
       // 代码高亮、懒加载的示例、界面采集的补拍都要一小会儿
       await sleep(2000);
       const files = {};
