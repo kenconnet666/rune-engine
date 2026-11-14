@@ -4,8 +4,8 @@
  *
  * 命令发给主机要一小会儿才看得到结果（加入别人房间时还要过网络）：按下之后先在这里记成“已下令”，免得连点两次。
  */
-import { TECHS, TRAITS } from '@miwang/content';
-import type { OutbreakView, TraitGroup } from '@miwang/sim';
+import { PATHOGENS, SYNERGIES, TECHS, TRAITS } from '@miwang/content';
+import type { OutbreakView, SynergyDef, TraitGroup } from '@miwang/sim';
 import {
   ActionButton,
   colors,
@@ -24,7 +24,7 @@ import {
 } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { Check, Coins, Dna, Lock } from 'lucide';
+import { Check, Coins, Dna, Lock, Sparkles } from 'lucide';
 import { useContent, useFormats, useUi } from '../i18n.ts';
 import { GROUP_ICONS, techIcon, traitIcon } from '../icons.ts';
 import { LABS } from '../rules.ts';
@@ -57,7 +57,66 @@ const styles = css.create({
     color: colors.calm,
   },
   tabs: { paddingInline: space.lg },
+  // 一组协同：名字一行（凑齐了的用信号色），下面是要哪几个、给什么
+  synergy: { display: 'flex', flexDirection: 'column', gap: '0.125rem' },
+  synergyName: { display: 'flex', alignItems: 'center', gap: space.xs, fontSize: '0.875rem' },
+  synergyOn: { color: colors.signal },
+  synergyOff: { color: colors.textMuted },
 });
+
+/** 几组协同：各要哪几个性状（有了的打勾）、凑齐了给什么 */
+const SynergyList = _component(
+  ({
+    synergies,
+    owned,
+    routeScale,
+  }: {
+    synergies: readonly SynergyDef[];
+    owned: ReadonlySet<string>;
+    /** 这一局的病原体对传播强度的折算 */
+    routeScale: number;
+  }) =>
+    () => {
+      const ui = useUi();
+      const content = useContent();
+      const w = ui.workbench;
+      return (
+        <Stack gap="sm">
+          <Note>{w.synergies}</Note>
+          {synergies.map((synergy) => {
+            const missing = synergy.requires.filter((id) => !owned.has(id));
+            const active = missing.length === 0;
+            const nameOf = (id: string) => content.traits[id]?.name ?? id;
+            return (
+              <div key={synergy.id} data-synergy={synergy.id} {...css.attrs(styles.synergy)}>
+                <span
+                  {...css.attrs(styles.synergyName, active ? styles.synergyOn : styles.synergyOff)}
+                >
+                  <Icon icon={Sparkles} size="0.875rem" />
+                  {content.synergies[synergy.id]?.name ?? synergy.id}
+                  {' · '}
+                  {traitEffects(synergy.effects, content, ui, routeScale)
+                    .map((line) => `${line.name} ${line.amount}`)
+                    .join('、')}
+                </span>
+                <Note tone={active ? 'signal' : 'muted'}>
+                  {active
+                    ? w.synergyActive(ui.list(synergy.requires.map(nameOf)))
+                    : missing.length === synergy.requires.length
+                      ? w.synergyAll(ui.list(missing.map(nameOf)))
+                      : w.synergyNeeds(
+                          ui.list(missing.map(nameOf)),
+                          synergy.requires.length - missing.length,
+                          synergy.requires.length,
+                        )}
+                </Note>
+              </div>
+            );
+          })}
+        </Stack>
+      );
+    },
+);
 
 /** 右边一栏要显示的东西：两种模式各自算好，画法是同一套 */
 interface Detail {
@@ -69,6 +128,8 @@ interface Detail {
   cost: string;
   /** 能不能按、按钮上写什么；不该有按钮（已经有了、还锁着）时是 null */
   action: { label: string; disabled: boolean; press: () => void } | null;
+  /** 和它有关的协同（攻方的性状才有） */
+  synergies: readonly SynergyDef[];
 }
 
 export const Workbench = _component(
@@ -102,6 +163,10 @@ export const Workbench = _component(
 
       let nodes: TreeNode[];
       let detail: Detail | null = null;
+      const ownedTraits: ReadonlySet<string> = new Set(view.pathogen.owned);
+      // 病程长的病原体，性状给的传播强度是折算过的：这里写的是这一局里实际加多少
+      const routeScale =
+        PATHOGENS.find((profile) => profile.id === view.pathogen.id)?.routeScale ?? 1;
 
       if (attacker) {
         const owned = new Set(view.pathogen.owned);
@@ -147,7 +212,8 @@ export const Workbench = _component(
                     tone: 'muted',
                   }
                 : { text: '', tone: 'muted' },
-            effects: traitEffects(trait.effects, content, ui),
+            effects: traitEffects(trait.effects, content, ui, routeScale),
+            synergies: SYNERGIES.filter((synergy) => synergy.requires.includes(trait.id)),
             cost: cost === undefined ? '' : w.points(cost),
             action: has
               ? refund === undefined
@@ -225,6 +291,7 @@ export const Workbench = _component(
                     ? { text: w.labsBusy, tone: 'danger' }
                     : { text: '', tone: 'muted' },
             effects: techEffects(tech.effects, content, ui),
+            synergies: [],
             cost: w.budget(tech.cost, tech.days),
             action:
               open && running === undefined
@@ -302,9 +369,29 @@ export const Workbench = _component(
                       {detail.action.label}
                     </ActionButton>
                   )}
+                  {detail.synergies.length > 0 && (
+                    <SynergyList
+                      synergies={detail.synergies}
+                      owned={ownedTraits}
+                      routeScale={routeScale}
+                    />
+                  )}
                 </>
               ) : (
-                <Note>{w.pick}</Note>
+                <>
+                  <Note>{w.pick}</Note>
+                  {/* 没点哪个图块的时候：把所有的协同列出来，好知道往哪边凑 */}
+                  {attacker && (
+                    <>
+                      <Note>{w.synergyHint}</Note>
+                      <SynergyList
+                        synergies={SYNERGIES}
+                        owned={ownedTraits}
+                        routeScale={routeScale}
+                      />
+                    </>
+                  )}
+                </>
               )}
             </Scroll>
           </div>

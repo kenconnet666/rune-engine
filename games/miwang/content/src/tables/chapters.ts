@@ -52,7 +52,7 @@ export const CHAPTERS: readonly ChapterDef[] = [
     pathogen: 'novel',
     origin: (region) => region.neighbors.length >= 3,
     rules: CALM,
-    goals: [{ metric: 'infected', target: 1_300 }],
+    goals: [{ metric: 'infected', target: 2_100 }],
     days: 150,
   },
   // 由此孕育出邪念——变异：攒变异点、换性状，让它成为更难对付的东西
@@ -63,7 +63,7 @@ export const CHAPTERS: readonly ChapterDef[] = [
     rules: CALM,
     goals: [
       { metric: 'traits', target: 4 },
-      { metric: 'infected', target: 3_000 },
+      { metric: 'infected', target: 4_200 },
     ],
     days: 240,
   },

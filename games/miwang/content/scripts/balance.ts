@@ -8,6 +8,8 @@
  * 环境变量 CHAPTER 选章节（见 src/tables/chapters.ts）：按那一章的条件和目标打，用来定目标的数；
  * 这时 GOALS 可以临时换目标，比如 GOALS='[{"metric":"regions","target":20}]'，DAYS 换期限。
  * PLAIN=1 把技能、抉择、短期任务都拿掉：和带着它们的结果一比，就知道它们把天平往哪边推了多少。
+ * 调某个病原体档案时：BASE 里写要覆盖的底数，PROFILE 里写档案别的项，比如
+ * PATHOGEN=pertussis BASE='{"air":0.09}' PROFILE='{"infectiousDays":16}'。
  */
 import {
   ATTACKER,
@@ -58,7 +60,15 @@ interface Result {
   goals: string;
 }
 
-function play(seed: number, pathogen: PathogenProfile): Result {
+const baseOverride = JSON.parse(process.env['BASE'] ?? '{}') as PathogenProfile['base'];
+const profileOverride = JSON.parse(process.env['PROFILE'] ?? '{}') as Partial<PathogenProfile>;
+
+function play(seed: number, profile: PathogenProfile): Result {
+  const pathogen = {
+    ...profile,
+    ...profileOverride,
+    base: { ...profile.base, ...baseOverride },
+  };
   const base = createConfig(seed, '2026-01-01', { pathogen, chapter });
   const config = {
     ...base,

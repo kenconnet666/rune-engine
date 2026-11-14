@@ -7,6 +7,7 @@ import { DECISIONS } from './tables/decisions.ts';
 import { EVENTS } from './tables/events.ts';
 import { DEFAULT_PATHOGEN, PATHOGENS } from './tables/pathogens.ts';
 import { SKILLS } from './tables/skills.ts';
+import { SYNERGIES } from './tables/synergies.ts';
 import { TASKS } from './tables/tasks.ts';
 import { TECHS } from './tables/techs.ts';
 import { TRAITS } from './tables/traits.ts';
@@ -56,6 +57,7 @@ export function createConfig(
     })),
     pathogen: options.pathogen ?? chapterPathogen ?? DEFAULT_PATHOGEN,
     traits: TRAITS,
+    synergies: SYNERGIES,
     techs: TECHS,
     events: EVENTS,
     calendar: CALENDAR,

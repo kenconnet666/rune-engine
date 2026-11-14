@@ -38,10 +38,20 @@ const SHARES: ReadonlySet<EffectKey> = new Set([
 const DAYS: ReadonlySet<EffectKey> = new Set(['incubation', 'duration']);
 const ROUTE_KEYS: ReadonlySet<EffectKey> = new Set(ROUTES);
 
-export function traitEffects(effects: Effects, content: ContentText, ui: ClientText): EffectLine[] {
+/**
+ * routeScale 是这一局的病原体档案对“性状给的传播强度”的折算（见档案的 routeScale）：
+ * 在对局里看一个性状时传进来，写出来的就是它在这一局里实际加的；百科里不传，写的是表里的数。
+ */
+export function traitEffects(
+  effects: Effects,
+  content: ContentText,
+  ui: ClientText,
+  routeScale = 1,
+): EffectLine[] {
   return EFFECT_KEYS.flatMap((key) => {
-    const value = effects[key];
-    if (!value) return [];
+    const raw = effects[key];
+    if (!raw) return [];
+    const value = ROUTE_KEYS.has(key) ? raw * routeScale : raw;
     const amount = SHARES.has(key)
       ? percent(value)
       : DAYS.has(key)

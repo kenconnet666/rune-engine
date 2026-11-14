@@ -63,6 +63,7 @@ export {
   type Scenario,
   type SkillDef,
   type SkillKind,
+  type SynergyDef,
   type TaskDef,
   type TaskMetric,
   type TechDef,

@@ -27,6 +27,10 @@ export function newsSentence(item: NewsItem, attacker: boolean): string {
       const name = content.traits[item.subject]?.name ?? item.subject;
       return attacker ? ui.evolved(name) : ui.evolvedSeen(name);
     }
+    case 'synergy': {
+      const name = content.synergies[item.subject]?.name ?? item.subject;
+      return attacker ? ui.synergy(name) : ui.synergySeen(name);
+    }
     case 'devolve': {
       const name = content.traits[item.subject]?.name ?? item.subject;
       return attacker ? ui.devolved(name) : ui.devolvedSeen(name);

@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Siren,
   Skull,
+  Sparkles,
   Syringe,
   Target,
   TriangleAlert,
@@ -59,6 +60,7 @@ const ICONS: Readonly<Record<AlertData['kind'], IconData>> = {
   goal: Flag,
   deadline: Hourglass,
   trait: Dna,
+  synergy: Sparkles,
   research: FlaskConical,
   measure: ShieldCheck,
   measures: ShieldCheck,
@@ -190,6 +192,11 @@ export const AlertStack = _component(
               detail: content.skills[data.skill]?.detail,
             };
           }
+          case 'synergy':
+            return {
+              title: newsSentence(data.item, view.attacker),
+              detail: content.synergies[data.item.subject]?.detail,
+            };
           case 'calendar': {
             const [id = ''] = data.item.subject.split('.');
             return {

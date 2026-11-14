@@ -182,6 +182,26 @@ export const en: ContentText = {
     mutation: label('Spontaneous mutation', 'The pathogen gains extra mutation points.'),
   },
 
+  synergies: {
+    aerosolCloud: label('Aerosol cloud', 'Coughs and sneezes carry droplets further.'),
+    fouledWater: label('Fouled water', 'The sick keep contaminating the water supply.'),
+    bleedingContact: label('Bloody contact', 'A touch from a bleeding patient can pass it on.'),
+    wildCycle: label(
+      'Wild cycle',
+      'Circling between animals and mosquitoes, it cannot be rooted out.',
+    ),
+    silentChain: label(
+      'Silent chain',
+      'It spreads before symptoms and stays inconspicuous: harder to detect.',
+    ),
+    allWeather: label('All-weather', 'At home in heat and cold, with a longer illness.'),
+    movingTarget: label(
+      'Moving target',
+      'Drug-resistant and fast-changing: drugs and vaccines cannot keep up.',
+    ),
+    collapse: label('Total collapse', 'With immunity crushed, organs fail one after another.'),
+  },
+
   conditions: {
     busySkies: label('Busy skies', 'A good year for airlines: air travel is up by a third.'),
     tightBudget: label(
@@ -281,6 +301,57 @@ export const en: ContentText = {
   },
 
   decisions: {
+    reassortment: {
+      name: 'Reassortment',
+      detail: 'Two strains meet in one host, where gene segments can be reshuffled.',
+      options: { pass: 'Go separate ways', reassort: 'Reshuffle' },
+    },
+    catchUpCampaign: {
+      name: 'Catch-up vaccination',
+      detail:
+        'Records show many children missed their shots. A catch-up campaign now would shield a lot of people.',
+      options: { skip: 'Not now', campaign: 'Run the campaign' },
+    },
+    floodedWorks: {
+      name: 'Flooded waterworks',
+      detail: 'Floodwater has swept over a water plant and the sewers.',
+      options: { pass: 'Pass it by', seize: 'Go with the water' },
+    },
+    breedingSites: {
+      name: 'Clear standing water',
+      detail:
+        'Aedes mosquitoes breed in flowerpots, tyres and buckets. A neighbourhood clean-up costs little.',
+      options: { skip: 'Not now', cleanup: 'Run a clean-up' },
+    },
+    bedNets: {
+      name: 'Bed nets',
+      detail:
+        'Insecticide-treated nets stop Anopheles at night. Buying and delivering them in bulk costs money.',
+      options: { skip: 'Not now', distribute: 'Buy and distribute' },
+    },
+    supervisedTherapy: {
+      name: 'Supervised treatment',
+      detail:
+        'TB treatment means months of daily pills, and many stop halfway. Home visits to watch each dose cost staff and money, but they work.',
+      options: { skip: 'Trust patients', supervise: 'Visit and supervise' },
+    },
+    cruiseShip: {
+      name: 'A cruise ship',
+      detail: 'Thousands of people on one ship, sharing dining rooms and handrails.',
+      options: { pass: 'Miss this boat', board: 'Go aboard' },
+    },
+    safeBurials: {
+      name: 'Safe burials',
+      detail:
+        'Relatives touching the body at funerals is a major source of spread. Burial by trained teams stops it, but goes against local custom.',
+      options: { custom: 'Respect custom', enforce: 'Enforce safe burials' },
+    },
+    maternalShots: {
+      name: 'Vaccinate in pregnancy',
+      detail:
+        'Whooping cough is most dangerous for newborns. Vaccinating in pregnancy passes antibodies to the baby.',
+      options: { skip: 'Not now', offer: 'Promote it' },
+    },
     hospitalOverload: {
       name: 'Hospitals are full',
       detail:

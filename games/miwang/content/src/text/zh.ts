@@ -98,6 +98,17 @@ export const zh: ContentText = {
     mutation: label('自发变异', '病原体得到额外的变异点。'),
   },
 
+  synergies: {
+    aerosolCloud: label('飞沫云', '咳嗽和喷嚏把飞沫送得更远。'),
+    fouledWater: label('污染的水源', '腹泻的病人让水源一再被污染。'),
+    bleedingContact: label('带血的接触', '出血的病人，碰一下就可能传上。'),
+    wildCycle: label('野外的循环', '在动物和蚊子之间来回，断不了根。'),
+    silentChain: label('无声的链条', '发病前就传人，又不显眼：更难被发现。'),
+    allWeather: label('全天候', '冷热都待得住，病程也更长。'),
+    movingTarget: label('移动的靶子', '耐药再加上变得快：药和疫苗都追不上。'),
+    collapse: label('全线崩溃', '免疫被压垮之后，器官一个接一个出问题。'),
+  },
+
   conditions: {
     busySkies: label('航线繁忙', '航空业的好年景：坐飞机出行的人多三成半。'),
     tightBudget: label('财政紧缩', '各国手头都紧：守方每天的预算少近两成。'),
@@ -143,6 +154,51 @@ export const zh: ContentText = {
   },
 
   decisions: {
+    reassortment: {
+      name: '重配',
+      detail: '两株在同一个宿主体内相遇，基因片段可以重新洗牌。',
+      options: { pass: '各走各的', reassort: '洗一次牌' },
+    },
+    catchUpCampaign: {
+      name: '补种',
+      detail: '接种记录里有不少漏打的孩子。趁现在组织一次补种，能挡住一大片。',
+      options: { skip: '先不搞', campaign: '组织补种' },
+    },
+    floodedWorks: {
+      name: '被淹的水厂',
+      detail: '一场大水漫过了水厂和下水道。',
+      options: { pass: '只是路过', seize: '顺着水走' },
+    },
+    breedingSites: {
+      name: '清积水',
+      detail: '伊蚊在花盆、轮胎、水桶里繁殖。发动居民清一次积水，花不了多少钱。',
+      options: { skip: '先不搞', cleanup: '发动清理' },
+    },
+    bedNets: {
+      name: '发蚊帐',
+      detail: '浸过药的蚊帐能在夜里挡住按蚊。大批采购、挨家发放要一笔钱。',
+      options: { skip: '先不发', distribute: '采购发放' },
+    },
+    supervisedTherapy: {
+      name: '督导服药',
+      detail: '结核要连着服药好几个月，半途而废的人不少。派人上门看着服药，费人费钱，但见效。',
+      options: { skip: '靠病人自觉', supervise: '上门督导' },
+    },
+    cruiseShip: {
+      name: '一艘邮轮',
+      detail: '几千人关在一条船上，共用餐厅和扶手。',
+      options: { pass: '错过这班船', board: '上船' },
+    },
+    safeBurials: {
+      name: '安全下葬',
+      detail: '葬礼上亲属接触遗体，是传播的一大来源。由专业队伍下葬能堵住它，但违背当地的习俗。',
+      options: { custom: '尊重习俗', enforce: '强制安全下葬' },
+    },
+    maternalShots: {
+      name: '给孕妇接种',
+      detail: '百日咳对新生儿最危险。给孕妇接种，抗体能带给孩子。',
+      options: { skip: '先不推', offer: '推广接种' },
+    },
     hospitalOverload: {
       name: '医院挤满了',
       detail: '这里的病人多到医院收不下，走廊里都是床。再这样下去，本来救得回来的人也救不回来。',

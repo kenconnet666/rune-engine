@@ -1,22 +1,42 @@
 /** 攻方：病原体当前的数值、性状的价格与前置、换性状、退掉性状 */
 import { clamp } from '@rune-engine/core';
-import { EFFECT_KEYS, type PathogenStats, type TraitDef } from '../config.ts';
+import {
+  EFFECT_KEYS,
+  ROUTES,
+  type EffectKey,
+  type PathogenStats,
+  type SynergyDef,
+  type TraitDef,
+} from '../config.ts';
 import { FOR_ATTACKER, FOR_DEFENDER, report, type OutbreakState } from '../state.ts';
 import { defenseStats } from './research.ts';
+
+const ROUTE_KEYS: ReadonlySet<EffectKey> = new Set(ROUTES);
 
 /** 取值是比例的那几项，加总之后夹在 0–1 */
 const SHARES = ['lethality', 'cold', 'heat', 'resistance', 'presymptomatic'] as const;
 
-/** 病原体现在的数值：档案的底数加上已有性状的效果 */
+/** 这组协同凑齐了没有：要的性状都有 */
+export const synergyActive = (state: OutbreakState, synergy: SynergyDef): boolean =>
+  synergy.requires.every((id) => state.traits[state.traitIndex.get(id) ?? -1] === 1);
+
+/** 病原体现在的数值：档案的底数，加上已有性状的效果，加上凑齐了的协同 */
 export function pathogenStats(state: OutbreakState): PathogenStats {
   const { pathogen, traits } = state.config;
   const stats = Object.fromEntries(EFFECT_KEYS.map((key) => [key, 0])) as PathogenStats;
-  const add = (effects: TraitDef['effects']) => {
-    for (const key of EFFECT_KEYS) stats[key] += effects[key] ?? 0;
+  /** routes 是传播途径那几项要乘的数：档案的底数原样加，性状和协同给的按档案的 routeScale 折算 */
+  const add = (effects: TraitDef['effects'], routes = 1) => {
+    for (const key of EFFECT_KEYS) {
+      stats[key] += (effects[key] ?? 0) * (ROUTE_KEYS.has(key) ? routes : 1);
+    }
   };
+  const scale = pathogen.routeScale ?? 1;
   add(pathogen.base);
   for (let index = 0; index < traits.length; index++) {
-    if (state.traits[index]) add(traits[index]!.effects);
+    if (state.traits[index]) add(traits[index]!.effects, scale);
+  }
+  for (const synergy of state.config.synergies) {
+    if (synergyActive(state, synergy)) add(synergy.effects, scale);
   }
   for (const key of SHARES) stats[key] = clamp(stats[key], 0, 1);
   // 性状可以是负的效果（比如“减轻症状”），但强度、严重度不会低于 0
@@ -55,11 +75,19 @@ export function evolve(state: OutbreakState, id: string) {
   if (index === undefined || !canEvolve(state, index)) return;
   const cost = traitCost(state, index);
   if (state.points < cost) return;
+  const { synergies } = state.config;
+  const had = synergies.map((synergy) => synergyActive(state, synergy));
   state.points -= cost;
   state.traits[index] = 1;
   // 守方做完病原鉴定之后，对手每次变异都瞒不过去
   const identified = defenseStats(state).identify >= 1;
-  report(state, 'evolve', identified ? FOR_ATTACKER | FOR_DEFENDER : FOR_ATTACKER, -1, id);
+  const audience = identified ? FOR_ATTACKER | FOR_DEFENDER : FOR_ATTACKER;
+  report(state, 'evolve', audience, -1, id);
+  // 这一下凑齐了哪组协同
+  synergies.forEach((synergy, at) => {
+    if (!had[at] && synergyActive(state, synergy))
+      report(state, 'synergy', audience, -1, synergy.id);
+  });
 }
 
 /** 退掉这个性状能拿回多少变异点：它底价的一部分（不是现在涨过的价） */

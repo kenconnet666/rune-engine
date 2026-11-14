@@ -18,6 +18,7 @@ import {
   devolveRefund,
   pathogenStats,
   traitCost,
+  synergyActive,
 } from './rules/pathogen.ts';
 import { canResearch, defenseStats, vaccineReady } from './rules/research.ts';
 import { reviewOf, type Review } from './rules/review.ts';
@@ -107,6 +108,8 @@ export interface OutbreakView {
     /** 已有的性状；不知道时是空的 */
     readonly owned: readonly string[];
     readonly stats: PathogenStats | null;
+    /** 凑齐了的协同（协同表里的 id）；守方不知道底细时是空的 */
+    readonly synergies: readonly string[];
     /** 攻方现在能换的性状和价格；守方是空的 */
     readonly offers: readonly Offer[];
     /** 攻方现在能退掉的性状，和各自返还多少（cost 是返还的点数）；守方是空的 */
@@ -299,6 +302,11 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
       offers: attacker
         ? traits.flatMap((trait, index) =>
             canEvolve(state, index) ? [{ id: trait.id, cost: traitCost(state, index) }] : [],
+          )
+        : [],
+      synergies: known
+        ? state.config.synergies.flatMap((synergy) =>
+            synergyActive(state, synergy) ? [synergy.id] : [],
           )
         : [],
       removable: attacker

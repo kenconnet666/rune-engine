@@ -6,7 +6,13 @@
  * 性格（见 shared.ts）在这条思路上偏一偏：什么时候转去致命、看重传播还是隐蔽、技能用得勤不勤。
  */
 import type { Command } from '../commands.ts';
-import { EFFECT_KEYS, type EffectKey, type OutbreakConfig, type TraitDef } from '../config.ts';
+import {
+  EFFECT_KEYS,
+  type EffectKey,
+  type Effects,
+  type OutbreakConfig,
+  type TraitDef,
+} from '../config.ts';
 import type { Offer, OutbreakView } from '../view.ts';
 import { noise, type AiLevel, type AttackStyle } from './shared.ts';
 
@@ -156,9 +162,28 @@ function skill(
   return [];
 }
 
-function worth(trait: TraitDef, weights: Weights): number {
+const valueOf = (effects: Effects, weights: Weights): number => {
   let value = 0;
-  for (const key of EFFECT_KEYS) value += (trait.effects[key] ?? 0) * weights[key];
+  for (const key of EFFECT_KEYS) value += (effects[key] ?? 0) * weights[key];
+  return value;
+};
+
+/**
+ * 一个性状现在值多少：它自己的效果，加上它能凑齐的协同（别的都有了、就差它）；
+ * 还差两个的协同算一小部分——值得往那边靠，但不值得专门去凑
+ */
+function worth(
+  trait: TraitDef,
+  weights: Weights,
+  config: OutbreakConfig,
+  owned: ReadonlySet<string>,
+): number {
+  let value = valueOf(trait.effects, weights);
+  for (const synergy of config.synergies) {
+    if (!synergy.requires.includes(trait.id)) continue;
+    const missing = synergy.requires.filter((id) => id !== trait.id && !owned.has(id)).length;
+    if (missing <= 1) value += valueOf(synergy.effects, weights) * (missing === 0 ? 1 : 0.3);
+  }
   return value;
 }
 
@@ -180,12 +205,17 @@ function harvesting(
 }
 
 /** offers 里最想要的性状（值不值按这个阶段的权重算，再除以价钱）；没有值得要的是 undefined */
-function wanted(offers: readonly Offer[], config: OutbreakConfig, weights: Weights) {
+function wanted(
+  offers: readonly Offer[],
+  config: OutbreakConfig,
+  weights: Weights,
+  owned: ReadonlySet<string>,
+) {
   let best: { id: string; cost: number; score: number } | undefined;
   for (const offer of offers) {
     const trait = config.traits.find((candidate) => candidate.id === offer.id);
     if (!trait) continue;
-    const score = worth(trait, weights) / offer.cost;
+    const score = worth(trait, weights, config, owned) / offer.cost;
     if (!best || score > best.score) best = { ...offer, score };
   }
   return best && best.score > 0 ? best : undefined;
@@ -210,9 +240,10 @@ export function attack(
   }
   // 最想要的那个差一点就买得起：攒着，不退而求其次。还差得远（手里连一半都没有）就先买个买得起、
   // 也值得要的——传得慢的病原体点数来得也慢，干等会把整局等过去
-  const want = wanted(view.pathogen.offers, config, weights);
+  const owned = new Set(view.pathogen.owned);
+  const want = wanted(view.pathogen.offers, config, weights, owned);
   const next =
-    want && want.cost > spendable * WAIT_WITHIN ? wanted(affordable, config, weights) : want;
+    want && want.cost > spendable * WAIT_WITHIN ? wanted(affordable, config, weights, owned) : want;
   if (next && next.cost <= spendable) return [{ type: 'evolve', trait: next.id }];
   return skill(view, config, level, style, !killing, want?.cost ?? 0);
 }

@@ -14,6 +14,7 @@ import {
   type RegionConfig,
   type Rules,
   type SkillDef,
+  type SynergyDef,
   type TaskDef,
   type TechDef,
   type TraitDef,
@@ -80,6 +81,11 @@ export const TEST_TRAITS: readonly TraitDef[] = [
   },
   { id: 'stealth', group: 'ability', cost: 6, requires: [], effects: { stealth: 2 } },
   { id: 'drift', group: 'ability', cost: 8, requires: [], effects: { drift: 2 } },
+];
+
+/** 协同：飞沫的头一级加上发热，飞沫再强一点。测试配置默认不带（synergies 是空的），要测的自己传进去 */
+export const TEST_SYNERGIES: readonly SynergyDef[] = [
+  { id: 'feverCough', requires: ['air1', 'fever'], effects: { air: 0.05 } },
 ];
 
 export const TEST_TECHS: readonly TechDef[] = [
@@ -255,6 +261,7 @@ export function testConfig(
       climate: [0.9, 1, 0.8],
     },
     traits: TEST_TRAITS,
+    synergies: [],
     techs: TEST_TECHS,
     events: TEST_EVENTS,
     calendar: [],

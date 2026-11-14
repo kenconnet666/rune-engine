@@ -63,6 +63,8 @@ export type AlertData =
     }
   /** 自己用了一个技能（region 是 -1 时不对着地区） */
   | { readonly kind: 'skill'; readonly skill: string; readonly region: number }
+  /** 凑齐了一组协同（守方知道底细时也看得到）：item 是那条新闻 */
+  | { readonly kind: 'synergy'; readonly item: NewsItemView }
   /** 退掉了一个性状（守方知道底细时也看得到） */
   | { readonly kind: 'devolve'; readonly trait: string; readonly own: boolean }
   /** 日程上的一件事预告了、开始了：item 是那条新闻（提示上的话和新闻里的一样）；赛事带着主办地 */
@@ -304,6 +306,8 @@ export function watchAlerts(view: () => OutbreakView | null): Alerts {
       if (item.tick < before.tick || known.has(newsKey(item))) continue;
       if (item.kind === 'skill') {
         push('calm', { kind: 'skill', skill: item.subject, region: item.region });
+      } else if (item.kind === 'synergy') {
+        push(now.attacker ? 'calm' : 'danger', { kind: 'synergy', item });
       } else if (item.kind === 'devolve') {
         push(now.attacker ? 'calm' : 'danger', {
           kind: 'devolve',

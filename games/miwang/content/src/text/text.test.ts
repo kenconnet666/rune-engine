@@ -7,6 +7,7 @@ import { CONDITIONS } from '../tables/conditions.ts';
 import { EVENTS } from '../tables/events.ts';
 import { PATHOGENS, SOURCES } from '../tables/pathogens.ts';
 import { SKILLS } from '../tables/skills.ts';
+import { SYNERGIES } from '../tables/synergies.ts';
 import { TASKS } from '../tables/tasks.ts';
 import { TECHS } from '../tables/techs.ts';
 import { TRAITS } from '../tables/traits.ts';
@@ -23,6 +24,7 @@ describe('内容的文案', () => {
       expect(Object.keys(text.calendar).sort()).toEqual(ids(CALENDAR));
       expect(Object.keys(text.conditions).sort()).toEqual(ids(CONDITIONS));
       expect(Object.keys(text.skills).sort()).toEqual(ids(SKILLS));
+      expect(Object.keys(text.synergies).sort()).toEqual(ids(SYNERGIES));
       expect(Object.keys(text.tasks).sort()).toEqual(ids(TASKS));
       expect(Object.keys(text.decisions).sort()).toEqual(ids(DECISIONS));
       for (const decision of DECISIONS) {
@@ -44,6 +46,7 @@ describe('内容的文案', () => {
         text.events,
         text.calendar,
         text.conditions,
+        text.synergies,
         text.skills,
         text.tasks,
         text.measures,
@@ -58,6 +61,17 @@ describe('内容的文案', () => {
 });
 
 describe('性状表与科技表', () => {
+  it('协同要的性状、各病原体自己的抉择指的病原体，都是表里有的', () => {
+    const traits = new Set(TRAITS.map((trait) => trait.id));
+    for (const synergy of SYNERGIES) {
+      for (const id of synergy.requires) expect(traits.has(id), `${synergy.id} → ${id}`).toBe(true);
+    }
+    const pathogens = new Set(PATHOGENS.map((pathogen) => pathogen.id));
+    for (const decision of DECISIONS) {
+      if (decision.pathogen) expect(pathogens.has(decision.pathogen), decision.id).toBe(true);
+    }
+  });
+
   it('前置都指向表里有的项', () => {
     const traits = new Set(ids(TRAITS));
     for (const trait of TRAITS) {

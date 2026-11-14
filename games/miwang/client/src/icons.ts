@@ -182,6 +182,7 @@ const NEWS: Readonly<Record<NewsKind, IconData>> = {
   spread: MapPin,
   report: MapPin,
   evolve: Dna,
+  synergy: Sparkles,
   research: FlaskConical,
   vaccine: Syringe,
   event: Zap,

@@ -57,6 +57,11 @@ export interface PathogenProfile {
   readonly climate: readonly [tropical: number, temperate: number, cold: number];
   /** 各组性状的价格倍数（没写的是 1）：有的病原体变异得快，有的换症状贵 */
   readonly costScale?: Readonly<Partial<Record<TraitGroup, number>>>;
+  /**
+   * 性状、协同给的传播途径强度乘这个数（没写的是 1）。强度是“一个病人一天传给几个人”：
+   * 病程很长的病（一个病人要传几个月），同样加 0.07 就是别的病的十几倍——这样的档案把它调小
+   */
+  readonly routeScale?: number;
 }
 
 /** 攻方能换的一个性状 */
@@ -65,6 +70,16 @@ export interface TraitDef {
   readonly group: TraitGroup;
   readonly cost: number;
   /** 前置：已有其中任意一个就能换；空的是起点 */
+  readonly requires: readonly string[];
+  readonly effects: Effects;
+}
+
+/**
+ * 协同：requires 里的性状都有了，再额外得到 effects（退掉其中一个就没有了）。
+ * 让“换哪几个”不只是各算各的：有的搭配比单个加起来强。
+ */
+export interface SynergyDef {
+  readonly id: string;
   readonly requires: readonly string[];
   readonly effects: Effects;
 }
@@ -148,6 +163,8 @@ export interface DecisionDef {
   /** 要在几天之内选 */
   readonly days: number;
   readonly when?: 'research' | 'spread';
+  /** 只在这种病原体（档案的 id）的局里出：各种病自己的事 */
+  readonly pathogen?: string;
   /** 写了就是一件“危机”：不参加平时的随机，局面到了这一步才出；weight 用不上 */
   readonly crisis?: CrisisCause;
   readonly options: readonly DecisionOption[];
@@ -583,6 +600,7 @@ export interface OutbreakConfig {
   readonly origin: number;
   readonly pathogen: PathogenProfile;
   readonly traits: readonly TraitDef[];
+  readonly synergies: readonly SynergyDef[];
   readonly techs: readonly TechDef[];
   readonly events: readonly EventDef[];
   readonly calendar: readonly CalendarDef[];

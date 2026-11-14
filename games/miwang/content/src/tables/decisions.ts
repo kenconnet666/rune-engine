@@ -163,6 +163,114 @@ export const DECISIONS: readonly DecisionDef[] = [
     ],
   },
 
+  // ───── 各种病原体自己的事：只在那种病原体的局里出 ─────
+  // 流感：两株在同一个宿主里相遇，可以重配
+  {
+    id: 'reassortment',
+    side: 'attacker',
+    pathogen: 'influenza',
+    weight: 4,
+    days: 8,
+    when: 'spread',
+    options: [
+      { id: 'pass', points: 2 },
+      { id: 'reassort', points: -4, modifiers: { spread: 0.12, detect: 0.03 }, days: 40 },
+    ],
+  },
+  // 麻疹：补种一次，挡住一大片
+  {
+    id: 'catchUpCampaign',
+    side: 'defender',
+    pathogen: 'measles',
+    weight: 4,
+    days: 8,
+    when: 'spread',
+    options: [
+      { id: 'skip' },
+      { id: 'campaign', budget: -12, trust: 0.02, modifiers: { spread: -0.1 }, days: 45 },
+    ],
+  },
+  // 霍乱：大水漫过了水厂
+  {
+    id: 'floodedWorks',
+    side: 'attacker',
+    pathogen: 'cholera',
+    weight: 4,
+    days: 8,
+    options: [
+      { id: 'pass', points: 3 },
+      { id: 'seize', modifiers: { spread: 0.25 }, days: 30 },
+    ],
+  },
+  // 登革热：发动居民清积水
+  {
+    id: 'breedingSites',
+    side: 'defender',
+    pathogen: 'dengue',
+    weight: 4,
+    days: 8,
+    when: 'spread',
+    options: [
+      { id: 'skip' },
+      { id: 'cleanup', budget: -8, modifiers: { spread: -0.08 }, days: 40 },
+    ],
+  },
+  // 疟疾：发浸过药的蚊帐
+  {
+    id: 'bedNets',
+    side: 'defender',
+    pathogen: 'malaria',
+    weight: 4,
+    days: 8,
+    when: 'spread',
+    options: [
+      { id: 'skip' },
+      { id: 'distribute', budget: -10, modifiers: { spread: -0.1 }, days: 60 },
+    ],
+  },
+  // 结核：上门看着病人服药，费人费钱，但见效
+  {
+    id: 'supervisedTherapy',
+    side: 'defender',
+    pathogen: 'tuberculosis',
+    weight: 4,
+    days: 8,
+    options: [
+      { id: 'skip' },
+      { id: 'supervise', budget: -14, modifiers: { spread: -0.15, detect: 0.06 }, days: 90 },
+    ],
+  },
+  // 诺如：一艘邮轮
+  {
+    id: 'cruiseShip',
+    side: 'attacker',
+    pathogen: 'norovirus',
+    weight: 4,
+    days: 8,
+    options: [{ id: 'pass' }, { id: 'board', points: -2, modifiers: { spread: 0.2 }, days: 25 }],
+  },
+  // 埃博拉：强制安全下葬，堵住葬礼上的传播，但违背习俗
+  {
+    id: 'safeBurials',
+    side: 'defender',
+    pathogen: 'ebola',
+    weight: 4,
+    days: 8,
+    options: [
+      { id: 'custom', trust: 0.02 },
+      { id: 'enforce', trust: -0.04, modifiers: { spread: -0.15 }, days: 60 },
+    ],
+  },
+  // 百日咳：给孕妇接种，抗体带给新生儿
+  {
+    id: 'maternalShots',
+    side: 'defender',
+    pathogen: 'pertussis',
+    weight: 4,
+    days: 8,
+    options: [{ id: 'skip' }, { id: 'offer', budget: -10, modifiers: { spread: -0.12 }, days: 90 }],
+  },
+
   // ───── 攻方 ─────
   // 传播的瓶颈：攒点数，还是押在一个更会传人的分支上
   {

@@ -14,6 +14,7 @@ export { DECISIONS } from './tables/decisions.ts';
 export { EVENTS } from './tables/events.ts';
 export { DEFAULT_PATHOGEN, PATHOGENS, SOURCES, type Source } from './tables/pathogens.ts';
 export { SKILLS } from './tables/skills.ts';
+export { SYNERGIES } from './tables/synergies.ts';
 export { TASKS } from './tables/tasks.ts';
 export { TECHS } from './tables/techs.ts';
 export { TRAITS } from './tables/traits.ts';

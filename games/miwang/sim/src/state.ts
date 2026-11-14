@@ -31,6 +31,7 @@ export const FOR_BOTH = 3;
  *   task 一件短期任务有了结果（subject 是“任务.done”或“任务.failed”）
  *   milestone 头一回越过一条线（subject 是 firstDeath、regions.50、calamity.25 这样的）
  *   calendar 日程上的一件事预告了、开始了（subject 是“事.soon”或“事.begin”，region 是赛事的主办地）
+ *   synergy 凑齐了一组协同（subject 是协同的 id）
  */
 export type NewsKind =
   | 'spread'
@@ -48,7 +49,8 @@ export type NewsKind =
   | 'decision'
   | 'task'
   | 'milestone'
-  | 'calendar';
+  | 'calendar'
+  | 'synergy';
 
 export interface NewsItem {
   readonly tick: number;
@@ -97,6 +99,7 @@ const CHRONICLED: ReadonlySet<NewsKind> = new Set([
   'vaccine',
   'traced',
   'skill',
+  'synergy',
   'decision',
   'milestone',
   'outcome',

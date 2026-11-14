@@ -54,6 +54,7 @@ const pick = (state: OutbreakState, player: PlayerId): number =>
     state.random,
     state.config.decisions.map((decision, index) =>
       !decision.crisis &&
+      (!decision.pathogen || decision.pathogen === state.config.pathogen.id) &&
       playerOf(decision) === player &&
       index !== state.decisionLast[player] &&
       eligible(state, decision)

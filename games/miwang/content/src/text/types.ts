@@ -53,6 +53,8 @@ export interface ContentText {
   readonly density: readonly [string, string, string];
   readonly groups: Readonly<Record<TraitGroup, string>>;
   readonly traits: Readonly<Record<string, Label>>;
+  /** 性状之间的协同 */
+  readonly synergies: Readonly<Record<string, Label>>;
   readonly techs: Readonly<Record<string, Label>>;
   readonly measures: Readonly<Record<Measure, Label>>;
   readonly events: Readonly<Record<string, Label>>;
