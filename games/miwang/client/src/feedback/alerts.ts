@@ -7,6 +7,7 @@
  * 都是从“上一份状态”和“这一份状态”的差别里看出来的，看的只是这一方自己看得到的东西。
  * 每条留几秒就走；带地区的同时在地图上闪一下（pings）。文字怎么写在面板那头（panels/AlertStack.tsx）。
  */
+import { DECISIONS } from '@miwang/content';
 import { measureLevel, type Measure, type OutbreakView, type VaccinePolicy } from '@miwang/sim';
 import { shallowRef, watchEffect, type ShallowRef } from 'vue';
 
@@ -47,7 +48,15 @@ export type AlertData =
   /** 开了发布会：信任从多少到多少 */
   | { readonly kind: 'briefing'; readonly from: number; readonly to: number; readonly own: boolean }
   /** 自己改了疫苗先给谁 */
-  | { readonly kind: 'priority'; readonly policy: VaccinePolicy };
+  | { readonly kind: 'priority'; readonly policy: VaccinePolicy }
+  /** 有一件事等这一方拿主意 */
+  | { readonly kind: 'decisionPending'; readonly decision: string }
+  /** 一件事定了（自己选的、到期默认的，或者守方公开的决定）：subject 是“事.选项” */
+  | { readonly kind: 'decided'; readonly subject: string; readonly own: boolean }
+  /** 自己用了一个技能（region 是 -1 时不对着地区） */
+  | { readonly kind: 'skill'; readonly skill: string; readonly region: number }
+  /** 退掉了一个性状（守方知道底细时也看得到） */
+  | { readonly kind: 'devolve'; readonly trait: string; readonly own: boolean };
 
 export interface Alert {
   readonly id: number;
@@ -88,6 +97,10 @@ const DEADLINE_STEPS = [60, 30, 10];
 const CRACKDOWN: readonly Measure[] = ['lockdown', 'borders', 'airports', 'ports'];
 const tightened = (before: number, now: number) =>
   CRACKDOWN.some((measure) => measureLevel(now, measure) > measureLevel(before, measure));
+
+/** 一条“事.选项”是不是守方的事 */
+const defenderDecided = (subject: string) =>
+  DECISIONS.find((decision) => subject.startsWith(`${decision.id}.`))?.side === 'defender';
 
 /** 盯着这一方的状态出提示。要在组件的 setup 里调（它用了 watchEffect） */
 export function watchAlerts(view: () => OutbreakView | null): Alerts {
@@ -247,6 +260,27 @@ export function watchAlerts(view: () => OutbreakView | null): Alerts {
     }
     if (own && now.defense.priority !== before.defense.priority) {
       push('calm', { kind: 'priority', policy: now.defense.priority });
+    }
+
+    if (now.decision && now.decision.id !== before.decision?.id) {
+      push('signal', { kind: 'decisionPending', decision: now.decision.id });
+    }
+    // 这几样在模拟里都记成了新闻：上一份状态之后新出的那几条各说一声
+    for (const item of now.news) {
+      if (item.tick < before.tick) continue;
+      if (item.kind === 'skill') {
+        push('calm', { kind: 'skill', skill: item.subject, region: item.region });
+      } else if (item.kind === 'devolve') {
+        push(now.attacker ? 'calm' : 'danger', {
+          kind: 'devolve',
+          trait: item.subject,
+          own: now.attacker,
+        });
+      } else if (item.kind === 'decision') {
+        // 攻方那边的事只有攻方看得到；守方的决定是公开的
+        const mine = now.attacker ? !defenderDecided(item.subject) : true;
+        push(mine ? 'calm' : 'danger', { kind: 'decided', subject: item.subject, own: mine });
+      }
     }
   }
 

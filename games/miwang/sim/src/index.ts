@@ -6,7 +6,7 @@
  *   commands.ts  玩家能做的事
  *   view.ts      各方能看到的部分
  *   outbreak.ts  一天里各条规则的先后顺序
- *   rules/       规则，一条一个文件
+ *   rules/       规则，一条一个文件（传播、出行、防控、研究、事件、技能、抉择、胜负……）
  *   ai/          电脑对手
  */
 export { decide, type AiLevel } from './ai/index.ts';
@@ -20,12 +20,15 @@ export {
   measureLevel,
   MEASURES,
   measuresOf,
+  MODIFIER_KEYS,
   ROUTES,
   TEMPERATE,
   TROPICAL,
   VACCINE_POLICIES,
   withMeasure,
   type Climate,
+  type DecisionDef,
+  type DecisionOption,
   type DefenseEffects,
   type DefenseKey,
   type DefenseStats,
@@ -38,6 +41,8 @@ export {
   type Links,
   type Measure,
   type MeasureLevel,
+  type ModifierKey,
+  type Modifiers,
   type OutbreakConfig,
   type PathogenProfile,
   type PathogenStats,
@@ -45,6 +50,8 @@ export {
   type Route,
   type Rules,
   type Scenario,
+  type SkillDef,
+  type SkillKind,
   type TechDef,
   type TraitDef,
   type TraitGroup,
@@ -63,4 +70,4 @@ export {
   type Outcome,
   type OutbreakState,
 } from './state.ts';
-export { HAS_DISASTER, HAS_GATHERING, type Offer, type OutbreakView } from './view.ts';
+export { HAS_DISASTER, HAS_GATHERING, HAS_SURGE, type Offer, type OutbreakView } from './view.ts';

@@ -7,10 +7,12 @@ import {
   TEMPERATE,
   TROPICAL,
   type Climate,
+  type DecisionDef,
   type EventDef,
   type OutbreakConfig,
   type RegionConfig,
   type Rules,
+  type SkillDef,
   type TechDef,
   type TraitDef,
 } from '../config.ts';
@@ -96,7 +98,51 @@ export const TEST_EVENTS: readonly EventDef[] = [
   { id: 'mutation', kind: 'mutation', weight: 1, amount: 3 },
 ];
 
-/** 建一份测试配置；rules 里写要改的项，其余用默认值 */
+export const TEST_SKILLS: readonly SkillDef[] = [
+  { id: 'spillover', kind: 'spillover', cost: 8, cooldown: 30, amount: 20 },
+  { id: 'surge', kind: 'surge', cost: 5, cooldown: 20, days: 10 },
+  {
+    id: 'veil',
+    kind: 'veil',
+    cost: 6,
+    cooldown: 40,
+    days: 15,
+    modifiers: { detect: -0.2, spread: -0.1 },
+  },
+];
+
+export const TEST_DECISIONS: readonly DecisionDef[] = [
+  {
+    id: 'aid',
+    side: 'defender',
+    weight: 1,
+    days: 5,
+    options: [{ id: 'decline' }, { id: 'accept', budget: 25, trust: -0.03 }],
+  },
+  {
+    id: 'overtime',
+    side: 'defender',
+    weight: 1,
+    days: 5,
+    when: 'research',
+    options: [{ id: 'steady' }, { id: 'push', budget: -5, research: 0.5 }],
+  },
+  {
+    id: 'variant',
+    side: 'attacker',
+    weight: 1,
+    days: 5,
+    options: [
+      { id: 'bank', points: 3 },
+      { id: 'adapt', points: -2, modifiers: { spread: 0.2 }, days: 10 },
+    ],
+  },
+];
+
+/**
+ * 建一份测试配置；rules 里写要改的项，其余用默认值。
+ * 抉择默认不出（decisionChance 是 0）：它会动预算、信任这些数，别的规则的测试不想被它搅进来；要测它的自己打开。
+ */
 export function testConfig(
   rules: Partial<Rules> = {},
   overrides: Partial<OutbreakConfig> = {},
@@ -116,7 +162,9 @@ export function testConfig(
     traits: TEST_TRAITS,
     techs: TEST_TECHS,
     events: TEST_EVENTS,
-    rules: { ...DEFAULT_RULES, ...rules },
+    skills: TEST_SKILLS,
+    decisions: TEST_DECISIONS,
+    rules: { ...DEFAULT_RULES, decisionChance: 0, ...rules },
     ...overrides,
   };
 }

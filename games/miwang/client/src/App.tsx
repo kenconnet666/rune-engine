@@ -24,6 +24,7 @@ import { palette } from './palette.ts';
 import { AlertStack } from './panels/AlertStack.tsx';
 import { CommandPanel } from './panels/CommandPanel.tsx';
 import { ControlBar } from './panels/ControlBar.tsx';
+import { DecisionPanel } from './panels/DecisionPanel.tsx';
 import { GoalPanel } from './panels/GoalPanel.tsx';
 import { HintPanel } from './panels/HintPanel.tsx';
 import { LayerBar } from './panels/LayerBar.tsx';
@@ -231,6 +232,14 @@ export const App = _component(() => {
 
           {view && game && (
             <Scroll sx={[styles.column, styles.right]}>
+              {/* 等着拿主意的事排在最前面：它有期限 */}
+              {view.decision && (
+                <DecisionPanel
+                  view={view}
+                  onCommand={(command) => game?.send(command)}
+                  readonly={watching}
+                />
+              )}
               {selected >= 0 && (
                 <RegionPanel
                   index={selected}
@@ -246,6 +255,8 @@ export const App = _component(() => {
                   <PathogenPanel
                     view={view}
                     onOpen={() => (overlay = 'workbench')}
+                    selected={selected}
+                    onCommand={(command) => game?.send(command)}
                     readonly={watching}
                   />
                   <ResearchPanel view={view} onOpen={() => {}} />
@@ -312,6 +323,7 @@ export const App = _component(() => {
           <Workbench
             view={view}
             onEvolve={(trait) => game?.send({ type: 'evolve', trait })}
+            onDevolve={(trait) => game?.send({ type: 'devolve', trait })}
             onResearch={(tech) => game?.send({ type: 'research', tech })}
             onClose={() => (overlay = null)}
           />

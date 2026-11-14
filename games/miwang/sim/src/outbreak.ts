@@ -6,8 +6,10 @@ import { applyCommand, type Command } from './commands.ts';
 import type { OutbreakConfig } from './config.ts';
 import { arriveTeams, compliance, settleEconomy, updateTrust } from './rules/defense.ts';
 import { progress, type DayTally } from './rules/epidemic.ts';
+import { rollDecisions } from './rules/decisions.ts';
 import { rollEvents } from './rules/events.ts';
 import { recordHistory } from './rules/history.ts';
+import { expireModifiers } from './rules/modifiers.ts';
 import { judge } from './rules/outcome.ts';
 import { pathogenStats } from './rules/pathogen.ts';
 import { advanceResearch, defenseStats, vaccinate } from './rules/research.ts';
@@ -19,7 +21,7 @@ import { observe, type OutbreakView } from './view.ts';
 const fourthRoot = (value: number) => Math.sqrt(Math.sqrt(value));
 
 /**
- * 一天。顺序是有讲究的：先执行命令（今天的决定今天生效），再发生事件，然后人沿路线出行、各地区的病情发展，
+ * 一天。顺序是有讲究的：先执行命令（今天的决定今天生效），再发生事件、冒出要拿主意的事，然后人沿路线出行、各地区的病情发展，
  * 接着是守方的接种与研究、收支与信任，最后攻方按今天的“战果”拿变异点，看分没分出胜负。
  * 每天一开始先把当时的态势记一笔（隔几天才真的记，见 rules/history.ts）。
  * 分出胜负之后状态不再变化（步数也不再走）。
@@ -35,8 +37,10 @@ function step(state: OutbreakState, commands: readonly Stamped<Command>[]) {
   const tally: DayTally = { infections: 0, deaths: 0, newRegions: 0 };
 
   recordHistory(state);
+  expireModifiers(state);
   arriveTeams(state);
   rollEvents(state);
+  rollDecisions(state);
   travel(state, pathogen, comply, tally);
   progress(state, pathogen, defense, comply, tally);
   vaccinate(state, defense, comply);
@@ -72,6 +76,8 @@ function hash(state: OutbreakState): number {
     state.briefingReadyAt,
     state.news.length,
     state.hops.length,
+    state.modifiers.length,
+    state.modifiers.reduce((sum, item) => sum + item.amount * item.until, 0),
     state.history.cases.length,
     state.history.cases.at(-1) ?? 0,
     state.reportedHistory.deaths.at(-1) ?? 0,
@@ -93,6 +99,11 @@ function hash(state: OutbreakState): number {
     state.disasterUntil,
     state.teamRegion,
     state.teamArrives,
+    state.surgeUntil,
+    state.skillReadyAt,
+    state.pendingDecision,
+    state.decisionExpires,
+    state.decisionSeen,
     state.traits,
     state.techs,
     state.techRemaining,

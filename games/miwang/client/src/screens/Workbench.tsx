@@ -75,18 +75,23 @@ export const Workbench = _component(
   ({
     view,
     onEvolve,
+    onDevolve,
     onResearch,
     onClose,
   }: {
     view: OutbreakView;
     onEvolve: (trait: string) => void;
+    onDevolve: (trait: string) => void;
     onResearch: (tech: string) => void;
     onClose: () => void;
   }) => {
     let group = _state<TraitGroup>('route');
     let current = _state<string | null>(null);
-    /** 已经下了令、还没在状态里看到结果的 */
-    let ordered = _state<readonly string[]>([]);
+    /**
+     * 已经下了令、还没在状态里看到结果的：id → 下令时“有没有它”。状态里的有无和下令时一样，就是还没生效
+     * （换了再退、退了再换都要能接着点，所以不能只记“点过”）
+     */
+    let ordered = _state<Readonly<Record<string, boolean>>>({});
 
     return () => {
       const ui = useUi();
@@ -101,6 +106,7 @@ export const Workbench = _component(
       if (attacker) {
         const owned = new Set(view.pathogen.owned);
         const offers = new Map(view.pathogen.offers.map((offer) => [offer.id, offer.cost]));
+        const refunds = new Map(view.pathogen.removable.map((offer) => [offer.id, offer.cost]));
         const inGroup = TRAITS.filter((trait) => trait.group === group);
         nodes = inGroup.map((trait) => {
           const cost = offers.get(trait.id);
@@ -124,14 +130,15 @@ export const Workbench = _component(
         const trait = TRAITS.find((candidate) => candidate.id === current);
         if (trait) {
           const cost = offers.get(trait.id);
-          const pending = ordered.includes(trait.id);
           const has = owned.has(trait.id);
+          const pending = ordered[trait.id] === has;
+          const refund = refunds.get(trait.id);
           detail = {
             icon: traitIcon(trait.id),
             name: content.traits[trait.id]?.name ?? trait.id,
             text: content.traits[trait.id]?.detail ?? '',
             status: has
-              ? { text: w.owned, tone: 'signal' }
+              ? { text: refund === undefined ? w.devolveBlocked : w.devolveHint, tone: 'muted' }
               : cost === undefined
                 ? {
                     text: w.requiresAny(
@@ -142,14 +149,24 @@ export const Workbench = _component(
                 : { text: '', tone: 'muted' },
             effects: traitEffects(trait.effects, content, ui),
             cost: cost === undefined ? '' : w.points(cost),
-            action:
-              has || cost === undefined
+            action: has
+              ? refund === undefined
+                ? null
+                : {
+                    label: w.devolve(refund),
+                    disabled: pending,
+                    press: () => {
+                      ordered = { ...ordered, [trait.id]: has };
+                      onDevolve(trait.id);
+                    },
+                  }
+              : cost === undefined
                 ? null
                 : {
                     label: view.resource < cost ? w.cannotAfford : w.evolve,
                     disabled: pending || view.resource < cost,
                     press: () => {
-                      ordered = [...ordered, trait.id];
+                      ordered = { ...ordered, [trait.id]: has };
                       onEvolve(trait.id);
                     },
                   },
@@ -187,7 +204,7 @@ export const Workbench = _component(
         const tech = TECHS.find((candidate) => candidate.id === current);
         if (tech) {
           const running = active.get(tech.id);
-          const pending = ordered.includes(tech.id);
+          const pending = tech.id in ordered;
           const open = offers.has(tech.id);
           detail = {
             icon: techIcon(tech.id),
@@ -215,7 +232,7 @@ export const Workbench = _component(
                     label: view.resource < tech.cost ? w.cannotAfford : w.research,
                     disabled: pending || busy || view.resource < tech.cost,
                     press: () => {
-                      ordered = [...ordered, tech.id];
+                      ordered = { ...ordered, [tech.id]: false };
                       onResearch(tech.id);
                     },
                   }

@@ -1,11 +1,23 @@
 /** 一方能看到的部分：攻方看真实的感染，守方只看得到上报；对手的底牌要满足条件才看得到 */
 import { dateAtTick, dateFromText, dateToText, type PlayerId } from '@rune-engine/core';
-import { VACCINE_POLICIES, type Goal, type PathogenStats, type VaccinePolicy } from './config.ts';
+import {
+  VACCINE_POLICIES,
+  type Goal,
+  type ModifierKey,
+  type PathogenStats,
+  type VaccinePolicy,
+} from './config.ts';
 import { compliance, dailyBalance } from './rules/defense.ts';
 import { reproductionIn, strainIn } from './rules/epidemic.ts';
 import { HISTORY_EVERY, type History } from './rules/history.ts';
 import { calamity, goalValue } from './rules/outcome.ts';
-import { canEvolve, pathogenStats, traitCost } from './rules/pathogen.ts';
+import {
+  canDevolve,
+  canEvolve,
+  devolveRefund,
+  pathogenStats,
+  traitCost,
+} from './rules/pathogen.ts';
 import { canResearch, defenseStats, vaccineReady } from './rules/research.ts';
 import {
   alive,
@@ -22,9 +34,10 @@ import {
   type OutbreakState,
 } from './state.ts';
 
-/** 地区上正在发生的事（按位）：大型集会、自然灾害 */
+/** 地区上正在发生的事（按位）：大型集会、自然灾害、攻方的“激增”（只有攻方看得到） */
 export const HAS_GATHERING = 1;
 export const HAS_DISASTER = 2;
+export const HAS_SURGE = 4;
 
 /** 能买的一样东西（性状或科技）和它现在的价格 */
 export interface Offer {
@@ -89,6 +102,14 @@ export interface OutbreakView {
     readonly stats: PathogenStats | null;
     /** 攻方现在能换的性状和价格；守方是空的 */
     readonly offers: readonly Offer[];
+    /** 攻方现在能退掉的性状，和各自返还多少（cost 是返还的点数）；守方是空的 */
+    readonly removable: readonly Offer[];
+    /** 攻方的技能：要多少点、还要等几天才能用（0 是现在就能用）；守方是空的 */
+    readonly skills: readonly {
+      readonly id: string;
+      readonly cost: number;
+      readonly readyIn: number;
+    }[];
   };
 
   readonly defense: {
@@ -112,6 +133,15 @@ export interface OutbreakView {
     /** 再过几天才能开发布会（0 是现在就能开） */
     readonly briefingIn: number;
   };
+
+  /** 正在起作用的临时修正（这一方看得到的）：把哪个数改了多少、还剩几天 */
+  readonly modifiers: readonly {
+    readonly key: ModifierKey;
+    readonly amount: number;
+    readonly daysLeft: number;
+  }[];
+  /** 等着这一方拿主意的事：哪一件、还剩几天（到期按第一个选项办）；没有是 null */
+  readonly decision: { readonly id: string; readonly daysLeft: number } | null;
 
   /** 起源地：攻方总是知道，守方要做完溯源；不知道时是 -1 */
   readonly origin: number;
@@ -172,7 +202,8 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
     intensity[r] = Math.min(1, Math.sqrt(share * (attacker ? 4 : 12)));
     happening[r] =
       (state.gatheringUntil[r]! > state.tick ? HAS_GATHERING : 0) |
-      (state.disasterUntil[r]! > state.tick ? HAS_DISASTER : 0);
+      (state.disasterUntil[r]! > state.tick ? HAS_DISASTER : 0) |
+      (attacker && state.surgeUntil[r]! > state.tick ? HAS_SURGE : 0);
     if (known) {
       const spread = reproductionIn(state, r, pathogen, defense, comply);
       reproduction[r] = spread.now;
@@ -192,6 +223,7 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
   const audience = attacker ? FOR_ATTACKER : FOR_DEFENDER;
   const balance = attacker ? { income: 0, upkeep: 0 } : dailyBalance(state);
   const line = state.config.rules.calamityShare * state.worldPopulation;
+  const pending = state.config.decisions[state.pendingDecision[player] ?? -1];
 
   return {
     tick: state.tick,
@@ -226,6 +258,18 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
             canEvolve(state, index) ? [{ id: trait.id, cost: traitCost(state, index) }] : [],
           )
         : [],
+      removable: attacker
+        ? traits.flatMap((trait, index) =>
+            canDevolve(state, index) ? [{ id: trait.id, cost: devolveRefund(state, index) }] : [],
+          )
+        : [],
+      skills: attacker
+        ? state.config.skills.map((skill, index) => ({
+            id: skill.id,
+            cost: skill.cost,
+            readyIn: Math.max(0, state.skillReadyAt[index]! - state.tick),
+          }))
+        : [],
     },
     defense: {
       trust: state.trust,
@@ -252,6 +296,14 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
       priority: VACCINE_POLICIES[state.priority] ?? 'even',
       briefingIn: Math.max(0, state.briefingReadyAt - state.tick),
     },
+    modifiers: state.modifiers.flatMap((item) =>
+      (item.audience & audience) !== 0 && item.until > state.tick
+        ? [{ key: item.key, amount: item.amount, daysLeft: item.until - state.tick }]
+        : [],
+    ),
+    decision: pending
+      ? { id: pending.id, daysLeft: Math.max(0, state.decisionExpires[player]! - state.tick) }
+      : null,
     origin: attacker || defense.trace >= 1 ? state.config.origin : -1,
     hops: attacker ? state.hops.filter((hop) => state.tick - hop.tick <= HOPS_SHOWN_DAYS) : [],
     history: { every: HISTORY_EVERY, ...(attacker ? state.history : state.reportedHistory) },

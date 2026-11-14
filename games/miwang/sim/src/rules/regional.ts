@@ -9,6 +9,7 @@ import {
   type PathogenStats,
   type Rules,
 } from '../config.ts';
+import { modifier } from './modifiers.ts';
 import type { OutbreakState } from '../state.ts';
 
 /** 冬至在一年里的第几天（北半球，一月中） */
@@ -93,7 +94,8 @@ export function detectionIn(
     rules.detectPerStealth * pathogen.stealth +
     defense.detection +
     rules.testingDetect * strengthOf(rules, bits, 'testing') * comply +
-    (teamAt(state, region) ? rules.teamDetect : 0);
+    (teamAt(state, region) ? rules.teamDetect : 0) +
+    modifier(state, 'detect');
   const struck = state.disasterUntil[region]! > state.tick ? rules.disasterCare : 1;
   return clamp(base * struck, rules.detectMin, rules.detectMax);
 }

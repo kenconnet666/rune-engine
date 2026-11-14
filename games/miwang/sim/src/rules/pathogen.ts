@@ -1,4 +1,4 @@
-/** 攻方：病原体当前的数值、性状的价格与前置、换性状 */
+/** 攻方：病原体当前的数值、性状的价格与前置、换性状、退掉性状 */
 import { clamp } from '@rune-engine/core';
 import { EFFECT_KEYS, type PathogenStats, type TraitDef } from '../config.ts';
 import { FOR_ATTACKER, FOR_DEFENDER, report, type OutbreakState } from '../state.ts';
@@ -60,4 +60,35 @@ export function evolve(state: OutbreakState, id: string) {
   // 守方做完病原鉴定之后，对手每次变异都瞒不过去
   const identified = defenseStats(state).identify >= 1;
   report(state, 'evolve', identified ? FOR_ATTACKER | FOR_DEFENDER : FOR_ATTACKER, -1, id);
+}
+
+/** 退掉这个性状能拿回多少变异点：它底价的一部分（不是现在涨过的价） */
+export function devolveRefund(state: OutbreakState, index: number): number {
+  const { traits, pathogen, rules } = state.config;
+  const trait = traits[index]!;
+  return Math.floor(trait.cost * (pathogen.costScale?.[trait.group] ?? 1) * rules.devolveRefund);
+}
+
+/** 有这个性状，而且退掉它之后，靠它当前置的那些已有性状都还站得住（前置是“任意一个”，还剩一个就行） */
+export function canDevolve(state: OutbreakState, index: number): boolean {
+  const { traits } = state.config;
+  const trait = traits[index];
+  if (!trait || !state.traits[index]) return false;
+  const owned = (id: string) => state.traits[state.traitIndex.get(id) ?? -1] === 1;
+  return traits.every(
+    (other, at) =>
+      !state.traits[at] ||
+      !other.requires.includes(trait.id) ||
+      other.requires.some((id) => id !== trait.id && owned(id)),
+  );
+}
+
+/** 退掉一个性状，拿回一部分变异点；之后的性状也跟着便宜一点（价格看已有几个） */
+export function devolve(state: OutbreakState, id: string) {
+  const index = state.traitIndex.get(id);
+  if (index === undefined || !canDevolve(state, index)) return;
+  state.points += devolveRefund(state, index);
+  state.traits[index] = 0;
+  const identified = defenseStats(state).identify >= 1;
+  report(state, 'devolve', identified ? FOR_ATTACKER | FOR_DEFENDER : FOR_ATTACKER, -1, id);
 }

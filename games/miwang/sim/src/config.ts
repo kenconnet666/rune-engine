@@ -69,6 +69,69 @@ export interface TraitDef {
   readonly effects: Effects;
 }
 
+// ───── 临时的全局修正 ─────
+
+/**
+ * 在一段时间里改一个数（技能“蛰伏”、双方的抉择用）：
+ *   detect  各地的发现率加多少（负的是更难发现）
+ *   spread  本地传播的倍数加多少（0.1 是强一成，负的是弱）
+ *   income  守方每天收入的倍数加多少
+ */
+export const MODIFIER_KEYS = ['detect', 'spread', 'income'] as const;
+export type ModifierKey = (typeof MODIFIER_KEYS)[number];
+export type Modifiers = Readonly<Partial<Record<ModifierKey, number>>>;
+
+// ───── 攻方的技能 ─────
+
+/**
+ * 技能的种类（规则认识的就这几种，技能表决定各自多贵、冷却多久、幅度多大）：
+ *   spillover 外溢：在一个还没到过的地区凭空落脚，冒出 amount 个感染者（不管它和别处通不通）
+ *   surge     激增：一个到过的地区在 days 天里传播加强（倍数是规则里的 surgeBoost）
+ *   veil      蛰伏：全世界在 days 天里按 modifiers 改（更难被发现，也传得慢一些）
+ */
+export type SkillKind = 'spillover' | 'surge' | 'veil';
+
+export interface SkillDef {
+  readonly id: string;
+  readonly kind: SkillKind;
+  /** 用一次要多少变异点，之后要等几天才能再用 */
+  readonly cost: number;
+  readonly cooldown: number;
+  readonly days?: number;
+  readonly amount?: number;
+  readonly modifiers?: Modifiers;
+}
+
+// ───── 抉择 ─────
+
+/** 抉择的一个选项：立刻生效的几样，加上持续 days 天的修正 */
+export interface DecisionOption {
+  readonly id: string;
+  /** 变异点、预算、信任各加多少（可以是负的） */
+  readonly points?: number;
+  readonly budget?: number;
+  readonly trust?: number;
+  /** 进行中的研究剩下的天数减掉这个比例（负的是拖慢） */
+  readonly research?: number;
+  readonly modifiers?: Modifiers;
+  readonly days?: number;
+}
+
+/**
+ * 一件要某一方拿主意的事。到期没选按第一个选项办，所以第一个放“照旧、什么都不做”的那个。
+ * when 是它出现的条件：research 守方有研究在进行，spread 疾病已经到过好几个地区；不写是什么时候都可能。
+ */
+export interface DecisionDef {
+  readonly id: string;
+  readonly side: 'attacker' | 'defender';
+  /** 相对的常见程度 */
+  readonly weight: number;
+  /** 要在几天之内选 */
+  readonly days: number;
+  readonly when?: 'research' | 'spread';
+  readonly options: readonly DecisionOption[];
+}
+
 // ───── 防控的数值 ─────
 
 /**
@@ -294,6 +357,9 @@ export interface Rules {
   /** 灾害期间医疗、检测剩下的比例，和水源传播的倍数 */
   readonly disasterCare: number;
   readonly disasterWater: number;
+  /** 每天每一方碰上一件要拿主意的事的概率（手里没有等着的事时）；开局的头几天不出 */
+  readonly decisionChance: number;
+  readonly decisionAfter: number;
 
   // 攻方的经济
   readonly startPoints: number;
@@ -304,6 +370,10 @@ export interface Rules {
   readonly pointsPerRegion: number;
   /** 每换一个性状，之后的性状贵这么多（比例） */
   readonly costGrowth: number;
+  /** 退掉一个性状返还它底价的多少 */
+  readonly devolveRefund: number;
+  /** 技能“激增”期间那个地区传播的倍数 */
+  readonly surgeBoost: number;
 
   // 守方的经济
   readonly startBudget: number;
@@ -401,6 +471,8 @@ export interface OutbreakConfig {
   readonly traits: readonly TraitDef[];
   readonly techs: readonly TechDef[];
   readonly events: readonly EventDef[];
+  readonly skills: readonly SkillDef[];
+  readonly decisions: readonly DecisionDef[];
   readonly rules: Rules;
   readonly scenario?: Scenario;
 }

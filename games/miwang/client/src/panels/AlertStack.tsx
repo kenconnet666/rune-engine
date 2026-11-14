@@ -19,14 +19,18 @@ import {
   Lock,
   Megaphone,
   Microscope,
+  Scale,
   ShieldCheck,
   Skull,
   Syringe,
   TriangleAlert,
+  Undo2,
   Users,
+  Zap,
 } from 'lucide';
 import type { Alert, AlertData } from '../feedback/alerts.ts';
 import { placeName, useContent, useFormats, useUi } from '../i18n.ts';
+import { skillIcon } from '../icons.ts';
 
 const styles = css.create({
   root: {
@@ -60,6 +64,10 @@ const ICONS: Readonly<Record<AlertData['kind'], IconData>> = {
   teamArrived: Ambulance,
   briefing: Megaphone,
   priority: Syringe,
+  decisionPending: Scale,
+  decided: Scale,
+  skill: Zap,
+  devolve: Undo2,
 };
 
 export const AlertStack = _component(
@@ -155,13 +163,38 @@ export const AlertStack = _component(
             };
           case 'priority':
             return { title: ui.priority(all.command.policies[data.policy].name) };
+          case 'decisionPending': {
+            const text = content.decisions[data.decision];
+            return { title: ui.decisionPending(text?.name ?? data.decision), detail: text?.detail };
+          }
+          case 'decided': {
+            const [id = '', option = ''] = data.subject.split('.');
+            const text = content.decisions[id];
+            return {
+              title: (data.own ? ui.decided : ui.decidedTheirs)(
+                text?.name ?? id,
+                text?.options[option] ?? option,
+              ),
+            };
+          }
+          case 'skill': {
+            const name = content.skills[data.skill]?.name ?? data.skill;
+            return {
+              title: data.region < 0 ? ui.skill(name) : ui.skillAt(name, placeName(data.region)),
+              detail: content.skills[data.skill]?.detail,
+            };
+          }
+          case 'devolve': {
+            const name = content.traits[data.trait]?.name ?? data.trait;
+            return { title: (data.own ? ui.devolved : ui.devolvedTheirs)(name) };
+          }
         }
       };
 
       const items: ToastItem[] = alerts.map(({ id, tone, data }) => ({
         id,
         tone,
-        icon: ICONS[data.kind],
+        icon: data.kind === 'skill' ? skillIcon(data.skill) : ICONS[data.kind],
         ...describe(data),
         onPress() {
           if ('region' in data) onLocate(data.region);

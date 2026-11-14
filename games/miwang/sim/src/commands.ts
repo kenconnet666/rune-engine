@@ -1,14 +1,22 @@
 import type { PlayerId } from '@rune-engine/core';
 import { MEASURES, type Measure, type MeasureLevel, type VaccinePolicy } from './config.ts';
 import { holdBriefing, sendTeam, setMeasure, setMeasures, setPriority } from './rules/defense.ts';
-import { evolve } from './rules/pathogen.ts';
+import { resolveDecision } from './rules/decisions.ts';
+import { devolve, evolve } from './rules/pathogen.ts';
 import { startResearch } from './rules/research.ts';
+import { useSkill } from './rules/skills.ts';
 import { ATTACKER, DEFENDER, type OutbreakState } from './state.ts';
 
 /** 玩家（和电脑对手）能做的事 */
 export type Command =
   /** 攻方：换一个性状 */
   | { readonly type: 'evolve'; readonly trait: string }
+  /** 攻方：退掉一个性状，拿回一部分变异点 */
+  | { readonly type: 'devolve'; readonly trait: string }
+  /** 攻方：用一个技能；对着地区用的要给 region */
+  | { readonly type: 'skill'; readonly skill: string; readonly region?: number }
+  /** 双方：对等着自己拿主意的那件事选一个选项 */
+  | { readonly type: 'decide'; readonly decision: string; readonly option: string }
   /** 守方：把一个地区的一项措施设到某一档（0 是关） */
   | {
       readonly type: 'measure';
@@ -41,6 +49,23 @@ export function applyCommand(state: OutbreakState, player: PlayerId, command: Co
   switch (command.type) {
     case 'evolve':
       if (player === ATTACKER && typeof command.trait === 'string') evolve(state, command.trait);
+      return;
+    case 'devolve':
+      if (player === ATTACKER && typeof command.trait === 'string') devolve(state, command.trait);
+      return;
+    case 'skill':
+      if (player === ATTACKER && typeof command.skill === 'string') {
+        useSkill(state, command.skill, command.region ?? -1);
+      }
+      return;
+    case 'decide':
+      if (
+        (player === ATTACKER || player === DEFENDER) &&
+        typeof command.decision === 'string' &&
+        typeof command.option === 'string'
+      ) {
+        resolveDecision(state, player, command.decision, command.option);
+      }
       return;
     case 'measure':
       if (player === DEFENDER && MEASURES.includes(command.measure)) {

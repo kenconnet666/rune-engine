@@ -1,14 +1,15 @@
 /**
  * 病原体的概况：严重度、致死性、隐匿三条读数，已有的性状排成一排图标。
- * 攻方从这里打开进化的工作台；守方做完病原鉴定之后才看得到这些。
+ * 攻方从这里打开进化的工作台、用技能；守方做完病原鉴定之后才看得到这些。
  */
-import type { OutbreakView } from '@miwang/sim';
+import type { Command, OutbreakView } from '@miwang/sim';
 import { ActionButton, colors, Frame, Icon, Meter, Note, space } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { Biohazard, Dna } from 'lucide';
 import { useContent, useUi } from '../i18n.ts';
 import { pathogenIcon, traitIcon } from '../icons.ts';
+import { SkillBar } from './SkillBar.tsx';
 
 /** 三条读数各自“满格”是多少：严重度到 10、致死性到 30%、隐匿到 5 就算顶了 */
 const FULL = { severity: 10, lethality: 0.3, stealth: 5 };
@@ -21,11 +22,17 @@ export const PathogenPanel = _component(
   ({
     view,
     onOpen,
+    selected = -1,
+    onCommand,
     readonly = false,
   }: {
     view: OutbreakView;
     onOpen: () => void;
-    /** 只能看（回放时）：不给“进化”的入口 */
+    /** 地图上选中的地区：对着地区用的技能用在它上面 */
+    selected?: number;
+    /** 给了它（攻方自己的面板）才有技能那一排 */
+    onCommand?: (command: Command) => void;
+    /** 只能看（回放时）：不给“进化”和技能的入口 */
     readonly?: boolean;
   }) =>
     () => {
@@ -84,6 +91,9 @@ export const PathogenPanel = _component(
             >
               {ui.evolve}
             </ActionButton>
+          )}
+          {view.attacker && !readonly && onCommand && view.pathogen.skills.length > 0 && (
+            <SkillBar view={view} selected={selected} onCommand={onCommand} />
           )}
         </Frame>
       );

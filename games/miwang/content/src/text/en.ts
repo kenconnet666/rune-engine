@@ -182,6 +182,78 @@ export const en: ContentText = {
     mutation: label('Spontaneous mutation', 'The pathogen gains extra mutation points.'),
   },
 
+  skills: {
+    spillover: label(
+      'Spillover',
+      'Gain a foothold in a region it has not reached: a small cluster of infections appears there, connected or not.',
+    ),
+    surge: label('Surge', 'Make a region it has already reached spread faster for two weeks.'),
+    dormancy: label(
+      'Dormancy',
+      'Harder to detect for a month, at the price of spreading a little slower. With fewer reports, attention drifts elsewhere.',
+    ),
+  },
+
+  decisions: {
+    aidOffer: {
+      name: 'Aid with strings attached',
+      detail:
+        'International aid can arrive at once, but the donors want their people on site and a say in decisions.',
+      options: { decline: 'Decline', accept: 'Accept' },
+    },
+    dataRelease: {
+      name: 'Release all the data?',
+      detail:
+        'Media and researchers want the full regional figures. Full disclosure earns trust; markets will panic for a while.',
+      options: { summary: 'Summaries only', full: 'Release everything' },
+    },
+    trialReaction: {
+      name: 'Adverse reactions in a trial',
+      detail: 'A study has seen a few adverse reactions, and the cause is not yet clear.',
+      options: { proceed: 'Carry on', pause: 'Pause and review' },
+    },
+    overtime: {
+      name: 'Labs around the clock',
+      detail: 'The research teams propose overtime and extra equipment to push current work ahead.',
+      options: { steady: 'Stay on plan', push: 'Fund the overtime' },
+    },
+    holiday: {
+      name: 'A long holiday is coming',
+      detail:
+        'A travel peak is days away. Letting it go ahead keeps people happy and lifts transmission for a while; discouraging travel does the opposite.',
+      options: { allow: 'Let it go ahead', cancel: 'Discourage travel' },
+    },
+    testKits: {
+      name: 'A faulty batch of tests',
+      detail:
+        'Spot checks show a batch of test kits in use misses too many cases. A recall costs money and leaves a short gap.',
+      options: { keep: 'Keep using them', recall: 'Recall and replace' },
+    },
+    bottleneck: {
+      name: 'A transmission bottleneck',
+      detail:
+        'In a small cluster, a lineage that spreads better has surfaced. Letting it take over costs some of what has been built up.',
+      options: { bank: 'Let it be', adapt: 'Back this lineage' },
+    },
+    reservoir: {
+      name: 'A foothold in animals',
+      detail: 'It has established itself in a common animal.',
+      options: { harvest: 'Mutate more', hide: 'Hide there' },
+    },
+    superspreader: {
+      name: 'A superspreading event',
+      detail:
+        'At one gathering, one person infected dozens. Riding the wave spreads fast and draws attention.',
+      options: { quiet: 'Stay quiet', seize: 'Ride the wave' },
+    },
+    variant: {
+      name: 'New variants',
+      detail:
+        'Two variants are competing: one mild and easy to overlook, one fiercer and frightening.',
+      options: { mild: 'The mild one', fierce: 'The fierce one' },
+    },
+  },
+
   pathogens: {
     novel: {
       name: 'Novel pathogen',

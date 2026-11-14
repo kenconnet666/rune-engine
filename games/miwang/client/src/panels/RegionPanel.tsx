@@ -9,6 +9,7 @@ import { regions } from '@miwang/content';
 import {
   HAS_DISASTER,
   HAS_GATHERING,
+  HAS_SURGE,
   MAX_LEVEL,
   measureLevel,
   MEASURES,
@@ -41,6 +42,7 @@ import {
   CloudRainWind,
   Copy,
   Eye,
+  Flame,
   Lock,
   MapPin,
   PartyPopper,
@@ -226,6 +228,11 @@ export const RegionPanel = _component(
           {(happening & HAS_GATHERING) !== 0 && (
             <Note icon={PartyPopper} tone="signal">
               {ui.region.gathering}
+            </Note>
+          )}
+          {(happening & HAS_SURGE) !== 0 && (
+            <Note icon={Flame} tone="signal">
+              {ui.region.surge}
             </Note>
           )}
           {(happening & HAS_DISASTER) !== 0 && (

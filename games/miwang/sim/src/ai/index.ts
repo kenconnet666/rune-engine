@@ -6,6 +6,7 @@ import type { Command } from '../commands.ts';
 import type { OutbreakConfig } from '../config.ts';
 import type { OutbreakView } from '../view.ts';
 import { attack } from './attacker.ts';
+import { choose } from './decisions.ts';
 import { defend } from './defender.ts';
 import type { AiLevel } from './shared.ts';
 
@@ -14,5 +15,8 @@ export type { AiLevel };
 /** 看了这一方的状态之后要下的命令（可能没有） */
 export function decide(view: OutbreakView, config: OutbreakConfig, level: AiLevel): Command[] {
   if (view.outcome) return [];
-  return view.attacker ? attack(view, config, level) : defend(view, config, level);
+  return [
+    ...choose(view, config, level),
+    ...(view.attacker ? attack(view, config, level) : defend(view, config, level)),
+  ];
 }

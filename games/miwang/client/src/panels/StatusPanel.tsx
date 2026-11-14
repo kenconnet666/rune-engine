@@ -1,11 +1,12 @@
-/** 左上角的态势：哪一天、几个最要紧的数字、离灾厄线多远、公众信任 */
+/** 左上角的态势：哪一天、几个最要紧的数字、离灾厄线多远、公众信任、正在起作用的临时修正 */
 import { regions } from '@miwang/content';
 import type { OutbreakView } from '@miwang/sim';
-import { colors, fonts, Frame, Meter, Readout, space } from '@rune-engine/ui';
+import { colors, Fact, fonts, Frame, Meter, Note, Readout, space, Stack } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { Activity, Biohazard, Coins, Dna, Globe, ShieldCheck, Skull } from 'lucide';
 import { useFormats, useUi } from '../i18n.ts';
+import { modifierAmount } from '../screens/effects.ts';
 
 const styles = css.create({
   root: { width: '22rem' },
@@ -34,6 +35,7 @@ const signed = (value: number, format: (value: number) => string) =>
 
 export const StatusPanel = _component(({ view }: { view: OutbreakView | null }) => () => {
   const ui = useUi().status;
+  const { effects } = useUi();
   const format = useFormats();
   if (!view) {
     return (
@@ -96,6 +98,18 @@ export const StatusPanel = _component(({ view }: { view: OutbreakView | null }) 
         detail={`${format.percent(defense.trust)} · ${ui.compliance(format.percent(defense.compliance))}`}
         tone="calm"
       />
+      {view.modifiers.length > 0 && (
+        <Stack gap="xs" data-modifiers>
+          <Note>{effects.active}</Note>
+          {view.modifiers.map((item, index) => (
+            <Fact
+              key={index}
+              label={`${effects[item.key]} ${modifierAmount(item.amount)}`}
+              value={effects.daysLeft(item.daysLeft)}
+            />
+          ))}
+        </Stack>
+      )}
     </Frame>
   );
 });

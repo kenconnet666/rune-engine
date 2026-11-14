@@ -1,16 +1,16 @@
 /**
- * 压在地图上、跟着地图走的那一层：地区的名字，和地区上正在发生的事的标记（集会、灾害、起源地、应急队）。
+ * 压在地图上、跟着地图走的那一层：地区的名字，和地区上正在发生的事的标记（集会、灾害、攻方的激增、起源地、应急队）。
  * 它们是 DOM 元素，位置用和渲染线程同一套换算从相机算出来，所以拖动、缩放时和地图对得上。
  * 名字只给在屏幕上够大的地区标（放大以后小的地区才露出名字），而且最多标那么多个，免得糊成一片。
  * 整层不接收指针：点下去点到的是地图。
  */
 import { bounds, regions } from '@miwang/content';
-import { HAS_DISASTER, HAS_GATHERING, type OutbreakView } from '@miwang/sim';
+import { HAS_DISASTER, HAS_GATHERING, HAS_SURGE, type OutbreakView } from '@miwang/sim';
 import { mapScale, type MapBounds } from '@rune-engine/render/map-view';
 import { colors, fonts, Icon } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { Ambulance, CloudRainWind, Crosshair, PartyPopper } from 'lucide';
+import { Ambulance, CloudRainWind, Crosshair, Flame, PartyPopper } from 'lucide';
 import type { Ping } from '../feedback/alerts.ts';
 import { placeName } from '../i18n.ts';
 import type { MapController } from '../map.ts';
@@ -157,6 +157,11 @@ export const MapOverlay = _component(
                 {(marks & HAS_GATHERING) !== 0 && (
                   <span {...css.attrs(styles.mark, styles.gathering)}>
                     <Icon icon={PartyPopper} size="0.875rem" />
+                  </span>
+                )}
+                {(marks & HAS_SURGE) !== 0 && (
+                  <span data-mark="surge" {...css.attrs(styles.mark, styles.gathering)}>
+                    <Icon icon={Flame} size="0.875rem" />
                   </span>
                 )}
                 {(marks & HAS_DISASTER) !== 0 && (

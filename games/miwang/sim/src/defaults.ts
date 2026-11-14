@@ -53,11 +53,15 @@ export const DEFAULT_RULES: Rules = {
   gatheringBoost: 1.6,
   disasterCare: 0.35,
   disasterWater: 1.6,
+  decisionChance: 0.035,
+  decisionAfter: 25,
 
   startPoints: 6,
   pointsPerInfectionRoot: 0.03,
   pointsPerDeathRoot: 0.02,
   pointsPerRegion: 0.8,
+  devolveRefund: 0.5,
+  surgeBoost: 1.6,
   costGrowth: 0.07,
 
   startBudget: 20,

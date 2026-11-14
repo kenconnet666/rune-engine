@@ -13,6 +13,7 @@ import {
 } from '../config.ts';
 import { alive, FOR_BOTH, report, type OutbreakState } from '../state.ts';
 import type { DayTally } from './epidemic.ts';
+import { modifier } from './modifiers.ts';
 
 /** 维持费按这个人口数为 1 倍 */
 const UPKEEP_POPULATION = 50_000_000;
@@ -144,7 +145,8 @@ export function dailyBalance(state: OutbreakState): { income: number; upkeep: nu
       if (level > 0) upkeep += upkeepOf(state.config, r, measure, level);
     }
   }
-  return { income: income * rules.budgetPerDay, upkeep };
+  const shift = Math.max(0, 1 + modifier(state, 'income'));
+  return { income: income * rules.budgetPerDay * shift, upkeep };
 }
 
 /**

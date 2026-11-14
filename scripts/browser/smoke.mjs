@@ -58,9 +58,11 @@ try {
   await page.waitFor(hasText('流感型'), { what: '百科里的病原体' });
   await page.evaluate(`[...document.querySelectorAll('[role=tab]')][1].click()`);
   await page.waitFor(hasText('飞沫传播'), { what: '百科里的性状' });
+  await page.evaluate(`[...document.querySelectorAll('[role=tab]')][2].click()`);
+  await page.waitFor(`${hasText('蛰伏')} && ${hasText('外溢')}`, { what: '百科里的技能' });
   await closeDialog(page);
   await page.waitFor(hasButton('新开一局'), { what: '回到主菜单' });
-  await done('百科：病原体和性状都看得到');
+  await done('百科：病原体、性状和技能都看得到');
 
   await page.clickButton('关于与致谢');
   await page.waitFor(
@@ -147,6 +149,22 @@ try {
   await page.evaluate(`document.querySelector('[aria-label="1 倍速"]').click()`);
   await page.waitFor(hasText('1 个性状'), { what: '换到了一个性状' });
   await done('进化：换到了“咳嗽”');
+
+  // 攻方的技能排在病原体面板里；刚换的性状能退掉（返还一部分点数）
+  await page.waitFor(`document.querySelectorAll('[data-skill]').length === 3`, {
+    what: '攻方的三个技能',
+  });
+  await page.clickButton('进化');
+  await page.waitFor(`document.querySelector('dialog[open]') && ${hasText('飞沫传播')}`, {
+    what: '进化的工作台',
+  });
+  await page.evaluate(`[...document.querySelectorAll('dialog[open] [role=tab]')][1].click()`);
+  await page.clickButton('咳嗽');
+  await page.waitFor(canPress('退掉它'), { what: '已有性状的“退掉它”' });
+  await page.clickButton('退掉它');
+  await closeDialog(page);
+  await page.waitFor(hasText('0 个性状'), { what: '性状退掉了' });
+  await done('技能在；退化：把“咳嗽”退掉了');
 
   await page.clickButton('守方');
   await page.waitFor(hasText('守方 · 上报态势'), { what: '换到守方' });

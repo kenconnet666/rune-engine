@@ -98,6 +98,68 @@ export const zh: ContentText = {
     mutation: label('自发变异', '病原体得到额外的变异点。'),
   },
 
+  skills: {
+    spillover: label(
+      '外溢',
+      '在一个还没到过的地区落脚：那里凭空冒出一小批感染者，不管它和别处通不通。',
+    ),
+    surge: label('激增', '让一个已经到过的地区在两周里传得更快。'),
+    dormancy: label('蛰伏', '一个月里更难被发现，代价是传得慢一些。上报少了，对面的注意力会挪开。'),
+  },
+
+  decisions: {
+    aidOffer: {
+      name: '带条件的援助',
+      detail: '一笔国际援助可以马上到账，但对方要求派人进驻、参与决策。',
+      options: { decline: '婉拒', accept: '接受' },
+    },
+    dataRelease: {
+      name: '要不要公布全部数据',
+      detail: '媒体和学界要求公开各地区完整的疫情数据。全部公开能换来信任，市场会慌一阵。',
+      options: { summary: '只报汇总', full: '全部公开' },
+    },
+    trialReaction: {
+      name: '试验里的不良反应',
+      detail: '一项研究的试验里出现了几例不良反应，原因还没查清。',
+      options: { proceed: '照常推进', pause: '暂停复核' },
+    },
+    overtime: {
+      name: '实验室连轴转',
+      detail: '研究团队提出加班加点、添置设备，把手头的研究往前赶。',
+      options: { steady: '按原计划', push: '加钱加班' },
+    },
+    holiday: {
+      name: '长假要到了',
+      detail: '一个出行的高峰就在眼前。照常放假大家高兴，传播也会高一阵；劝大家别出门则相反。',
+      options: { allow: '照常放假', cancel: '劝阻出行' },
+    },
+    testKits: {
+      name: '一批试剂不准',
+      detail: '抽检发现正在用的一批检测试剂漏检偏多。召回重发要花钱，中间还会缺几天货。',
+      options: { keep: '先接着用', recall: '召回重发' },
+    },
+    bottleneck: {
+      name: '传播的瓶颈',
+      detail: '一次小范围的传播里，一个更会传人的分支露了头——要让它占上风，得搭上一些积累。',
+      options: { bank: '顺其自然', adapt: '押在这个分支上' },
+    },
+    reservoir: {
+      name: '动物里的落脚处',
+      detail: '它在一种常见的动物身上站住了脚。',
+      options: { harvest: '借机多变异', hide: '藏在那里' },
+    },
+    superspreader: {
+      name: '一场超级传播',
+      detail: '一次聚集里，一个人传给了几十个人。趁势而上会传得很快，也会引来注意。',
+      options: { quiet: '不声张', seize: '趁势而上' },
+    },
+    variant: {
+      name: '新的变异株',
+      detail: '两个变异株在争上风：一个症状轻、不容易被注意到，一个更凶、让人害怕。',
+      options: { mild: '温和的那个', fierce: '凶的那个' },
+    },
+  },
+
   pathogens: {
     novel: {
       name: '新发病原体',

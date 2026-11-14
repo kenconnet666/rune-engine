@@ -1,5 +1,5 @@
 import { seedRandom, type PlayerId, type RandomState } from '@rune-engine/core';
-import type { OutbreakConfig } from './config.ts';
+import type { ModifierKey, OutbreakConfig } from './config.ts';
 import { emptyHistory, type History } from './rules/history.ts';
 
 /** 攻方、守方的编号 */
@@ -26,6 +26,8 @@ export const FOR_BOTH = 3;
  *   evolve 病原体换了一个性状   research 一项研究完成   vaccine 开始接种
  *   event 发生了一件事（subject 是事件的 id）   traced 找到了起源地   outcome 分出了胜负
  *   team 应急队抵达一个地区   briefing 守方开了发布会
+ *   skill 攻方用了一个技能（subject 是技能的 id）   devolve 病原体退掉了一个性状
+ *   decision 一方对一件事拿了主意（subject 是“事.选项”）
  */
 export type NewsKind =
   | 'spread'
@@ -37,7 +39,10 @@ export type NewsKind =
   | 'traced'
   | 'outcome'
   | 'team'
-  | 'briefing';
+  | 'briefing'
+  | 'skill'
+  | 'devolve'
+  | 'decision';
 
 export interface NewsItem {
   readonly tick: number;
@@ -65,6 +70,14 @@ export interface Outcome {
   readonly winner: PlayerId;
   readonly reason: 'calamity' | 'eradicated' | 'timeout' | 'goal' | 'held';
   readonly tick: number;
+}
+
+/** 一条临时的全局修正：把哪个数改多少，到哪一步为止（不含），谁看得到 */
+export interface Modifier {
+  readonly key: ModifierKey;
+  readonly amount: number;
+  readonly until: number;
+  readonly audience: number;
 }
 
 /** 新闻最多留这么多条，旧的丢掉 */
@@ -101,9 +114,21 @@ export interface OutbreakState {
   priority: number;
   /** 下一次能开发布会的那一步 */
   briefingReadyAt: number;
-  /** 大型集会、自然灾害在各地区持续到哪一步（不含） */
+  /** 大型集会、自然灾害、攻方的“激增”在各地区持续到哪一步（不含） */
   gatheringUntil: Int32Array;
   disasterUntil: Int32Array;
+  surgeUntil: Int32Array;
+  /** 各个技能下一次能用的那一步（下标同 config.skills） */
+  skillReadyAt: Int32Array;
+  /** 正在起作用的临时修正 */
+  modifiers: Modifier[];
+  /**
+   * 等着双方各自拿主意的事（下标是玩家：0 攻方、1 守方）：是 config.decisions 里的第几件（-1 是没有）、
+   * 到哪一步为止；和每件事出现过几次
+   */
+  pendingDecision: Int16Array;
+  decisionExpires: Int32Array;
+  decisionSeen: Uint8Array;
 
   /** 攻方有没有某个性状（下标同 config.traits） */
   traits: Uint8Array;
@@ -180,6 +205,12 @@ export function createState(config: OutbreakConfig): OutbreakState {
     briefingReadyAt: 0,
     gatheringUntil: new Int32Array(count),
     disasterUntil: new Int32Array(count),
+    surgeUntil: new Int32Array(count),
+    skillReadyAt: new Int32Array(config.skills.length),
+    modifiers: [],
+    pendingDecision: new Int16Array(2).fill(-1),
+    decisionExpires: new Int32Array(2),
+    decisionSeen: new Uint8Array(config.decisions.length),
     traits: new Uint8Array(config.traits.length),
     techs: new Uint8Array(config.techs.length),
     techRemaining: new Float64Array(config.techs.length),

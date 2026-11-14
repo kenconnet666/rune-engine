@@ -10,6 +10,7 @@ import {
   REPORTED,
   type OutbreakState,
 } from '../state.ts';
+import { modifier } from './modifiers.ts';
 import { after, climateFit, detectionIn, effectiveWealth, teamAt, winter } from './regional.ts';
 
 /** 这一天全世界的合计：攻方的变异点、信任、胜负都要用 */
@@ -39,7 +40,7 @@ export function expose(state: OutbreakState, region: number, count: number, tall
 
 /**
  * 本地传播强度：一个发病者一天在这个地区能传给几个人（所有人都易感时）。
- * 各途径的强度 × 这个地区对它的适宜程度 × 措施打的折扣，加起来再乘气候的适应、集会、隔离。
+ * 各途径的强度 × 这个地区对它的适宜程度 × 措施打的折扣，加起来再乘气候的适应、集会、激增、临时的修正、隔离。
  */
 export function transmissionIn(
   state: OutbreakState,
@@ -80,6 +81,8 @@ export function transmissionIn(
     after(rules, bits, 'lockdown', rules.lockdownOther, comply);
 
   const gathering = state.gatheringUntil[r]! > state.tick ? rules.gatheringBoost : 1;
+  const surge = state.surgeUntil[r]! > state.tick ? rules.surgeBoost : 1;
+  const shift = Math.max(0, 1 + modifier(state, 'spread'));
   // 隔离只对被发现的病人有用：效果跟着发现率走
   const isolation = after(
     rules,
@@ -88,7 +91,14 @@ export function transmissionIn(
     Math.min(1, rules.isolationEffect * detection * (1 + defense.isolation)),
     comply,
   );
-  return (air + contact + others) * climateFit(state, r, pathogen) * gathering * isolation;
+  return (
+    (air + contact + others) *
+    climateFit(state, r, pathogen) *
+    gathering *
+    surge *
+    shift *
+    isolation
+  );
 }
 
 /**

@@ -31,6 +31,7 @@ import {
   EyeOff,
   Factory,
   Fence,
+  Flame,
   FlaskConical,
   Footprints,
   Ghost,
@@ -43,6 +44,7 @@ import {
   Megaphone,
   MessageCircleWarning,
   Microscope,
+  Moon,
   Mountain,
   MountainSnow,
   Package,
@@ -53,6 +55,7 @@ import {
   Plane,
   Radar,
   ScanLine,
+  Scale,
   SearchX,
   ShieldOff,
   ShowerHead,
@@ -72,6 +75,7 @@ import {
   TreePalm,
   Trophy,
   Truck,
+  Undo2,
   Utensils,
   Volume2,
   Waypoints,
@@ -182,6 +186,9 @@ const NEWS: Readonly<Record<NewsKind, IconData>> = {
   outcome: Trophy,
   team: Ambulance,
   briefing: Megaphone,
+  skill: Zap,
+  devolve: Undo2,
+  decision: Scale,
 };
 
 const PATHOGENS: Readonly<Record<string, IconData>> = {
@@ -197,11 +204,19 @@ const PATHOGENS: Readonly<Record<string, IconData>> = {
   pertussis: Volume2,
 };
 
+const SKILLS: Readonly<Record<string, IconData>> = {
+  spillover: PawPrint,
+  surge: Flame,
+  dormancy: Moon,
+};
+
+export const skillIcon = (id: string): IconData => SKILLS[id] ?? Zap;
 export const pathogenIcon = (id: string): IconData => PATHOGENS[id] ?? Biohazard;
 export const traitIcon = (id: string): IconData => TRAITS[id] ?? Dna;
 export const techIcon = (id: string): IconData => TECHS[id] ?? FlaskConical;
 export const newsIcon = (kind: NewsKind, subject: string): IconData =>
-  (kind === 'event' ? EVENTS[subject] : undefined) ?? NEWS[kind];
+  (kind === 'event' ? EVENTS[subject] : kind === 'skill' ? SKILLS[subject] : undefined) ??
+  NEWS[kind];
 
 /** 每章一个图标：萌芽、变异、脚印、山、飞机 */
 export const CHAPTER_ICONS: Readonly<Record<ChapterId, IconData>> = {

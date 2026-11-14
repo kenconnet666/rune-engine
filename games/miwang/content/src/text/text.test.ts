@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { CHAPTER_IDS, CHAPTERS } from '../tables/chapters.ts';
 import { CREDITS } from '../tables/credits.ts';
+import { DECISIONS } from '../tables/decisions.ts';
 import { EVENTS } from '../tables/events.ts';
 import { PATHOGENS, SOURCES } from '../tables/pathogens.ts';
+import { SKILLS } from '../tables/skills.ts';
 import { TECHS } from '../tables/techs.ts';
 import { TRAITS } from '../tables/traits.ts';
 import { CONTENT_TEXT } from './index.ts';
@@ -15,6 +17,13 @@ describe('内容的文案', () => {
       expect(Object.keys(text.traits).sort()).toEqual(ids(TRAITS));
       expect(Object.keys(text.techs).sort()).toEqual(ids(TECHS));
       expect(Object.keys(text.events).sort()).toEqual(ids(EVENTS));
+      expect(Object.keys(text.skills).sort()).toEqual(ids(SKILLS));
+      expect(Object.keys(text.decisions).sort()).toEqual(ids(DECISIONS));
+      for (const decision of DECISIONS) {
+        const words = text.decisions[decision.id]!;
+        expect(words.name.length * words.detail.length, decision.id).toBeGreaterThan(0);
+        expect(Object.keys(words.options).sort(), decision.id).toEqual(ids(decision.options));
+      }
       expect(Object.keys(text.pathogens).sort()).toEqual(ids(PATHOGENS));
       expect(Object.keys(text.chapters).sort()).toEqual([...CHAPTER_IDS].sort());
       expect(Object.keys(text.credits).sort()).toEqual(
@@ -23,7 +32,7 @@ describe('内容的文案', () => {
           .map((credit) => credit.id)
           .sort(),
       );
-      for (const group of [text.traits, text.techs, text.events, text.measures]) {
+      for (const group of [text.traits, text.techs, text.events, text.skills, text.measures]) {
         for (const label of Object.values(group)) {
           expect(label.name.length).toBeGreaterThan(0);
           expect(label.detail.length).toBeGreaterThan(0);
@@ -49,6 +58,19 @@ describe('性状表与科技表', () => {
     expect(new Set(ids(TRAITS)).size).toBe(TRAITS.length);
     expect(new Set(ids(TECHS)).size).toBe(TECHS.length);
     expect(new Set(ids(EVENTS)).size).toBe(EVENTS.length);
+    expect(new Set(ids(SKILLS)).size).toBe(SKILLS.length);
+    expect(new Set(ids(DECISIONS)).size).toBe(DECISIONS.length);
+  });
+});
+
+describe('抉择表', () => {
+  it('每件事至少两个选项；持续的修正都写了天数', () => {
+    for (const decision of DECISIONS) {
+      expect(decision.options.length, decision.id).toBeGreaterThanOrEqual(2);
+      for (const option of decision.options) {
+        if (option.modifiers) expect(option.days, `${decision.id}.${option.id}`).toBeGreaterThan(0);
+      }
+    }
   });
 });
 

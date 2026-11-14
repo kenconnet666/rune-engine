@@ -1,8 +1,8 @@
 /**
- * 百科：游戏里所有东西的说明——病原体、性状、地区措施、研究。
+ * 百科：游戏里所有东西的说明——病原体、性状、技能、地区措施、研究。
  * 每一类都是左边一面图块、右边选中那一样的详情；和对局无关，随时可以翻。
  */
-import { PATHOGENS, TECHS, TRAITS } from '@miwang/content';
+import { PATHOGENS, SKILLS, TECHS, TRAITS } from '@miwang/content';
 import { DEFAULT_RULES, MEASURES, type Measure } from '@miwang/sim';
 import {
   colors,
@@ -19,14 +19,14 @@ import {
 } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { Biohazard, Dna, FlaskConical, ShieldCheck } from 'lucide';
+import { Biohazard, Dna, FlaskConical, ShieldCheck, Zap } from 'lucide';
 import type { VNodeChild } from 'vue';
 import { useContent, useFormats, useUi } from '../i18n.ts';
-import { MEASURE_ICONS, pathogenIcon, techIcon, traitIcon } from '../icons.ts';
-import { techEffects, traitEffects, type EffectLine } from './effects.ts';
+import { MEASURE_ICONS, pathogenIcon, skillIcon, techIcon, traitIcon } from '../icons.ts';
+import { modifierEffects, techEffects, traitEffects, type EffectLine } from './effects.ts';
 import { PathogenDetail } from './PathogenDetail.tsx';
 
-type Section = 'pathogens' | 'traits' | 'measures' | 'techs';
+type Section = 'pathogens' | 'traits' | 'skills' | 'measures' | 'techs';
 
 const styles = css.create({
   tabs: { paddingInline: space.lg },
@@ -93,6 +93,7 @@ export const Encyclopedia = _component(({ onClose }: { onClose: () => void }) =>
   let chosen = _state<Record<Section, string>>({
     pathogens: PATHOGENS[0]!.id,
     traits: TRAITS[0]!.id,
+    skills: SKILLS[0]!.id,
     measures: MEASURES[0],
     techs: TECHS[0]!.id,
   });
@@ -115,6 +116,11 @@ export const Encyclopedia = _component(({ onClose }: { onClose: () => void }) =>
         icon: traitIcon(trait.id),
         name: content.traits[trait.id]?.name ?? trait.id,
         group: content.groups[trait.group],
+      })),
+      skills: SKILLS.map(({ id }) => ({
+        id,
+        icon: skillIcon(id),
+        name: content.skills[id]?.name ?? id,
       })),
       measures: MEASURES.map((measure) => ({
         id: measure,
@@ -149,6 +155,28 @@ export const Encyclopedia = _component(({ onClose }: { onClose: () => void }) =>
             { label: e.cost, value: ui.workbench.points(trait.cost) },
             { label: e.requires, value: names(trait.requires, content.traits) },
           ],
+        );
+      }
+      if (section === 'skills') {
+        const skill = SKILLS.find((candidate) => candidate.id === current);
+        if (!skill) return null;
+        const k = ui.skills;
+        return describe(
+          skillIcon(skill.id),
+          content.skills[skill.id]?.name ?? skill.id,
+          content.skills[skill.id]?.detail ?? '',
+          ui.workbench.effects,
+          [
+            ...(skill.kind === 'spillover'
+              ? [{ name: ui.effects.spread, amount: k.seeds(skill.amount ?? 0) }]
+              : []),
+            ...(skill.kind === 'surge'
+              ? [{ name: ui.effects.spread, amount: k.boost(String(DEFAULT_RULES.surgeBoost)) }]
+              : []),
+            ...modifierEffects(skill.modifiers, ui),
+            ...(skill.days ? [{ name: k.lasts(skill.days), amount: '' }] : []),
+          ],
+          [{ label: e.cost, value: k.facts(skill.cost, skill.cooldown) }],
         );
       }
       if (section === 'measures') {
@@ -203,6 +231,7 @@ export const Encyclopedia = _component(({ onClose }: { onClose: () => void }) =>
           tabs={[
             { value: 'pathogens', label: e.pathogens, icon: Biohazard },
             { value: 'traits', label: e.traits, icon: Dna },
+            { value: 'skills', label: e.skills, icon: Zap },
             { value: 'measures', label: e.measures, icon: ShieldCheck },
             { value: 'techs', label: e.techs, icon: FlaskConical },
           ]}

@@ -83,6 +83,20 @@ export const NewsPanel = _component(
             return ui.team(place);
           case 'briefing':
             return ui.briefing;
+          case 'skill': {
+            const name = content.skills[item.subject]?.name ?? item.subject;
+            return place ? ui.skillAt(place, name) : ui.skill(name);
+          }
+          case 'devolve': {
+            const name = content.traits[item.subject]?.name ?? item.subject;
+            return attacker ? ui.devolved(name) : ui.devolvedSeen(name);
+          }
+          case 'decision': {
+            // subject 是“事.选项”
+            const [id = '', option = ''] = item.subject.split('.');
+            const text = content.decisions[id];
+            return ui.decision(text?.name ?? id, text?.options[option] ?? option);
+          }
           case 'outcome':
             return content.outcomes[item.subject as keyof typeof content.outcomes] ?? item.subject;
         }
@@ -90,7 +104,8 @@ export const NewsPanel = _component(
 
       /** 这条消息对这一方是好是坏：攻方乐见扩散和变异，守方乐见研究、疫苗、应急队到位和发布会 */
       const mood = (item: NewsItem) => {
-        const forAttacker = item.kind === 'spread' || item.kind === 'evolve';
+        const forAttacker =
+          item.kind === 'spread' || item.kind === 'evolve' || item.kind === 'skill';
         const forDefender =
           item.kind === 'research' ||
           item.kind === 'vaccine' ||
