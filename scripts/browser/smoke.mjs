@@ -210,6 +210,13 @@ try {
   const measure = (id) => `document.querySelector('[data-measure="${id}"]')`;
   const preset = (id) => `document.querySelector('[data-preset="${id}"]')`;
   await page.clickButton('轻');
+  // 换到守方之前电脑替守方管着：这里的检测要是已经开在轻的那一档，再点是关掉——先关了再开
+  if (await page.evaluate(`${measure('testing')}?.dataset.level === '1'`)) {
+    await page.evaluate(`${measure('testing')}.click()`);
+    await page.waitFor(`${measure('testing')}?.dataset.level === '0'`, {
+      what: '先把“加强检测”关掉',
+    });
+  }
   await page.evaluate(`${measure('testing')}.click()`);
   await page.waitFor(`${measure('testing')}?.dataset.level === '1'`, {
     what: '“加强检测”开到轻的那一档',
