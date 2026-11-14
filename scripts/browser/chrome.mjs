@@ -74,6 +74,8 @@ export async function launchChrome({
       '--no-first-run',
       '--no-default-browser-check',
       '--enable-unsafe-webgpu',
+      // 测试不出声：游戏的音效照常合成、流程照走，只是不送到这台电脑的音箱上（跑测试时电脑常有人在用）
+      '--mute-audio',
       // CI 的容器里 Chrome 的沙箱起不来：那里跑的只有我们自己的页面，可以关掉
       ...(process.env.CHROME_NO_SANDBOX ? ['--no-sandbox'] : []),
       ...(software ? SOFTWARE_GPU : []),
@@ -266,6 +268,18 @@ export async function launchChrome({
         /** 往有焦点的输入框里打字（整段文字一次进去，和输入法上屏是同一条路） */
         async type(text) {
           await call('Input.insertText', { text });
+        },
+        /** 按一下键（'Escape'、'Tab'……），shift 是按着 Shift 按：发给有焦点的元素 */
+        async press(key, { shift = false } = {}) {
+          const codes = { Escape: 27, Tab: 9, Enter: 13 };
+          const event = {
+            key,
+            code: key,
+            windowsVirtualKeyCode: codes[key],
+            modifiers: shift ? 8 : 0,
+          };
+          await call('Input.dispatchKeyEvent', { type: 'rawKeyDown', ...event });
+          await call('Input.dispatchKeyEvent', { type: 'keyUp', ...event });
         },
         /** 滚轮：正数往下（缩小地图），负数往上（放大） */
         async wheel(x, y, deltaY) {

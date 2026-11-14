@@ -29,6 +29,7 @@ catalog:
   '@cloudflare/workers-types': 5.20261110.1
   # 组件库（packages/components，从 vue-tsx-pro 复制来的）用到的：版本和那边的一样
   # 算法与数据：定位、焦点顺序、颜色、图标、表单校验
+  '@floating-ui/core': 1.8.0
   '@floating-ui/dom': 1.8.0
   tabbable: 6.5.0
   '@radix-ui/colors': 3.0.0

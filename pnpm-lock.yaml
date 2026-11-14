@@ -188,6 +188,9 @@ catalogs:
     '@codemirror/view':
       specifier: 6.43.14
       version: 6.43.14
+    '@floating-ui/core':
+      specifier: 1.8.0
+      version: 1.8.0
     '@floating-ui/dom':
       specifier: 1.8.0
       version: 1.8.0
@@ -319,6 +322,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.2
+      happy-dom:
+        specifier: 'catalog:'
+        version: 21.0.3
       oxlint:
         specifier: 'catalog:'
         version: 1.88.0(oxlint-tsgolint@7.0.2004)
@@ -696,6 +702,12 @@ importers:
 
   packages/stage:
     dependencies:
+      '@floating-ui/core':
+        specifier: 'catalog:'
+        version: 1.8.0
+      '@floating-ui/dom':
+        specifier: 'catalog:'
+        version: 1.8.0
       '@rune-engine/render':
         specifier: workspace:^
         version: link:../render
@@ -709,6 +721,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 7.1.0-dev.20261104.1
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@types/node@24.19.2)(happy-dom@21.0.3)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2))
 
   packages/transport:
     dependencies:

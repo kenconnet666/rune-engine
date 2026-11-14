@@ -1,5 +1,5 @@
 /**
- * 舞台：一张画布，加上压在它上面的几层界面（world、hud、overlay、tips，见 stage-context.ts）。
+ * 舞台：一张画布，加上压在它上面的几层界面（world、hud、tips，见 stage-context.ts；弹层另外各占一层）。
  *
  * 这几层平时叠在画布上面，是普通的网页元素。浏览器支持（HTML-in-Canvas，新的 Chrome）、渲染线程也说“画面接上了”
  * 之后（setLive(true)），它们搬进画布里面，由渲染线程和画布上的画面一起合成：界面照常排版、照常响应鼠标键盘，
@@ -24,7 +24,14 @@ import {
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css, type SxStyles } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { onBeforeUnmount, onMounted, provide, shallowRef, type VNodeChild } from 'vue';
-import { STAGE, STAGE_LAYERS, type StageContext, type StageLayerName } from './stage-context.ts';
+import { createOverlayHost } from './overlays.ts';
+import {
+  STAGE,
+  STAGE_LAYER_ORDER,
+  STAGE_LAYERS,
+  type StageContext,
+  type StageLayerName,
+} from './stage-context.ts';
 import { attachTips } from './tips.ts';
 
 export interface StageHandle {
@@ -96,7 +103,6 @@ export const Stage = _component(
     /** 各层的贴法：界面不在画布里的时候也记着，搬进去时用上 */
     const materials: Partial<Record<StageLayerName, Partial<UiMaterial>>> = {};
     let send: ((message: UiMessage, transfer: Transferable[]) => void) | undefined;
-    let modals = 0;
     /** 界面现在是不是在画布里 */
     let live = false;
     let ui: CanvasUi | undefined;
@@ -113,6 +119,17 @@ export const Stage = _component(
       handle?: CanvasUiLayer;
     }
     const extras = new Set<Extra>();
+
+    const overlays = createOverlayHost({
+      root: () => root.value,
+      *layers() {
+        for (const name of STAGE_LAYERS) {
+          const element = layers[name].value;
+          if (element) yield { element, order: STAGE_LAYER_ORDER[name] };
+        }
+        yield* extras;
+      },
+    });
 
     /** 把一层搬进画布、登记给界面采集 */
     const enter = (
@@ -157,10 +174,12 @@ export const Stage = _component(
       if (next) {
         const created = createCanvasUi(canvas);
         ui = created;
-        STAGE_LAYERS.forEach((name, order) => {
+        for (const name of STAGE_LAYERS) {
           const element = layers[name].value;
-          if (element) handles[name] = enter(created, element, order, materials[name]);
-        });
+          if (element) {
+            handles[name] = enter(created, element, STAGE_LAYER_ORDER[name], materials[name]);
+          }
+        }
         for (const extra of extras) enterExtra(created, extra);
         if (send) created.connect(send);
         return;
@@ -212,6 +231,8 @@ export const Stage = _component(
         element.style.zIndex = stackOf(order);
         if (ui) enterExtra(ui, extra);
         else settle(extra);
+        // 有模态的弹层开着的时候加进来的层：在它下面的话一样不能响应操作
+        overlays.sync();
         return {
           set(next, durationMs) {
             extra.material = { ...extra.material, ...next };
@@ -229,28 +250,17 @@ export const Stage = _component(
           },
         };
       },
-      openModal() {
-        modals++;
-        // 模态的东西在 overlay 层：它下面的两层不再响应操作，焦点也进不去
-        for (const name of ['world', 'hud'] as const)
-          layers[name].value?.toggleAttribute('inert', true);
-        return () => {
-          if (--modals > 0) return;
-          for (const name of ['world', 'hud'] as const) {
-            layers[name].value?.toggleAttribute('inert', false);
-          }
-        };
-      },
+      overlays,
     });
 
     let stopTips: (() => void) | undefined;
     onMounted(() => {
       if (!root.value || !canvas) return;
       stopTips = attachTips(root.value, () => layers.tips.value);
-      STAGE_LAYERS.forEach((name, order) => {
+      for (const name of STAGE_LAYERS) {
         const element = layers[name].value;
-        if (element) element.style.zIndex = stackOf(order);
-      });
+        if (element) element.style.zIndex = stackOf(STAGE_LAYER_ORDER[name]);
+      }
       // 画布里的东西要这个属性才当成“可以画的内容”来排版
       if (supported) canvas.setAttribute('content', 'drawable');
       onReady?.({
@@ -268,16 +278,12 @@ export const Stage = _component(
     });
     onBeforeUnmount(() => {
       stopTips?.();
+      overlays.dispose();
       ui?.dispose();
     });
 
     return () => {
-      const content: Record<StageLayerName, VNodeChild> = {
-        world,
-        hud: children,
-        overlay: null,
-        tips: null,
-      };
+      const content: Record<StageLayerName, VNodeChild> = { world, hud: children, tips: null };
       // 在这里它们总是画布的兄弟；搬进画布、搬回来是 setLive 直接挪元素，不经过这里
       return (
         <div

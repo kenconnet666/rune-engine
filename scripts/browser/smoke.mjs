@@ -182,9 +182,14 @@ try {
   await page.waitFor(canPress('退掉它'), { what: '已有性状的“退掉它”' });
   await page.clickButton('退掉它');
   await page.waitFor(hasText('0 个性状'), { what: '性状退掉了' });
-  await closeDialog(page);
-  await page.waitFor(`!document.querySelector('dialog')`, { what: '工作台关上' });
-  await done('技能在；退化：把“咳嗽”退掉了');
+  // 对话框是模态的：开着的时候下面的界面不响应操作；按 Esc 关，关了恢复（舞台的弹层宿主管的）
+  const hudInert = `document.querySelector('[data-stage-layer="hud"]').inert`;
+  if (!(await page.evaluate(hudInert))) throw new Error('对话框开着，下面的界面却还能操作');
+  await page.press('Escape');
+  await page.waitFor(`!document.querySelector('dialog') && !${hudInert}`, {
+    what: 'Esc 关上工作台，下面的界面恢复',
+  });
+  await done('技能在；退化：把“咳嗽”退掉了；Esc 关对话框');
 
   await page.clickButton('守方');
   await page.waitFor(hasText('守方 · 上报态势'), { what: '换到守方' });
@@ -192,8 +197,13 @@ try {
   await page.waitFor(`document.querySelector('dialog[open]') && ${hasText('病原鉴定')}`, {
     what: '研究的工作台',
   });
-  await closeDialog(page);
-  await done('换到守方：研究的工作台打得开');
+  // 点对话框外面（压暗的底）也是关
+  const dialogLeft = await page.evaluate(
+    `document.querySelector('dialog[open]').getBoundingClientRect().left`,
+  );
+  await page.click(dialogLeft / 2, 200);
+  await page.waitFor(`!document.querySelector('dialog')`, { what: '点外面关上工作台' });
+  await done('换到守方：研究的工作台打得开，点外面关上');
 
   // 点地图中间偏右（亚洲）选一个地区，守方应该看到措施
   // 上一步关掉的对话框还有一小段离场动画，这时点下去会点在它上面：没选中就再点

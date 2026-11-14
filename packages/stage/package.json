@@ -6,17 +6,21 @@
   "type": "module",
   "license": "MIT",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./anchor": "./src/Anchored.tsx"
   },
   "scripts": {
     "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"
   },
   "dependencies": {
+    "@floating-ui/core": "catalog:",
+    "@floating-ui/dom": "catalog:",
     "@rune-engine/render": "workspace:^",
     "@zerodep-dev/vue-tsx-pro-tsx": "catalog:",
     "vue": "catalog:"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

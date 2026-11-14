@@ -14,11 +14,23 @@
  *   <StageLayer fit="content" x={point.x} y={point.y} order={1.2}>…一个气泡…</StageLayer>
  *
  * 小的、老在动的东西用它：重拍一层的代价跟面积走，而且只是挪位置的话根本不用重拍。
+ *
+ * 写了 overlay 这一层就是个**弹层**：渲染出来就是打开的（要关就不再渲染它），上下按打开的先后排（不看 order），
+ * 模态、点外面关、Esc、焦点由舞台的弹层宿主管（见 overlays.ts）：
+ *
+ *   {open && (
+ *     <StageLayer overlay={{ modal: true, content: () => panel, onDismiss: () => (open = false) }}>
+ *       <div 压暗的底><div ref={panel}>…</div></div>
+ *     </StageLayer>
+ *   )}
+ *
+ * 要它贴着一个元素显示（下拉、菜单），用 anchor 入口的 Anchored（Anchored.tsx）。
  */
 import { PLAIN_MATERIAL, type UiMaterial } from '@rune-engine/render/ui-types';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css, type SxStyles } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { onBeforeUnmount, onMounted, Teleport, watch, type VNodeChild } from 'vue';
+import type { OverlayEntry, OverlayOptions } from './overlays.ts';
 import { useStage, type StageLayerHandle } from './stage-context.ts';
 
 export interface StageLayerProps {
@@ -29,8 +41,12 @@ export interface StageLayerProps {
   /** fit="content" 时左上角在舞台上的位置（CSS 像素） */
   x?: number;
   y?: number;
-  /** 上下的次序，默认 1.5（hud 的上面、对话框的下面） */
+  /** 上下的次序，默认 1.5（hud 的上面、弹层的下面）。写了 overlay 时不看它 */
   order?: number;
+  /** 这一层是个弹层（见文件头）。不在舞台里时不起作用 */
+  overlay?: OverlayOptions;
+  /** 拿到这一层的元素（要量它的大小时用） */
+  layerRef?: (element: HTMLElement | null) => void;
   /** 这一层怎么贴（没写的项是原样）；改了它就过渡过去 */
   material?: Partial<UiMaterial>;
   /** material 变了用多久过渡过去（毫秒），默认 0 */
@@ -53,6 +69,8 @@ export const StageLayer = _component(
     x = 0,
     y = 0,
     order = 1.5,
+    overlay,
+    layerRef,
     material,
     transitionMs = 0,
     enter,
@@ -61,10 +79,14 @@ export const StageLayer = _component(
     const stage = useStage();
     let element = _state.raw<HTMLElement | null>(null);
     let handle: StageLayerHandle | undefined;
+    let entry: OverlayEntry | undefined;
 
     onMounted(() => {
+      layerRef?.(element);
       if (!element || !stage) return;
-      handle = stage.addLayer(element, order, { fill: fit === 'stage' });
+      // 选项每次现读：onDismiss、要不要点外面关都可以跟着渲染变
+      if (overlay) entry = stage.overlays.open(element, () => overlay!);
+      handle = stage.addLayer(element, entry?.order ?? order, { fill: fit === 'stage' });
       handle.moveTo(x, y);
       const target = { ...PLAIN_MATERIAL, ...material };
       if (enter) {
@@ -83,7 +105,12 @@ export const StageLayer = _component(
       () => [x, y] as const,
       ([nextX, nextY]) => handle?.moveTo(nextX, nextY),
     );
-    onBeforeUnmount(() => handle?.remove());
+    onBeforeUnmount(() => {
+      // 先从弹层里拿掉（焦点要还回去，这时元素还在），再收层
+      entry?.close();
+      handle?.remove();
+      layerRef?.(null);
+    });
 
     return () => {
       const layer = (

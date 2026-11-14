@@ -32,6 +32,7 @@
   "devDependencies": {
     "@prettier/plugin-oxc": "catalog:",
     "@types/node": "catalog:",
+    "happy-dom": "catalog:",
     "oxlint": "catalog:",
     "oxlint-tsgolint": "catalog:",
     "prettier": "catalog:",

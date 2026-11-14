@@ -1,20 +1,21 @@
 /**
  * 对话框：盖在整个画面上的一大块界面（进化树、研究、设置）。
- * 它在舞台的 overlay 层里：一层压暗的底，中间是对话框。按 Esc、点外面、点关闭按钮都能关。
+ * 它在舞台上自己占一层：一层压暗的底，中间是对话框。按 Esc、点外面、点关闭按钮都能关。
  * 用的是 <dialog> 元素（读屏认得它），但不走浏览器的模态“顶层”——那一层画不进画布；
- * 模态该有的几件事自己做：打开时下面的界面不再响应操作，焦点进到对话框里，关了回到原来的地方。
- * 渲染出来就是打开的——要关就不再渲染它（onClose 里把状态改掉）。
+ * 模态该有的几件事由舞台的弹层宿主做：打开时下面的界面不再响应操作，焦点进到对话框里，关了回到原来的地方。
+ * 对话框里再开对话框也行：后开的在上面，Esc 一次关一个。
+ * 渲染出来就是打开的——要关就不再渲染它（onClose 里把状态改掉）。不在舞台里时只是一块普通的界面。
  *
  *   {open && <Dialog title="进化" onClose={() => (open = false)}>…</Dialog>}
  *
- * 界面画在画布里时，对话框是一块块“显现”出来的（贴它那一层的时候过的效果，见 Stage 的 material）；
+ * 界面画在画布里时，对话框是一块块“显现”出来的（贴它那一层的时候过的效果，见 StageLayer 的 enter）；
  * 想换一种出现的样子就传 enter。
  */
-import { PLAIN_MATERIAL, useStage, type UiMaterial } from '@rune-engine/stage';
+import { StageLayer, useStage, type UiMaterial } from '@rune-engine/stage';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { X } from 'lucide';
-import { onBeforeUnmount, onMounted, Teleport, type VNodeChild } from 'vue';
+import type { VNodeChild } from 'vue';
 import { Icon } from './Icon.tsx';
 import { mergeAttrs, type PartProps } from './props.ts';
 import { focusRing, pressable } from './styles.ts';
@@ -28,7 +29,7 @@ export interface DialogProps extends PartProps<'dialog', 'title' | 'open'> {
   /** 关闭按钮的名称（读屏念它），默认“关闭” */
   closeLabel?: string;
   /**
-   * 界面画在画布里时它怎么出现：overlay 层先是这个样子，再过渡回原样。默认是一块块显现（{ reveal: 0 }）；
+   * 界面画在画布里时它怎么出现：它那一层先是这个样子，再过渡回原样。默认是一块块显现（{ reveal: 0 }）；
    * 比如 { opacity: 0, scale: 1.06 } 是从大一点的地方淡进来
    */
   enter?: Partial<UiMaterial>;
@@ -37,6 +38,8 @@ export interface DialogProps extends PartProps<'dialog', 'title' | 'open'> {
 
 /** 对话框出现用多久（毫秒） */
 const ENTER_MS = 260;
+/** 默认的出现：一块块显现 */
+const REVEAL: Partial<UiMaterial> = { reveal: 0 };
 
 const enter = css.keyframes({
   from: { opacity: 0, scale: 0.97 },
@@ -108,39 +111,21 @@ export const Dialog = _component(
   ({ title, aside, onClose, closeLabel = '关闭', enter, children, ...rest }: DialogProps) => {
     const stage = useStage();
     let element = _state.raw<HTMLDialogElement | null>(null);
-    /** 打开之前焦点在哪：关了还给它 */
-    let returnTo: Element | null = null;
-    let release: (() => void) | undefined;
     /** 打开的那一刻界面在不在画布里：定了用哪一种进场 */
     const inCanvas = stage?.inCanvas === true;
 
-    onMounted(() => {
-      returnTo = document.activeElement;
-      release = stage?.openModal();
-      element?.focus({ preventScroll: true });
-      // 画在画布里时：这一层从 enter 的样子过渡回原样
-      stage?.material('overlay', { ...PLAIN_MATERIAL, ...(enter ?? { reveal: 0 }) });
-      stage?.material('overlay', PLAIN_MATERIAL, ENTER_MS);
-    });
-    onBeforeUnmount(() => {
-      // 这一层留给下一个用它的：没走完的过渡直接到头
-      stage?.material('overlay', PLAIN_MATERIAL);
-      release?.();
-      if (returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus();
-    });
-
-    return () => {
-      const dialog = (
-        <div
-          {...css.attrs(styles.scrim)}
-          // 点在压暗的底上（不是对话框里面）算关
-          onPointerdown={(event: PointerEvent) => {
-            if (event.target === event.currentTarget) element?.close();
-          }}
-          onKeydown={(event: KeyboardEvent) => {
-            if (event.key === 'Escape') element?.close();
-          }}
-        >
+    return () => (
+      <StageLayer
+        // 压暗的底不算对话框里面：点它就是点外面
+        overlay={{
+          modal: true,
+          outside: true,
+          content: () => element,
+          onDismiss: () => element?.close(),
+        }}
+        enter={{ from: enter ?? REVEAL, ms: ENTER_MS }}
+      >
+        <div {...css.attrs(styles.scrim)}>
           <dialog
             ref={_toRef(element)}
             {...mergeAttrs<'dialog'>({ sx: [styles.root, !inCanvas && styles.entering] }, rest, {
@@ -167,10 +152,7 @@ export const Dialog = _component(
             </div>
           </dialog>
         </div>
-      );
-      if (!stage) return dialog;
-      const host = stage.layers.overlay.value;
-      return host ? <Teleport to={host}>{dialog}</Teleport> : null;
-    };
+      </StageLayer>
+    );
   },
 );

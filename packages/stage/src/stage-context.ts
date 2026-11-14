@@ -1,20 +1,22 @@
 /**
  * 舞台里的组件和舞台之间的约定（舞台本身见 Stage.tsx）。
- * 弹出类的组件（对话框、提示）不靠浏览器的“顶层”：那一层画不进画布。它们把自己传送到舞台的某一层里，
- * 上下遮挡由层的先后决定，位置自己算。
+ * 弹出类的组件（对话框、下拉、提示）不靠浏览器的“顶层”：那一层画不进画布。它们各自在舞台上占一层，
+ * 上下遮挡由层的先后决定；模态、点外面关、Esc 这些由舞台的弹层宿主统一管（overlays.ts）。
  */
 import type { UiMaterial } from '@rune-engine/render/ui-types';
 import { inject, type InjectionKey, type ShallowRef } from 'vue';
+import type { OverlayHost } from './overlays.ts';
 
 /**
- * 舞台自带的几层，从下往上：
- *   world    跟着世界走的东西（地名、地图上的标记）
- *   hud      一直在的界面
- *   overlay  盖住画面的东西（对话框）
- *   tips     最上面的小东西（提示气泡）
+ * 舞台自带的几层和它们的次序（次序大的在上面）：
+ *   world  跟着世界走的东西（地名、地图上的标记）
+ *   hud    一直在的界面
+ *   tips   最上面的小东西（提示气泡）
+ * hud 和 tips 之间空着的地方是给弹层的：它们从 2 起按打开的先后往上排（见 overlays.ts 的 OVERLAY_ORDER）
  */
-export const STAGE_LAYERS = ['world', 'hud', 'overlay', 'tips'] as const;
-export type StageLayerName = (typeof STAGE_LAYERS)[number];
+export const STAGE_LAYER_ORDER = { world: 0, hud: 1, tips: 3 } as const;
+export type StageLayerName = keyof typeof STAGE_LAYER_ORDER;
+export const STAGE_LAYERS = Object.keys(STAGE_LAYER_ORDER) as StageLayerName[];
 
 /** 舞台上的一层：改它的贴法、挪它的位置、把它拿掉 */
 export interface StageLayerHandle {
@@ -48,8 +50,8 @@ export interface StageContext {
    * 比如出了坏消息 pulse('hud', { glitch: 1 }, 400)。系统设了“减少动态效果”时不闪
    */
   pulse(layer: StageLayerName, peak: Partial<UiMaterial>, durationMs: number): void;
-  /** 一个模态的东西打开了：它下面的几层不再响应操作。返回“它关了”时要调的函数 */
-  openModal(): () => void;
+  /** 弹层的宿主：打开着的弹层在这里登记（一般经 StageLayer 的 overlay 属性，不直接用） */
+  readonly overlays: OverlayHost;
 }
 
 export const STAGE: InjectionKey<StageContext> = Symbol('stage');

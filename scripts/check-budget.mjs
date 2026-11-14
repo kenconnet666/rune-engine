@@ -13,7 +13,7 @@ const dist = join(import.meta.dirname, '../games/miwang/client/dist');
 
 /** 各类文件的上限（gzip 后，KB）。first 是打开页面就要下的那几样加起来；细节网格是画面出来以后才去拿的 */
 const BUDGETS = [
-  { name: '页面的脚本和样式', match: /^assets\/index-.*\.(js|css)$/, limitKb: 180, first: true },
+  { name: '页面的脚本和样式', match: /^assets\/index-.*\.(js|css)$/, limitKb: 190, first: true },
   { name: '主机线程（模拟）', match: /^assets\/host\.worker-.*\.js$/, limitKb: 32, first: true },
   { name: '渲染线程', match: /^assets\/render\.worker-.*\.js$/, limitKb: 48, first: true },
   {
