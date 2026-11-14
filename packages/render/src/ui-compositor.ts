@@ -242,10 +242,14 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
    * 告诉浏览器这一层在页面上的哪里：按它真正的位置（层的位置加贴法里的平移，绕自己的中心缩放、旋转）
    * 整块画一遍再清掉。numbers 是这一层此刻的贴法
    */
+  /** 一层的位置拼成的一串：和上次说的一样就不用再说 */
+  const placeKey = (layer: LayerState, numbers: number[]) =>
+    [layer.x, layer.y, ...numbers.slice(0, 4), layer.pixelRatio].join();
+
   function place(layer: LayerState, numbers: number[]) {
     if (!surface || !layer.image || !layer.texture) return;
     const [offsetX, offsetY, scale, rotate] = numbers as [number, number, number, number];
-    const key = [layer.x, layer.y, offsetX, offsetY, scale, rotate, layer.pixelRatio].join();
+    const key = placeKey(layer, numbers);
     if (key === layer.placed) return;
     layer.placed = key;
     const { canvas, context } = surface;
@@ -296,9 +300,35 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
     const { device } = gpu;
     ensureTexture(layer, width, height);
     if (!layer.texture) return;
-    // 一块一块地画、一块一块地拷：一块最大是界面画布那么大，比它大的层就分几块
     const { canvas, context } = surface;
     const ratio = layer.pixelRatio;
+    // 平常的情况（没有缩放旋转、整层都在画布里面）：直接画在它真正在的地方再拷走。
+    // 浏览器认的是最后一次把它画在哪——先画在角上、下一帧才按真位置画的话，中间那一帧点击和悬停都落在错的地方
+    // （侧栏的菜单：指针不动，悬停却在两项之间来回跳，一跳又引出一次重拍）
+    const numbers = current(layer, lastNow);
+    const [offsetX, offsetY, scale, rotate] = numbers as [number, number, number, number];
+    const dx = Math.round((layer.x + offsetX) * ratio);
+    const dy = Math.round((layer.y + offsetY) * ratio);
+    if (
+      scale === 1 &&
+      rotate === 0 &&
+      dx >= 0 &&
+      dy >= 0 &&
+      dx + width <= canvas.width &&
+      dy + height <= canvas.height
+    ) {
+      context.clearRect(dx, dy, width, height);
+      context.drawElementImage(image, 0, 0, width / ratio, height / ratio, dx, dy, width, height);
+      device.queue.copyExternalImageToTexture(
+        { source: canvas, origin: [dx, dy] },
+        { texture: layer.texture, premultipliedAlpha: true },
+        [width, height],
+      );
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      layer.placed = placeKey(layer, numbers);
+      return;
+    }
+    // 不然一块一块地画、一块一块地拷：一块最大是界面画布那么大，比它大的层就分几块
     for (let y = 0; y < height; y += canvas.height) {
       for (let x = 0; x < width; x += canvas.width) {
         const w = Math.min(canvas.width, width - x);

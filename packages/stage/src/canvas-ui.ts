@@ -7,7 +7,7 @@
  * 一层是界面画布里一个带 drawable 属性的元素。这里做三件事：
  *   - 铺满的层和画布一样大；只有内容那么大的层自己定大小、由使用方说放在哪
  *     （元素在画布里排版出来的位置没有意义，画在哪由我们定）
- *   - 浏览器说“这几层的样子变了”（画布的 paint 事件）时把它们重新拍下来发过去——一帧只拍一层，轮流来
+ *   - 浏览器说“这几层的样子变了”（画布的 paint 事件）时把它们重新拍下来发过去——一帧里拍的加起来不超过一张画布那么多像素
  *   - 各层在界面画布里按上下的次序排着：两层叠在一处时，点到的是文档里靠后的那个
  * “每一层在页面上的哪里”不归这里说：2D 的画布上浏览器认的是渲染线程最后把它画在哪（见 render 包的 ui-compositor.ts），
  * 所以位置、贴法只管发给渲染线程，它画的时候点击、悬停、量位置就都跟上了（晚一帧）。
@@ -118,7 +118,7 @@ export function createCanvasUi(
   { pixelBudget = 90 }: CanvasUiOptions = {},
 ): CanvasUi {
   const canvas = target as DrawableCanvas;
-  /** 上一次拍的那层有多少像素（设备像素）：按它算两次拍之间隔多久 */
+  /** 上一轮拍了多少像素（设备像素）：按它算两轮之间隔多久 */
   let pixels = 0;
   let lastAt = -Infinity;
   let waiting: ReturnType<typeof setTimeout> | undefined;
@@ -221,6 +221,18 @@ export function createCanvasUi(
     );
   }
 
+  /** 这一层要画多大（设备像素）：排版尺寸乘上设备像素比（界面画布那头的像素尺寸是渲染线程在改，这边看到的会晚一拍） */
+  function sizeOf(layer: Layer) {
+    const ratio = pixelRatio();
+    const width = Math.max(1, Math.round(layer.element.offsetWidth * ratio));
+    const height = Math.max(1, Math.round(layer.element.offsetHeight * ratio));
+    // 要画成像素的面积：滚动层只画露出来的那一块，内容再长也不算进去
+    const pixels = layer.scroll
+      ? layer.scroll.width * layer.scroll.height * ratio * ratio
+      : width * height;
+    return { ratio, width, height, pixels };
+  }
+
   /** 拍一层发出去；拍不下来（这一层现在没有画面）是 false */
   function capture(layer: Layer): boolean {
     if (!send) return false;
@@ -237,14 +249,7 @@ export function createCanvasUi(
     if (!layer.drawn) for (const ms of SETTLE_MS) settling.add(setTimeout(() => retake(layer), ms));
     layer.drawn = true;
     layer.turn = ++turn;
-    // 画多大自己算：这一层的排版尺寸乘上设备像素比（界面画布那头的像素尺寸是渲染线程在改，这边看到的会晚一拍）
-    const ratio = pixelRatio();
-    const width = Math.max(1, Math.round(layer.element.offsetWidth * ratio));
-    const height = Math.max(1, Math.round(layer.element.offsetHeight * ratio));
-    // 讲节奏按要画成像素的面积算：滚动层只画露出来的那一块，内容再长也不算进去
-    pixels = layer.scroll
-      ? layer.scroll.width * layer.scroll.height * ratio * ratio
-      : width * height;
+    const { ratio, width, height } = sizeOf(layer);
     send(
       {
         type: 'ui-image',
@@ -262,10 +267,13 @@ export function createCanvasUi(
   }
 
   /**
-   * 一次只拍一层，两次之间隔一会儿（隔多久看 pixelBudget）。实测（Chrome 157，真窗口，160 Hz 的屏）：
+   * 一轮里拍的像素加起来不超过一张画布那么多，两轮之间隔一会儿（隔多久看 pixelBudget）。
+   * 实测（Chrome 157，真窗口，160 Hz 的屏，两层都是整屏的）：
    *   1600×900：不讲节奏、两层同帧拍，一秒 46 帧；一次一层、一秒最多 60 次，一秒 128 帧（界面叠在画布上面时是 139）
    *   4K：一秒拍 30 次时每 4 秒有十几个超过 50 毫秒的帧；降到十来次就没有了
-   * 而界面里只要有个循环的小动画、进度条在过渡，那一层就每帧都在变。所以该重拍的层排着队，等得最久的先拍。
+   * 而界面里只要有个循环的小动画、进度条在过渡，那一层就每帧都在变。所以该重拍的层排着队，等得最久的先拍：
+   * 整屏的层还是一轮一层；小块的层（侧栏、顶栏、本页目录）凑得进一张画布的就同一轮拍——
+   * 文档站换页时正文、侧栏、目录、滚动条四层一起变，一层层轮着拍的话正文要多等两三帧，之后和侧栏的过渡各占一半的帧。
    * 两种情况不排队：还没有画面的层（界面刚搬进画布、显卡设备刚重建：缺一层就是少一块界面），和刚操作过界面的时候。
    */
   const paint = (event: Event) => {
@@ -297,11 +305,19 @@ export function createCanvasUi(
       }, wait);
       return;
     }
-    const sent = due.findIndex((layer) => capture(layer));
-    if (sent < 0) return;
+    const room = devicePixels.width * devicePixels.height;
+    let used = 0;
+    let left = false;
+    for (const layer of due) {
+      const size = sizeOf(layer).pixels;
+      // 头一层多大都拍；后面的凑得进才拍（凑不进的下一轮排在最前面）
+      if (used > 0 && used + size > room) left = true;
+      else if (capture(layer)) used += size;
+    }
+    if (used === 0) return;
+    pixels = used;
     lastAt = now;
-    // 后面还有排着的：下一轮接着拍
-    if (sent < due.length - 1) canvas.requestPaint();
+    if (left) canvas.requestPaint();
   };
   canvas.addEventListener('paint', paint);
 
