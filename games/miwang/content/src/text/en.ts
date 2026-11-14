@@ -225,6 +225,17 @@ export const en: ContentText = {
         'International aid can arrive at once, but the donors want their people on site and a say in decisions.',
       options: { decline: 'Decline', accept: 'Accept' },
     },
+    hotline: {
+      name: 'Open an advice hotline',
+      detail: 'The health ministry proposes a round-the-clock hotline to answer public questions.',
+      options: { skip: 'Not yet', open: 'Open it' },
+    },
+    drill: {
+      name: 'Run a response drill',
+      detail:
+        'Disease control wants to rehearse the whole chain now: sampling, testing, reporting.',
+      options: { skip: 'Skip it', run: 'Run it' },
+    },
     dataRelease: {
       name: 'Release all the data?',
       detail:
@@ -258,6 +269,18 @@ export const en: ContentText = {
       detail:
         'In a small cluster, a lineage that spreads better has surfaced. Letting it take over costs some of what has been built up.',
       options: { bank: 'Let it be', adapt: 'Back this lineage' },
+    },
+    hostJump: {
+      name: 'A new host',
+      detail:
+        'By chance it has entered another host species. Settling there takes effort, and opens another way to spread.',
+      options: { ignore: 'Leave it', explore: 'Settle there' },
+    },
+    mildCases: {
+      name: 'The mildly ill go to work',
+      detail:
+        'Many infected people feel only slightly unwell and carry on as usual. Leaning this way spreads a little more and draws less notice.',
+      options: { asIs: 'Let it be', lean: 'Lean toward mild' },
     },
     reservoir: {
       name: 'A foothold in animals',

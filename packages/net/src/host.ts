@@ -2,6 +2,9 @@
  * 主机：一局里唯一持有真实状态的地方。各方连上来发命令，主机按固定步长推进模拟，
  * 再把每一方“能看到的部分”发回去——双方看到的可以不一样。
  *
+ * 命令什么时候生效：模拟写了 apply 的，收到就生效、马上把新状态发出去（时间停着也一样）；
+ * 没写的，等下一步。两种情况记录里记的都是“在第几步生效”，重放出来是同一局。
+ *
  * 主机自己不计时：宿主（Worker 里的定时器、测试）每隔一会儿调一次 advance，告诉它现实里过了多久。
  */
 import {
@@ -90,8 +93,9 @@ export function createHost<Config, State, Command, View>(
     port: Port<ClientMessage<Command>, HostMessage<View>>;
     player: PlayerId;
   }>();
-  /** 还没生效的命令：都在下一步生效 */
+  /** 这一步收到的命令。模拟能让命令立刻生效时，它们已经作用在状态上了，到 step 时只是记进记录 */
   let pending: Stamped<Command>[] = [];
+  const immediate = sim.apply !== undefined && !playback;
 
   function step() {
     if (playback) {
@@ -105,7 +109,7 @@ export function createHost<Config, State, Command, View>(
       pending = list;
     }
     recording.commands.push(...pending);
-    sim.step(state, pending);
+    sim.step(state, immediate ? [] : pending);
     pending = [];
     recording.ticks++;
   }
@@ -148,7 +152,18 @@ export function createHost<Config, State, Command, View>(
             // 回放时过去的事已经定了，不接受新的命令
             if (playback || pending.length >= MAX_PENDING) return;
             if (typeof message.command !== 'object' || message.command === null) return;
-            pending.push({ tick: recording.ticks, player, command: message.command as Command });
+            {
+              const stamped = {
+                tick: recording.ticks,
+                player,
+                command: message.command as Command,
+              };
+              pending.push(stamped);
+              if (immediate) {
+                sim.apply?.(state, stamped);
+                publish();
+              }
+            }
             break;
           case 'speed':
             if (typeof message.speed !== 'number') return;

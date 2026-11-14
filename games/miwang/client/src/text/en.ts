@@ -79,6 +79,8 @@ export const en: ClientText = {
   alerts: {
     title: 'Notices',
     firstDeath: 'The first death',
+    firstReport: (place) => `${place} reports an unfamiliar disease`,
+    firstReportDetail: 'Click to go there: start testing and isolating; sooner is cheaper',
     regions: (count) => `${count} regions reached`,
     infected: (count) => `${count} infected in total`,
     reported: (count) => `${count} cases reported in total`,
@@ -90,7 +92,6 @@ export const en: ClientText = {
     trustDetail: 'The lower the trust, the weaker every measure',
     runway: (days) => `The budget lasts only ${days} more days`,
     vaccine: 'Vaccination has begun',
-    identified: 'Pathogen identified: its details are now visible',
     goal: (share) => `The chapter goal is at ${share}`,
     deadline: (days) => `${days} days left in this chapter`,
     traitOwn: (name) => `Acquired: ${name}`,
@@ -183,7 +184,8 @@ export const en: ClientText = {
     fallback: 'If you do not choose in time, the first option applies.',
     byDefault: 'Default',
     nothing: 'Business as usual; nothing changes',
-    chosen: 'Chosen. It takes effect next day.',
+    chosen: 'Chosen.',
+    paused: 'Time is paused: choose and it carries on.',
   },
 
   skills: {
@@ -243,6 +245,7 @@ export const en: ClientText = {
       custom: 'The set you saved.',
     },
     presetCost: (cost) => `Costs ${cost}`,
+    planCost: (setup, daily) => `${setup} now · ${daily}/day`,
     presetSame: 'In place',
     saveCustom: 'Save this region’s setup as “Custom”',
     savedCustom: 'Saved',
@@ -253,7 +256,7 @@ export const en: ClientText = {
       all: (count) => `All ${count} other regions`,
     },
     copyHint:
-      'Changes start with the worst-hit regions; if the budget runs out, the rest stay as they are.',
+      'Changes start with the worst-hit regions; if the budget runs out, the rest stay as they are. Watch the per-day figure: spread too wide and upkeep outruns income, and once the budget is gone every measure weakens. If money is tight, drop the strength to Light before applying widely.',
     teamHere: 'A response team is stationed here: more cases found, more patients saved.',
     teamSend: 'Send a response team here',
     teamIdle: (count) => `${count} on standby`,
@@ -520,6 +523,11 @@ export const en: ClientText = {
       alert: 'Alerts',
       ui: 'Interface',
     },
+    autoPause: 'When a decision comes up',
+    autoPauseOn: 'Pause time',
+    autoPauseOff: 'Keep going',
+    autoPauseHelp:
+      'In a solo game, time pauses when a decision needs you and resumes once you choose. It never pauses in a two-player game.',
     palette: 'Colours',
     palettes: { standard: 'Standard', safe: 'Colour-blind friendly' },
     paletteHelp:
@@ -593,7 +601,7 @@ export const en: ClientText = {
     dismiss: 'Got it',
     items: {
       goal: "This panel on the left is the chapter's goal: what to do, how far along it is, and how many days are left.",
-      time: 'Time is at the bottom: pause, 1×, 3×, 10×. Nothing happens while time is paused; your decisions take effect the next day.',
+      time: 'Time is at the bottom: pause, 1×, 3×, 10×. Nothing happens while time is paused, but you can still give orders and they take effect at once: pause, think, then act.',
       map: 'Drag to pan and scroll to zoom; click a region to see its details on the right. Brighter means more infection.',
       latency:
         'People in the incubation period are not yet ill and the other side cannot see them; even the ill are only partly reported. The response moves once reported cases pile up.',

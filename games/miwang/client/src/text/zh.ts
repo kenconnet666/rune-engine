@@ -68,6 +68,8 @@ export const zh = {
   alerts: {
     title: '提示',
     firstDeath: '出现了第一例死亡',
+    firstReport: (place: string) => `${place}报告了一种没见过的病`,
+    firstReportDetail: '点这里过去看看：开始检测和隔离，越早越省事',
     regions: (count: number) => `已经波及 ${count} 个地区`,
     infected: (count: string) => `累计感染过 ${count} 人次`,
     reported: (count: string) => `累计上报 ${count} 例`,
@@ -79,7 +81,6 @@ export const zh = {
     trustDetail: '信任越低，措施的效果越打折',
     runway: (days: number) => `预算只够再撑 ${days} 天`,
     vaccine: '疫苗开始接种',
-    identified: '病原鉴定完成：看得到它的底细了',
     goal: (share: string) => `这一章的目标到了 ${share}`,
     deadline: (days: number) => `这一章还剩 ${days} 天`,
     traitOwn: (name: string) => `换到了：${name}`,
@@ -139,7 +140,7 @@ export const zh = {
   tasks: {
     title: '短期任务',
     daysLeft: (days: number) => `还剩 ${days} 天`,
-    reward: (what: string) => `做到了：${what}`,
+    reward: (what: string) => `奖励：${what}`,
     /** 进度怎么写，按任务的判法 */
     progress: {
       gain: (have: string, need: string) => `${have} / ${need}`,
@@ -172,7 +173,8 @@ export const zh = {
     fallback: '到期没选，就按第一个办。',
     byDefault: '默认',
     nothing: '照旧，没有什么变化',
-    chosen: '已经选了，下一天生效。',
+    chosen: '已经选了。',
+    paused: '时间停下了：选好就接着走。',
   },
 
   skills: {
@@ -234,6 +236,7 @@ export const zh = {
       custom: '你存下来的那一套。',
     },
     presetCost: (cost: string) => `预付 ${cost}`,
+    planCost: (setup: string, daily: string) => `预付 ${setup} · 每天 ${daily}`,
     presetSame: '已是这样',
     saveCustom: '把这里的做法存成“自定”',
     savedCustom: '存好了',
@@ -243,7 +246,8 @@ export const zh = {
       reported: (count: number) => `有病例的 ${count} 个地区`,
       all: (count: number) => `其余全部 ${count} 个地区`,
     },
-    copyHint: '从病例最重的地区开始改；预算不够的话，后面的地区不生效。',
+    copyHint:
+      '从病例最重的地区开始改；预算不够的话，后面的地区不生效。留意“每天”那个数：铺得太开、维持费超过收入，预算见底之后所有措施都会打折——钱紧就先把力度降到“轻”再推广。',
     teamHere: '应急队驻在这里：发现得更多，救得回来的也更多。',
     teamSend: '派应急队来这里',
     teamIdle: (count: number) => `${count} 支待命`,
@@ -487,6 +491,11 @@ export const zh = {
     language: '语言',
     volume: '音量',
     volumes: { master: '总音量', music: '音乐', ambience: '环境音', alert: '提示音', ui: '界面音' },
+    autoPause: '有事要拿主意时',
+    autoPauseOn: '把时间停下',
+    autoPauseOff: '不停',
+    autoPauseHelp:
+      '一个人玩的时候，冒出一件要你拿主意的事就自己暂停，选好了接着走。两个人玩时不会停。',
     palette: '配色',
     palettes: { standard: '标准', safe: '色觉友好' },
     paletteHelp:
@@ -558,7 +567,7 @@ export const zh = {
     dismiss: '知道了',
     items: {
       goal: '左边这一块是这一章的目标：要做到什么、现在到了多少、还剩几天。',
-      time: '最下面是时间：暂停、1 倍、3 倍、10 倍速。时间停着的时候什么都不会发生；你做的决定到下一天才生效。',
+      time: '最下面是时间：暂停、1 倍、3 倍、10 倍速。时间停着的时候什么都不会发生，命令照样可以下、立刻生效——停下来想清楚再动手。',
       map: '拖动地图平移，滚轮缩放；点一个地区，右边出现它的详情。颜色越亮，那里的感染越重。',
       latency:
         '潜伏期里的人还没发病，对面看不到他们；就算发了病，上报的也只是一部分。等上报的病例多起来，守方才会动手。',

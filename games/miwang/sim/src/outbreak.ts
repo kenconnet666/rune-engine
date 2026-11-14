@@ -23,7 +23,7 @@ import { observe, type OutbreakView } from './view.ts';
 const fourthRoot = (value: number) => Math.sqrt(Math.sqrt(value));
 
 /**
- * 一天。顺序是有讲究的：先执行命令（今天的决定今天生效），再发生事件、冒出要拿主意的事，然后人沿路线出行、各地区的病情发展，
+ * 一天。顺序是有讲究的：先执行命令（今天的决定今天生效；主机在线上是收到就执行，这里是重放时补上），再发生事件、冒出要拿主意的事，然后人沿路线出行、各地区的病情发展，
  * 接着是守方的接种与研究、收支与信任，最后攻方按今天的“战果”拿变异点，记里程碑、判短期任务，看分没分出胜负。
  * 每天一开始先把当时的态势记一笔（隔几天才真的记，见 rules/history.ts）。
  * 分出胜负之后状态不再变化（步数也不再走）。
@@ -51,6 +51,7 @@ function step(state: OutbreakState, commands: readonly Stamped<Command>[]) {
   updateTrust(state, defense, tally);
 
   state.points +=
+    rules.pointsPerDay +
     rules.pointsPerInfectionRoot * fourthRoot(tally.infections) +
     rules.pointsPerDeathRoot * fourthRoot(tally.deaths) +
     rules.pointsPerRegion * tally.newRegions;
@@ -100,6 +101,7 @@ function hash(state: OutbreakState): number {
     state.reportedDeaths,
     state.visible,
     state.reached,
+    state.unnoticed,
     state.measures,
     state.gatheringUntil,
     state.disasterUntil,
@@ -110,6 +112,7 @@ function hash(state: OutbreakState): number {
     state.pendingDecision,
     state.decisionExpires,
     state.decisionSeen,
+    state.decisionLast,
     state.task,
     state.taskStart,
     state.taskExpires,
@@ -128,6 +131,8 @@ function hash(state: OutbreakState): number {
 export const outbreak: Simulation<OutbreakConfig, OutbreakState, Command, OutbreakView> = {
   create: createState,
   step,
+  // 命令收到就生效（时间停着的时候下的命令马上看得到结果）；step 开头做的也是同一件事
+  apply: (state, { player, command }) => applyCommand(state, player, command),
   hash,
   observe,
 };

@@ -35,9 +35,7 @@ const disconnect = new Map<string, () => void>();
 let reported = { ticks: -1, commands: -1 };
 /** 这一局的配置：电脑对手要查性状表、科技表 */
 let config: OutbreakConfig | undefined;
-/** 电脑控制的一方（没有时两边都是人）和难度，以及它那条连接 */
-let aiPlayer: PlayerId | null = null;
-let aiLevel: AiLevel = 1;
+/** 电脑对手的那条连接（没有电脑对手时是空的） */
 let stopAi: (() => void) | undefined;
 /** 现在是不是在回放：回放时不往外报记录（不能盖掉正在打的那一局的自动存档），也没有电脑对手 */
 let playingBack = false;
@@ -58,8 +56,6 @@ function report() {
 function playAi(player: PlayerId | null, level: AiLevel) {
   stopAi?.();
   stopAi = undefined;
-  aiPlayer = player;
-  aiLevel = level;
   const rules = config;
   if (player === null || !host || !rules || playingBack) return;
   const [hostSide, aiSide] = createPortPair<ToHost, FromHost>();
@@ -115,7 +111,7 @@ self.onmessage = ({ data }: MessageEvent<HostControl>) => {
       reported = { ticks: -1, commands: -1 };
       // 开局就把记录交一次，不等第一个计时周期：存档页一打开就有东西可存
       report();
-      playAi(aiPlayer, aiLevel);
+      playAi(data.ai?.player ?? null, data.ai?.level ?? 1);
       stopLoop = startHostLoop(host, 50, report);
       break;
     }

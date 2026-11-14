@@ -82,7 +82,8 @@ export async function launchChrome({
   // Chrome 起来之后在标准错误里报出调试端口的地址
   const endpoint = await new Promise((resolve, reject) => {
     let output = '';
-    const timer = setTimeout(() => reject(new Error(`Chrome 没有起来：\n${output}`)), 20_000);
+    // CI 的运行器上头一次起 Chrome 偶尔要二十多秒（冷盘）：等得宽一点
+    const timer = setTimeout(() => reject(new Error(`Chrome 没有起来：\n${output}`)), 60_000);
     child.stderr.on('data', (chunk) => {
       output += chunk;
       const match = /DevTools listening on (ws:\/\/\S+)/.exec(output);

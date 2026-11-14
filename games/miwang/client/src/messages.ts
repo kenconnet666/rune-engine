@@ -21,6 +21,11 @@ export type HostControl =
         | { recording: GameRecording }
         | { playback: GameRecording; from?: number };
       readonly stepMs: number;
+      /**
+       * 这一局哪一方由电脑控制（没有是 null）。跟着开局一起说：电脑一接上就会出手，
+       * 要是先按上一局的安排接上、再改，它会替玩家在第 0 天下一步棋
+       */
+      readonly ai: { readonly player: PlayerId; readonly level: AiLevel } | null;
     }
   /** 接上一方；同一个 id 再接一次会先断开上一次的（换视角） */
   | {

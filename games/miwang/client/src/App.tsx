@@ -13,6 +13,7 @@ import { Callout, colors, colorSafeTheme, fonts, Note, Scroll, space } from '@ru
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { CHAPTERS, type ChapterId } from '@miwang/content';
+import type { Command } from '@miwang/sim';
 import { onBeforeUnmount, onMounted, watchEffect } from 'vue';
 import { watchHints } from './chapters/hints.ts';
 import { watchAlerts } from './feedback/alerts.ts';
@@ -21,6 +22,7 @@ import { markChapterPassed } from './chapters/progress.ts';
 import { placeName, useFormats, useUi } from './i18n.ts';
 import { createMapController, type MapController } from './map.ts';
 import { palette } from './palette.ts';
+import { autoPause } from './preferences.ts';
 import { AlertStack } from './panels/AlertStack.tsx';
 import { CommandPanel } from './panels/CommandPanel.tsx';
 import { ControlBar } from './panels/ControlBar.tsx';
@@ -163,11 +165,47 @@ export const App = _component(() => {
       markChapterPassed(now.scenario.id as ChapterId, now.attacker);
     }
   });
-  /** 开一局（章节或者普通对局）：盖着的那一层收起来，地图上选中的清掉 */
+  /** 新的一局刚开始、还没把地图带到起源地 */
+  let focusOrigin = false;
+  /** 开一局（章节或者普通对局）：盖着的那一层收起来，地图上选中的清掉、回到整张地图 */
   const startGame = (setup: Parameters<GameSession['restart']>[0]) => {
     overlay = null;
     map?.select(-1);
+    map?.reset();
+    focusOrigin = true;
     game?.restart(setup);
+  };
+  // 攻方知道它是从哪里起来的：开局把地图带过去、选中它（技能也是对着选中的地区用的）
+  watchEffect(() => {
+    const now = game?.view.value;
+    if (!focusOrigin || !now || now.tick > 1) return;
+    focusOrigin = false;
+    if (now.attacker && now.origin >= 0) map?.select(now.origin, true);
+  });
+
+  /**
+   * 一个人玩的时候，冒出一件要拿主意的事就把时间停下（开着倍速时七八天一晃就过，来不及看）；
+   * 选好了接着走。两个人玩不停：时间是两个人共用的。设置里可以关掉。
+   */
+  let heldForDecision = _state(false);
+  let lastDecision = '';
+  watchEffect(() => {
+    const session = game;
+    const pending = session?.view.value?.decision?.id ?? '';
+    if (pending === lastDecision) return;
+    lastDecision = pending;
+    const solo = session?.role === 'host' && session.opponent.value === 'ai';
+    if (!pending || !session || !solo || !autoPause.value) return;
+    if (session.playback.value || session.paused.value) return;
+    session.setPaused(true);
+    heldForDecision = true;
+  });
+  const sendCommand = (command: Command) => {
+    game?.send(command);
+    if (command.type === 'decide' && heldForDecision) {
+      heldForDecision = false;
+      game?.setPaused(false);
+    }
   };
 
   // 声音跟着状态走：有新闻就响提示音，局势越紧音乐越急；在菜单里、暂停着的时候音乐停下
@@ -238,7 +276,8 @@ export const App = _component(() => {
               {view.decision && !view.outcome && (
                 <DecisionPanel
                   view={view}
-                  onCommand={(command) => game?.send(command)}
+                  onCommand={sendCommand}
+                  paused={heldForDecision && game.paused.value}
                   readonly={watching}
                 />
               )}

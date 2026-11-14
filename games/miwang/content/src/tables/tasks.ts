@@ -16,6 +16,8 @@ export const TASKS: readonly TaskDef[] = [
     metric: 'regions',
     mode: 'gain',
     target: 3,
+    // 开局还只有一两个地区、几十个病例：晚一点再发
+    after: 25,
     reward: { points: 5 },
   },
   // 倍增：累计感染翻到 3 倍
@@ -39,6 +41,7 @@ export const TASKS: readonly TaskDef[] = [
     metric: 'wealthy',
     mode: 'gain',
     target: 1,
+    after: 60,
     reward: { points: 6 },
   },
   // 应变：再换到 2 个性状

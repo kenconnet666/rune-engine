@@ -12,8 +12,8 @@ import {
   PATHOGENS,
   type ChapterDef,
 } from '@miwang/content';
-import { asPort } from '@rune-engine/runtime';
-import { shallowRef } from 'vue';
+import { asPort, jsonStore } from '@rune-engine/runtime';
+import { shallowRef, watch } from 'vue';
 import type { GameRecording, HostControl, HostReport } from '../messages.ts';
 import { autosave } from '../saves/local.ts';
 import { matchesWorld } from '../saves/recording.ts';
@@ -24,6 +24,9 @@ import { hostedRoom, newRoom, openHostRoom, type HostedRoom, type OpenRoom } fro
 const STEP_MS = 400;
 
 const profileOf = (id: string) => PATHOGENS.find((pathogen) => pathogen.id === id);
+
+/** 这一局里自己扮的是哪一方、电脑的难度：和自动存档放在一起，刷新页面接着打时还是原来那样 */
+const seat = jsonStore<{ player: number; level: number }>('miwang:seat', 'device');
 
 export function hostSession(core: SessionCore): GameSession {
   const { shared } = core;
@@ -42,6 +45,13 @@ export function hostSession(core: SessionCore): GameSession {
    */
   const latest = shallowRef<GameRecording | null>(null);
 
+  const saved = seat.load();
+  if (saved?.player === 0 || saved?.player === 1) player.value = saved.player;
+  if (saved?.level === 0 || saved?.level === 1 || saved?.level === 2) aiLevel.value = saved.level;
+  core.cleanups.push(
+    watch([player, aiLevel], () => seat.save({ player: player.value, level: aiLevel.value })),
+  );
+
   host.onmessage = ({ data }: MessageEvent<HostReport>) => {
     switch (data.type) {
       case 'recording':
@@ -59,6 +69,9 @@ export function hostSession(core: SessionCore): GameSession {
   const letAiPlay = () => {
     if (!playback.value) toHost({ type: 'ai', player: other(player.value), level: aiLevel.value });
   };
+  /** 开局时告诉主机的那一份：对手是电脑的话，它控制另一方 */
+  const aiSeat = () =>
+    opponent.value === 'ai' ? { player: other(player.value), level: aiLevel.value } : null;
 
   // ───── 接到主机上 ─────
 
@@ -75,7 +88,6 @@ export function hostSession(core: SessionCore): GameSession {
       [picture.port1],
     );
     core.toRender({ type: 'connect', port: picture.port2 }, [picture.port2]);
-    if (opponent.value === 'ai') letAiPlay();
     // 主机重起、换边之后旧的连接都作废了：联机的那位玩家也重新接上
     hosted?.reseat();
   }
@@ -93,6 +105,7 @@ export function hostSession(core: SessionCore): GameSession {
       type: 'start',
       start: recording ? { recording } : { config: createConfig(seed, today, fresh) },
       stepMs: STEP_MS,
+      ai: aiSeat(),
     });
     connect();
   }
@@ -104,7 +117,7 @@ export function hostSession(core: SessionCore): GameSession {
     playback.value = { length: recording.ticks };
     latest.value = recording;
     view.value = null;
-    toHost({ type: 'start', start: { playback: recording, from }, stepMs: STEP_MS });
+    toHost({ type: 'start', start: { playback: recording, from }, stepMs: STEP_MS, ai: null });
     connect();
     // 新起的主机是 1 倍速、没暂停的：跳转之后保持原来的快慢
     core.session?.setSpeed(wasSpeed);
@@ -177,6 +190,8 @@ export function hostSession(core: SessionCore): GameSession {
     setPlayer(next) {
       player.value = next;
       connect();
+      // 换了边：电脑去管另一边
+      if (opponent.value === 'ai') letAiPlay();
     },
     openRoom() {
       if (!hosted) openRoomAs(newRoom());

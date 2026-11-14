@@ -39,12 +39,14 @@ function eligible(state: OutbreakState, decision: DecisionDef): boolean {
   }
 }
 
-/** 给这一方挑一件事：按表里的常见程度，出现过的降低权重（不老是同一件） */
+/** 给这一方挑一件事：按表里的常见程度，出现过的降低权重，上一次出的那件这次不出（不老是同一件） */
 const pick = (state: OutbreakState, player: PlayerId): number =>
   pickWeighted(
     state.random,
     state.config.decisions.map((decision, index) =>
-      playerOf(decision) === player && eligible(state, decision)
+      playerOf(decision) === player &&
+      index !== state.decisionLast[player] &&
+      eligible(state, decision)
         ? decision.weight / (1 + 2 * state.decisionSeen[index]!)
         : 0,
     ),
@@ -69,6 +71,8 @@ function apply(state: OutbreakState, decision: DecisionDef, option: DecisionOpti
 function settle(state: OutbreakState, player: PlayerId, option: number) {
   const decision = state.config.decisions[state.pendingDecision[player]!];
   state.pendingDecision[player] = -1;
+  // 没有事等着的时候，这个数记的是“下一件最早哪一步出”
+  state.decisionExpires[player] = state.tick + state.config.rules.decisionGap;
   const chosen = decision?.options[option];
   if (decision && chosen) apply(state, decision, chosen);
 }
@@ -94,12 +98,14 @@ export function rollDecisions(state: OutbreakState) {
       if (state.decisionExpires[player]! <= state.tick) settle(state, player, 0);
       continue;
     }
-    if (rules.decisionChance <= 0 || state.tick < rules.decisionAfter) continue;
+    if (rules.decisionChance <= 0) continue;
+    if (state.tick < Math.max(rules.decisionAfter, state.decisionExpires[player]!)) continue;
     if (!chance(state.random, rules.decisionChance)) continue;
     const index = pick(state, player);
     if (index < 0) continue;
     state.pendingDecision[player] = index;
     state.decisionExpires[player] = state.tick + decisions[index]!.days;
     state.decisionSeen[index] = Math.min(255, state.decisionSeen[index]! + 1);
+    state.decisionLast[player] = index;
   }
 }

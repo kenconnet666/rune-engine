@@ -5,6 +5,7 @@ import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { i18n, LOCALE_NAMES, useFormats, useUi } from '../i18n.ts';
 import { palette } from '../palette.ts';
+import { autoPause } from '../preferences.ts';
 import type { GameAudio } from '../sound.ts';
 
 const styles = css.create({
@@ -62,6 +63,19 @@ export const Settings = _component(
                   onChange={(value) => (palette.value = value === 'safe' ? 'safe' : 'standard')}
                 />
                 <Note>{ui.paletteHelp}</Note>
+              </Stack>
+              <Stack gap="xs">
+                <Note>{ui.autoPause}</Note>
+                <Segmented
+                  label={ui.autoPause}
+                  value={autoPause.value ? 'on' : 'off'}
+                  options={[
+                    { value: 'on', label: ui.autoPauseOn },
+                    { value: 'off', label: ui.autoPauseOff },
+                  ]}
+                  onChange={(value) => (autoPause.value = value === 'on')}
+                />
+                <Note>{ui.autoPauseHelp}</Note>
               </Stack>
               {audio && (
                 <Stack gap="xs">

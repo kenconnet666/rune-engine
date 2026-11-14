@@ -16,6 +16,22 @@ export const DECISIONS: readonly DecisionDef[] = [
     days: 10,
     options: [{ id: 'decline' }, { id: 'accept', budget: 25, trust: -0.04 }],
   },
+  // 开通咨询热线：花一点钱，公众安心一点（开局就可能碰上）
+  {
+    id: 'hotline',
+    side: 'defender',
+    weight: 2,
+    days: 10,
+    options: [{ id: 'skip' }, { id: 'open', budget: -5, trust: 0.03 }],
+  },
+  // 搞一次应对演练：花钱，之后一个月发现得多一点
+  {
+    id: 'drill',
+    side: 'defender',
+    weight: 2,
+    days: 10,
+    options: [{ id: 'skip' }, { id: 'run', budget: -6, modifiers: { detect: 0.04 }, days: 30 }],
+  },
   // 公布全部数据：换来信任，市场慌一阵
   {
     id: 'dataRelease',
@@ -84,6 +100,28 @@ export const DECISIONS: readonly DecisionDef[] = [
     options: [
       { id: 'bank', points: 4 },
       { id: 'adapt', points: -5, modifiers: { spread: 0.15 }, days: 30 },
+    ],
+  },
+  // 新的宿主：攒点数，还是花点数换一段时间的传播（开局就可能碰上）
+  {
+    id: 'hostJump',
+    side: 'attacker',
+    weight: 2,
+    days: 10,
+    options: [
+      { id: 'ignore', points: 2 },
+      { id: 'explore', points: -3, modifiers: { spread: 0.1 }, days: 40 },
+    ],
+  },
+  // 轻症的人照常上班：往这个方向偏，传得多一点、也更不显眼，要搭上一点积累
+  {
+    id: 'mildCases',
+    side: 'attacker',
+    weight: 2,
+    days: 10,
+    options: [
+      { id: 'asIs' },
+      { id: 'lean', points: -2, modifiers: { detect: -0.05, spread: 0.05 }, days: 20 },
     ],
   },
   // 动物里的落脚处：借机多变异，还是藏起来

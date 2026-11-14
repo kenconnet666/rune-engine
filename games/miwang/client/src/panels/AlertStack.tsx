@@ -18,9 +18,9 @@ import {
   Hourglass,
   Lock,
   Megaphone,
-  Microscope,
   Scale,
   ShieldCheck,
+  Siren,
   Skull,
   Syringe,
   Target,
@@ -53,7 +53,7 @@ const ICONS: Readonly<Record<AlertData['kind'], IconData>> = {
   trust: Users,
   runway: Coins,
   vaccine: Syringe,
-  identified: Microscope,
+  firstReport: Siren,
   goal: Flag,
   deadline: Hourglass,
   trait: Dna,
@@ -96,6 +96,8 @@ export const AlertStack = _component(
         switch (data.kind) {
           case 'firstDeath':
             return { title: ui.firstDeath };
+          case 'firstReport':
+            return { title: ui.firstReport(placeName(data.region)), detail: ui.firstReportDetail };
           case 'regions':
             return { title: ui.regions(data.count) };
           case 'infected':
@@ -114,8 +116,6 @@ export const AlertStack = _component(
             return { title: ui.runway(data.days) };
           case 'vaccine':
             return { title: ui.vaccine };
-          case 'identified':
-            return { title: ui.identified };
           case 'goal':
             return { title: ui.goal(format.percent(data.share)) };
           case 'deadline':

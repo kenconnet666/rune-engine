@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { applyCommand } from '../commands.ts';
 import { measuresOf } from '../config.ts';
 import { outbreak } from '../outbreak.ts';
-import { ATTACKER, createState, DEFENDER, TECH_DONE, type OutbreakState } from '../state.ts';
+import {
+  ATTACKER,
+  createState,
+  DEFENDER,
+  REPORTED,
+  TECH_DONE,
+  type OutbreakState,
+} from '../state.ts';
 import { testConfig } from '../testing/world.ts';
 import { compliance, dailyBalance, setupCost, upkeepOf } from './defense.ts';
 import { pathogenStats, traitCost } from './pathogen.ts';
@@ -125,9 +132,12 @@ describe('措施与经济', () => {
     expect(state.measures[2]).toBe(0);
   });
 
-  it('封锁让这个地区贡献的预算变少', () => {
+  it('头一个地区上报之前不拨预算；之后封锁让这个地区贡献的预算变少', () => {
     const state = createState(testConfig());
+    expect(dailyBalance(state).income).toBe(0);
+    state.reached[0]! |= REPORTED;
     const open = dailyBalance(state);
+    expect(open.income).toBeGreaterThan(0);
     state.measures[2] = measuresOf({ lockdown: 3 });
     const locked = dailyBalance(state);
     expect(locked.income).toBeLessThan(open.income);

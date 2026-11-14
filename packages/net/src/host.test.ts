@@ -184,6 +184,36 @@ describe('主机不信客户端发来的东西', () => {
     expect(seen.at(-1)).toMatchObject({ speed: 3, paused: true });
   });
 
+  it('模拟能让命令立刻生效时：收到就改状态、马上发新状态，暂停着也一样；记录重放出来是同一局', async () => {
+    /** 同一个计数器，多一个 apply：加数立刻算进去 */
+    const instant: typeof counter = {
+      ...counter,
+      apply: (state, { command }) => void (state.total += command.add),
+    };
+    const host = createHost({ sim: instant, start: { config: { start: 10 } }, stepMs: 100 });
+    const { session, views } = join(host, 0);
+    session.setPaused(true);
+    await settle();
+    session.send({ add: 5 });
+    await settle();
+    // 时间没走，加的数已经看得到了
+    expect(views.at(-1)).toEqual({ tick: 0, value: 15 });
+    session.setPaused(false);
+    await settle();
+    host.advance(200);
+    await settle();
+    // 没有被再算一遍
+    expect(views.at(-1)).toEqual({ tick: 2, value: 15 });
+    expect(host.recording.commands).toEqual([{ tick: 0, player: 0, command: { add: 5 } }]);
+
+    // 照着记录重放（重放走的是 step）：哈希一样
+    const resumed = createHost({ sim: instant, start: { recording: host.recording }, stepMs: 100 });
+    expect(resumed.hash).toBe(host.hash);
+    // 不带 apply 的同一个模拟重放这份记录，也是同一局
+    const plain = createHost({ sim: counter, start: { recording: host.recording }, stepMs: 100 });
+    expect(plain.hash).toBe(host.hash);
+  });
+
   it('一步之内的命令有上限：灌进来的多出来的丢掉', async () => {
     const host = createHost({ sim: counter, start: { config: { start: 0 } }, stepMs: 100 });
     const { session } = join(host, 0);

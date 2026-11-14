@@ -1,7 +1,7 @@
 /**
  * 抉择：有一件事等这一方拿主意时出现的卡片——是怎么回事、几个选项各有什么得失、还剩几天。
  * 选项的得失是从抉择表里的数直接写出来的（screens/effects.ts），表改了这里跟着变。
- * 命令到下一天才生效：点了之后先记成“已经选了”，免得看起来像没点上。
+ * 自己开局时命令立刻生效，卡片随即消失；加入别人房间时命令要过一趟网络，点了之后先记成“已经选了”。
  */
 import { DECISIONS } from '@miwang/content';
 import type { Command, OutbreakView } from '@miwang/sim';
@@ -24,10 +24,13 @@ export const DecisionPanel = _component(
   ({
     view,
     onCommand,
+    paused = false,
     readonly = false,
   }: {
     view: OutbreakView;
     onCommand: (command: Command) => void;
+    /** 时间为这件事停下了（一个人玩的时候）：卡片上说一声 */
+    paused?: boolean;
     /** 只能看（回放时）：选项点不动 */
     readonly?: boolean;
   }) => {
@@ -78,7 +81,9 @@ export const DecisionPanel = _component(
               </Stack>
             );
           })}
-          <Note tone={picked ? 'signal' : 'muted'}>{picked ? ui.chosen : ui.fallback}</Note>
+          <Note tone={picked || paused ? 'signal' : 'muted'}>
+            {picked ? ui.chosen : paused ? ui.paused : ui.fallback}
+          </Note>
         </Frame>
       );
     };

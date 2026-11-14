@@ -216,4 +216,4 @@ describe('《迷惘》的模拟', () => {
 });
 
 // 跨机器核对用的定值：规则或默认数值改了之后在 x64 上重新算出来填进去
-const GOLDEN_OUTBREAK = 2203101233;
+const GOLDEN_OUTBREAK = 4182265851;

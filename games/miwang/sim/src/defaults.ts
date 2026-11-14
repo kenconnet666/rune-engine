@@ -5,7 +5,9 @@ import type { Rules } from './config.ts';
  * 调的时候用 content 里的批量对局脚本看胜率和时长，不要凭感觉改。
  */
 export const DEFAULT_RULES: Rules = {
-  seedCases: 12,
+  seedCases: 14,
+  seedDays: 30,
+  seedDaily: 1,
   calamityShare: 0.015,
   clearDays: 30,
   maxDays: 1460,
@@ -29,6 +31,8 @@ export const DEFAULT_RULES: Rules = {
   detectMin: 0.01,
   detectMax: 0.97,
   deathDetectBonus: 0.35,
+  recognizeFirst: 10,
+  recognizeLater: 3,
 
   testingDetect: 0.3,
   isolationEffect: 0.5,
@@ -55,10 +59,12 @@ export const DEFAULT_RULES: Rules = {
   disasterWater: 1.6,
   decisionChance: 0.035,
   decisionAfter: 25,
+  decisionGap: 14,
   taskAfter: 12,
   taskGap: 8,
 
-  startPoints: 6,
+  startPoints: 14,
+  pointsPerDay: 0.1,
   pointsPerInfectionRoot: 0.03,
   pointsPerDeathRoot: 0.02,
   pointsPerRegion: 0.8,
@@ -66,7 +72,7 @@ export const DEFAULT_RULES: Rules = {
   surgeBoost: 1.6,
   costGrowth: 0.07,
 
-  startBudget: 20,
+  startBudget: 45,
   budgetPerDay: 4,
   upkeep: {
     testing: 0.05,

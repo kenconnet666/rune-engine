@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { applyCommand } from '../commands.ts';
 import { measureLevel, measuresOf } from '../config.ts';
 import { outbreak } from '../outbreak.ts';
-import { ATTACKER, createState, DEFENDER, type OutbreakState } from '../state.ts';
+import { ATTACKER, createState, DEFENDER, REPORTED, type OutbreakState } from '../state.ts';
 import { testConfig } from '../testing/world.ts';
 import { dailyBalance, setupCost, upkeepOf } from './defense.ts';
 
@@ -68,6 +68,8 @@ describe('措施的档位', () => {
   it('各项措施的档位互不相干；维持费、经济损失都按档位算', () => {
     const state = createState(testConfig(steady));
     state.budget = 1e6;
+    // 有地区上报过，预算才开始拨
+    state.reached[0]! |= REPORTED;
     applyCommand(state, DEFENDER, { type: 'measure', region: 1, measure: 'masks', level: 2 });
     applyCommand(state, DEFENDER, { type: 'measure', region: 1, measure: 'lockdown', level: 1 });
     expect(measureLevel(state.measures[1]!, 'masks')).toBe(2);
@@ -202,5 +204,34 @@ describe('发布会', () => {
     expect(state.budget).toBe(18);
     run(state, 30);
     expect(outbreak.observe(state, DEFENDER).defense.briefingIn).toBe(0);
+  });
+});
+
+describe('命令立刻生效', () => {
+  it('先逐条生效再走一天，和把命令交给这一天一起走，结果逐位相同', () => {
+    const commands = [
+      { tick: 0, player: ATTACKER, command: { type: 'evolve', trait: 'fever' } },
+      { tick: 0, player: DEFENDER, command: { type: 'research', tech: 'identify' } },
+      { tick: 0, player: DEFENDER, command: { type: 'team', team: 0, region: 0 } },
+      {
+        tick: 0,
+        player: DEFENDER,
+        command: { type: 'measure', region: 0, measure: 'masks', level: 2 },
+      },
+    ] as const;
+    const together = createState(testConfig());
+    const oneByOne = createState(testConfig());
+    for (const state of [together, oneByOne]) {
+      state.points = 50;
+      state.budget = 50;
+    }
+    outbreak.step(together, commands);
+    for (const command of commands) outbreak.apply?.(oneByOne, command);
+    // 时间还没走，命令已经看得到结果
+    expect(outbreak.observe(oneByOne, ATTACKER).pathogen.owned).toEqual(['fever']);
+    expect(outbreak.observe(oneByOne, DEFENDER).defense.active).toHaveLength(1);
+    expect(oneByOne.tick).toBe(0);
+    outbreak.step(oneByOne, []);
+    expect(outbreak.hash(oneByOne)).toBe(outbreak.hash(together));
   });
 });

@@ -64,6 +64,10 @@ const styles = css.create({
 
 const BRUSHES: readonly MeasureLevel[] = [1, 2, 3];
 
+/** 带正负号的数：+3.5、−0.40 */
+const signedAmount = (value: number, format: (value: number) => string) =>
+  `${value < 0 ? '−' : '+'}${format(Math.abs(value))}`;
+
 const PRESET_ICONS: Readonly<Record<PresetId | 'custom', IconData>> = {
   watch: Eye,
   mitigate: ShieldHalf,
@@ -125,14 +129,17 @@ export const RegionPanel = _component(
 
       /** 一套预案的按钮 */
       const preset = (id: PresetId | 'custom', plan: MeasurePlan) => {
-        const { setup, changes } = planChanges(plan, [index], view.measures);
+        const { setup, daily, changes } = planChanges(plan, [index], view.measures);
         return (
           <Tile
             key={id}
             data-preset={id}
             icon={PRESET_ICONS[id]}
             label={ui.region.presetNames[id]}
-            tip={ui.region.presetHints[id]}
+            tip={`${ui.region.presetHints[id]} ${ui.region.planCost(
+              format.amount(setup),
+              signedAmount(daily, format.amount),
+            )}`}
             // 这里已经是这套预案的样子：亮着
             state={changes.length === 0 ? 'owned' : 'available'}
             detail={
@@ -152,18 +159,18 @@ export const RegionPanel = _component(
         const others = targets.filter((target) => target !== index);
         // 岛上的地区没有相邻的
         if (others.length === 0) return null;
-        const { setup, changes } = planChanges(planOf(bits), others, view.measures);
+        const { setup, daily, changes } = planChanges(planOf(bits), others, view.measures);
         return (
           <ActionButton
             key={id}
             data-copy={id}
             icon={Copy}
             tip={ui.region.copyHint}
+            // 一次改很多地区，每天的维持费才是大头：和预付的一起写出来
             detail={
               changes.length === 0
                 ? ui.region.presetSame
-                : // 只是往下撤的不花钱：不写价钱
-                  setup > 0 && ui.region.presetCost(format.amount(setup))
+                : ui.region.planCost(format.amount(setup), signedAmount(daily, format.amount))
             }
             disabled={readonly || changes.length === 0}
             onPress={() => copyTo(others)}

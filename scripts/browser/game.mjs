@@ -12,8 +12,11 @@ export function readArgs(argv = process.argv.slice(2)) {
   };
 }
 
-/** 页面自己的脚本之前先跑的：界面语言默认跟着浏览器走，这里固定成中文，测试按中文的字找按钮 */
-export const LOCALE_INIT = `localStorage.setItem('miwang:locale', 'zh')`;
+/**
+ * 页面自己的脚本之前先跑的：界面语言默认跟着浏览器走，这里固定成中文，测试按中文的字找按钮；
+ * 冒出要拿主意的事时不自动暂停——测试要时间一直走（抉择什么时候出是随机的，到期会按默认的办）
+ */
+export const LOCALE_INIT = `localStorage.setItem('miwang:locale', 'zh'); localStorage.setItem('miwang:autopause', 'false')`;
 
 /** 下面两个给出的是在页面里算的表达式（传给 page.waitFor / page.evaluate），不是结果 */
 export const hasText = (text) => `document.body.innerText.includes(${JSON.stringify(text)})`;

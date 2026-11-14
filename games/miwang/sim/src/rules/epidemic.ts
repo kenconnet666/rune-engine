@@ -184,6 +184,17 @@ export function progress(
   const spillover =
     pathogen.animal * rules.spilloverRate * (defense.trace >= 1 ? rules.tracedSpillover : 1);
 
+  // 认出这种病要攒多少例：有了检测手段一例就够；别处报过了，几例；全世界都还不知道，要一小簇
+  const recognizeAt =
+    defense.identify >= 1
+      ? 1
+      : state.reached.some((bits) => (bits & REPORTED) !== 0)
+        ? rules.recognizeLater
+        : rules.recognizeFirst;
+
+  // 开局的头一阵子，源头还在往起源地送新的感染者
+  if (state.tick < rules.seedDays) expose(state, state.config.origin, rules.seedDaily, tally);
+
   for (let r = 0; r < regions.length; r++) {
     // 没到过的地区什么都不会发生（输入的感染由出行那一步带来）
     if ((state.reached[r]! & REACHED) === 0) continue;
@@ -207,12 +218,6 @@ export function progress(
     exposed[r]! -= onset;
     infectious[r]! += onset;
     const found = binomial(random, onset, detection);
-    state.reported[r]! += found;
-    state.visible[r] = state.visible[r]! * (1 - leaveShare) + found;
-    if (found > 0 && (state.reached[r]! & REPORTED) === 0) {
-      state.reached[r]! |= REPORTED;
-      report(state, 'report', FOR_BOTH, r);
-    }
 
     // 康复或死亡
     const leaving = binomial(random, sick, leaveShare);
@@ -220,12 +225,25 @@ export function progress(
     infectious[r]! -= leaving;
     recovered[r]! += leaving - died;
     state.deaths[r]! += died;
-    state.reportedDeaths[r]! += binomial(
-      random,
-      died,
-      Math.min(1, detection + rules.deathDetectBonus),
-    );
+    const foundDeaths = binomial(random, died, Math.min(1, detection + rules.deathDetectBonus));
     tally.deaths += died;
+
+    // 上报：这个地区认出这种病之后，发现的才算数；之前零星发现的先记着，攒够一小簇才认得出来
+    if ((state.reached[r]! & REPORTED) !== 0) {
+      state.reported[r]! += found;
+      state.visible[r] = state.visible[r]! * (1 - leaveShare) + found;
+      state.reportedDeaths[r]! += foundDeaths;
+    } else if (found + foundDeaths > 0) {
+      state.unnoticed[r]! += found + foundDeaths;
+      if (state.unnoticed[r]! >= recognizeAt) {
+        state.reached[r]! |= REPORTED;
+        state.reported[r]! += state.unnoticed[r]!;
+        state.visible[r]! += state.unnoticed[r]!;
+        state.reportedDeaths[r]! += foundDeaths;
+        state.unnoticed[r] = 0;
+        report(state, 'report', FOR_BOTH, r);
+      }
+    }
 
     // 抗原漂移：康复者、接种者重新变得易感
     if (waneShare > 0) {

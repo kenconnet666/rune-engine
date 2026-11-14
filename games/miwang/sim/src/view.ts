@@ -213,9 +213,10 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
     cases[r] = active;
     deaths[r] = attacker ? state.deaths[r]! : state.reportedDeaths[r]!;
     immune[r] = people > 0 ? state.immune[r]! / people : 0;
-    // 开方让小数字也看得出来；守方看到的只是冰山一角，放大得更多
+    // 开三次方（八次方根）：一亿人里有一个病例也看得出一点颜色，占到一成就接近最深。
+    // 疫情刚冒头时各地区的比例都小得很，只开一次方的话整张地图是黑的，看不出它到了哪里
     const share = people > 0 ? active / people : 0;
-    intensity[r] = Math.min(1, Math.sqrt(share * (attacker ? 4 : 12)));
+    intensity[r] = Math.min(1, Math.sqrt(Math.sqrt(Math.sqrt(share * (attacker ? 1 : 3)))));
     happening[r] =
       (state.gatheringUntil[r]! > state.tick ? HAS_GATHERING : 0) |
       (state.disasterUntil[r]! > state.tick ? HAS_DISASTER : 0) |

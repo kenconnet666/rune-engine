@@ -121,6 +121,8 @@ export interface OutbreakState {
   visible: Float64Array;
   /** 各地区按位：REACHED、REPORTED */
   reached: Uint8Array;
+  /** 各地区零星发现、但还没被认出是这种病的病例数（认出来的那天一起算进上报） */
+  unnoticed: Float64Array;
 
   /** 各地区的措施：每项两位，是它的档位（见 config 的 measureLevel） */
   measures: Uint32Array;
@@ -141,11 +143,13 @@ export interface OutbreakState {
   modifiers: Modifier[];
   /**
    * 等着双方各自拿主意的事（下标是玩家：0 攻方、1 守方）：是 config.decisions 里的第几件（-1 是没有）、
-   * 到哪一步为止；和每件事出现过几次
+   * 到哪一步为止（没有事等着时，是下一件最早哪一步出）；和每件事出现过几次
    */
   pendingDecision: Int16Array;
   decisionExpires: Int32Array;
   decisionSeen: Uint8Array;
+  /** 双方各自上一次碰上的是哪一件（-1 是还没有）：下一次不出同一件 */
+  decisionLast: Int16Array;
   /**
    * 双方手里的短期任务（下标是玩家）：是 config.tasks 里的第几件（-1 是没有）、接到时那个数是多少、
    * 到哪一步为止、下一件最早哪一步发；各自做到了几件；每件任务发过几次
@@ -229,6 +233,7 @@ export function createState(config: OutbreakConfig): OutbreakState {
     reportedDeaths: new Float64Array(count),
     visible: new Float64Array(count),
     reached: new Uint8Array(count),
+    unnoticed: new Float64Array(count),
     measures: new Uint32Array(count),
     teamRegion: new Int16Array(rules.teams).fill(-1),
     teamArrives: new Int32Array(rules.teams),
@@ -242,6 +247,7 @@ export function createState(config: OutbreakConfig): OutbreakState {
     pendingDecision: new Int16Array(2).fill(-1),
     decisionExpires: new Int32Array(2),
     decisionSeen: new Uint8Array(config.decisions.length),
+    decisionLast: new Int16Array(2).fill(-1),
     task: new Int16Array(2).fill(-1),
     taskStart: new Float64Array(2),
     taskExpires: new Int32Array(2),

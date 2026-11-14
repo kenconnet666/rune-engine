@@ -11,7 +11,7 @@ import {
   type MeasureLevel,
   type OutbreakConfig,
 } from '../config.ts';
-import { alive, FOR_BOTH, report, type OutbreakState } from '../state.ts';
+import { alive, FOR_BOTH, report, REPORTED, type OutbreakState } from '../state.ts';
 import type { DayTally } from './epidemic.ts';
 import { modifier } from './modifiers.ts';
 
@@ -127,6 +127,9 @@ function openness(state: OutbreakState, region: number, people: number): number 
   return clamp(1 - loss, 0, 1) * working;
 }
 
+/** 有没有地区上报过：应急的预算从这时候才开始拨 */
+const alarmed = (state: OutbreakState) => state.reached.some((bits) => (bits & REPORTED) !== 0);
+
 /** 守方这一天能收多少、要付多少维持费（不改状态；界面上显示每天的净收入也用它） */
 export function dailyBalance(state: OutbreakState): { income: number; upkeep: number } {
   const { regions, rules } = state.config;
@@ -146,7 +149,7 @@ export function dailyBalance(state: OutbreakState): { income: number; upkeep: nu
     }
   }
   const shift = Math.max(0, 1 + modifier(state, 'income'));
-  return { income: income * rules.budgetPerDay * shift, upkeep };
+  return { income: alarmed(state) ? income * rules.budgetPerDay * shift : 0, upkeep };
 }
 
 /**
@@ -155,7 +158,8 @@ export function dailyBalance(state: OutbreakState): { income: number; upkeep: nu
  */
 export function settleEconomy(state: OutbreakState) {
   const { income, upkeep } = dailyBalance(state);
-  state.economyLost += state.config.rules.budgetPerDay - income;
+  // 少收的预算记成经济损失；还没开始拨的时候不算
+  if (alarmed(state)) state.economyLost += state.config.rules.budgetPerDay - income;
   const available = state.budget + income;
   if (available >= upkeep) {
     state.budget = available - upkeep;

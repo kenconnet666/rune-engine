@@ -125,6 +125,16 @@ export const zh: ContentText = {
       detail: '一笔国际援助可以马上到账，但对方要求派人进驻、参与决策。',
       options: { decline: '婉拒', accept: '接受' },
     },
+    hotline: {
+      name: '开一条咨询热线',
+      detail: '卫生部门提议开一条二十四小时的咨询热线，回答公众的疑问。',
+      options: { skip: '先不开', open: '开' },
+    },
+    drill: {
+      name: '搞一次应对演练',
+      detail: '疾控部门想趁现在搞一次全流程的演练：采样、送检、上报。',
+      options: { skip: '不搞', run: '搞' },
+    },
     dataRelease: {
       name: '要不要公布全部数据',
       detail: '媒体和学界要求公开各地区完整的疫情数据。全部公开能换来信任，市场会慌一阵。',
@@ -154,6 +164,16 @@ export const zh: ContentText = {
       name: '传播的瓶颈',
       detail: '一次小范围的传播里，一个更会传人的分支露了头——要让它占上风，得搭上一些积累。',
       options: { bank: '顺其自然', adapt: '押在这个分支上' },
+    },
+    hostJump: {
+      name: '新的宿主',
+      detail: '它偶然进了另一种宿主的身体。在那里站稳要费些力气，站稳了就多一条传开的路。',
+      options: { ignore: '不去管它', explore: '在那里站稳' },
+    },
+    mildCases: {
+      name: '轻症的人照常上班',
+      detail: '不少感染的人症状很轻，照常出门。往这个方向再偏一点，它会传得多一些，也更不显眼。',
+      options: { asIs: '顺其自然', lean: '往轻症偏' },
     },
     reservoir: {
       name: '动物里的落脚处',

@@ -177,7 +177,8 @@ export const TEST_TASKS: readonly TaskDef[] = [
 /**
  * 建一份测试配置；rules 里写要改的项，其余用默认值。
  * 抉择和短期任务默认不出（decisionChance 是 0、taskGap 是负数）：它们会动预算、信任、变异点这些数，
- * 别的规则的测试不想被搅进来；要测它们的自己打开。
+ * 别的规则的测试不想被搅进来；要测它们的自己打开。同样，默认一例就认得出这种病（recognize 都是 1）、
+ * 开局十二个病例（之后源头不再送）、六个变异点、每天不白给点数：这里的测试核对的是各条规则本身，不跟着正式的数值变。
  */
 export function testConfig(
   rules: Partial<Rules> = {},
@@ -201,7 +202,20 @@ export function testConfig(
     skills: TEST_SKILLS,
     decisions: TEST_DECISIONS,
     tasks: TEST_TASKS,
-    rules: { ...DEFAULT_RULES, decisionChance: 0, taskGap: -1, ...rules },
+    rules: {
+      ...DEFAULT_RULES,
+      decisionChance: 0,
+      taskGap: -1,
+      recognizeFirst: 1,
+      recognizeLater: 1,
+      seedCases: 12,
+      seedDays: 0,
+      startPoints: 6,
+      pointsPerDay: 0,
+      startBudget: 20,
+      decisionGap: 0,
+      ...rules,
+    },
     ...overrides,
   };
 }

@@ -279,6 +279,12 @@ export interface Rules {
   // 开局与胜负
   /** 开局时起源地有几个发病者 */
   readonly seedCases: number;
+  /**
+   * 开局的头 seedDays 天，起源地每天再冒出 seedDaily 个感染者（源头还没断）。
+   * 起始的病例只有十来个，碰上运气不好会自己熄灭——那样的一局对谁都没意思；有了这一条，头一个月它熄不了
+   */
+  readonly seedDays: number;
+  readonly seedDaily: number;
   /** 灾厄线：累计死亡达到开局世界人口的这个比例，攻方赢 */
   readonly calamityShare: number;
   /** 任何地方都没有潜伏者和发病者，连续这么多天，守方赢 */
@@ -320,6 +326,13 @@ export interface Rules {
   readonly detectMax: number;
   /** 死亡比发病更容易被上报：发现率加这么多 */
   readonly deathDetectBonus: number;
+  /**
+   * 一个地区要零星发现这么多例，才认得出“这是一种病在传”、开始上报：
+   * 全世界都还不知道有这种病时要一小簇（First）；别处报过之后有了戒心，几例就够（Later）；
+   * 做完病原鉴定有了检测手段，一例就认得出。认出来之前守方在那里什么都看不到。
+   */
+  readonly recognizeFirst: number;
+  readonly recognizeLater: number;
 
   // 措施的效果（都是“压掉的比例”，实际效果还要乘配合程度）
   readonly testingDetect: number;
@@ -360,12 +373,16 @@ export interface Rules {
   /** 每天每一方碰上一件要拿主意的事的概率（手里没有等着的事时）；开局的头几天不出 */
   readonly decisionChance: number;
   readonly decisionAfter: number;
+  /** 一件事定下来之后，至少隔这么多天才出下一件 */
+  readonly decisionGap: number;
   /** 短期任务：开局第几天起发，一件完了隔几天发下一件；间隔写负数是不发任务 */
   readonly taskAfter: number;
   readonly taskGap: number;
 
   // 攻方的经济
   readonly startPoints: number;
+  /** 每天固定给的变异点：开局感染还少、别的来源几乎没有的时候，靠它隔一两个月能换一个性状 */
+  readonly pointsPerDay: number;
   /** 每天的变异点 = 这个数 × 新增感染的四次方根 */
   readonly pointsPerInfectionRoot: number;
   readonly pointsPerDeathRoot: number;
@@ -380,7 +397,10 @@ export interface Rules {
 
   // 守方的经济
   readonly startBudget: number;
-  /** 全世界都正常运转时每天的预算 */
+  /**
+   * 全世界都正常运转时每天的预算。应急的钱是出了事才拨的：头一个地区上报之前不拨
+   * （那之前守方也没有什么要花钱的地方，白攒着只会让后面花钱没有压力）
+   */
   readonly budgetPerDay: number;
   /** 各措施开到全力时每天的维持费（人口 5000 万的地区；别的地区按人口开方折算） */
   readonly upkeep: Readonly<Record<Measure, number>>;
@@ -472,6 +492,8 @@ export interface TaskDef {
   readonly target: number;
   /** 那个数到了这么多才发这件任务（比如“把病例压下来”要先有病例） */
   readonly from?: number;
+  /** 开局第几天之后才发（开局做不到的任务别一上来就发） */
+  readonly after?: number;
   /** 做到了给什么：变异点、预算、信任 */
   readonly reward: {
     readonly points?: number;

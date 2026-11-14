@@ -110,11 +110,12 @@ try {
   await page.evaluate(`document.querySelector('[aria-label="10 倍速"]').click()`);
   await page.waitFor(dayPast(before + 20), { what: '时间在走' });
   await page.evaluate(`document.querySelector('[aria-label="暂停"]').click()`);
-  // 开局十来天就会发第一件短期任务
-  await page.waitFor(`document.querySelector('[data-task]') && ${hasText('短期任务')}`, {
-    what: '短期任务',
-  });
-  await done(`时间在走：从第 ${before} 天到了第 ${await dayOf(page)} 天，手里有了一件短期任务`);
+  // 开局十来天就会发第一件短期任务：这时要么手里有一件，要么已经有了结果（新闻里有）、正等下一件
+  await page.waitFor(
+    `document.querySelector('[data-task]') || ${hasText('任务完成')} || ${hasText('任务没做到')}`,
+    { what: '短期任务' },
+  );
+  await done(`时间在走：从第 ${before} 天到了第 ${await dayOf(page)} 天，短期任务发下来了`);
 
   // 图层：换到“传播数”，地图照样有东西；再换回来
   await page.evaluate(`document.querySelector('[aria-label="传播数"]').click()`);
@@ -148,11 +149,13 @@ try {
   await page.clickButton('咳嗽');
   await page.waitFor(hasButton('换这个性状'), { what: '性状的详情和按钮' });
   await page.clickButton('换这个性状');
-  await closeDialog(page);
-  // 命令到下一天才生效：让时间走一天
-  await page.evaluate(`document.querySelector('[aria-label="1 倍速"]').click()`);
+  // 时间还停着：命令是立刻生效的
   await page.waitFor(hasText('1 个性状'), { what: '换到了一个性状' });
-  await done('进化：换到了“咳嗽”');
+  await closeDialog(page);
+  // 对话框有一小段离场动画，动画完了才从页面上拿掉：等它真的没了，免得下一步点开的工作台被这次的“关上”一并带走
+  await page.waitFor(`!document.querySelector('dialog')`, { what: '工作台关上' });
+  await page.evaluate(`document.querySelector('[aria-label="1 倍速"]').click()`);
+  await done('进化：换到了“咳嗽”（时间停着时下的命令立刻生效）');
 
   // 攻方的技能排在病原体面板里；刚换的性状能退掉（返还一部分点数）
   await page.waitFor(`document.querySelectorAll('[data-skill]').length === 3`, {
@@ -166,8 +169,9 @@ try {
   await page.clickButton('咳嗽');
   await page.waitFor(canPress('退掉它'), { what: '已有性状的“退掉它”' });
   await page.clickButton('退掉它');
-  await closeDialog(page);
   await page.waitFor(hasText('0 个性状'), { what: '性状退掉了' });
+  await closeDialog(page);
+  await page.waitFor(`!document.querySelector('dialog')`, { what: '工作台关上' });
   await done('技能在；退化：把“咳嗽”退掉了');
 
   await page.clickButton('守方');

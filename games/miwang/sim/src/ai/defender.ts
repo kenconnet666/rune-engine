@@ -25,11 +25,15 @@ import { setupCost, upkeepOf } from '../rules/defense.ts';
 import type { OutbreakView } from '../view.ts';
 import type { AiLevel } from './shared.ts';
 
-/** 各难度：隔几天做一次决定、封锁的线（上报病例占人口的比例）、一次最多下几条命令、留多少预算、会不会针对传播途径 */
+/**
+ * 各难度：隔几天做一次决定、封锁的线（上报病例占人口的比例，或者上报的病例数——哪个先到算哪个）、
+ * 一次最多下几条命令、留多少预算、会不会针对传播途径。
+ * 按人数的那条线是给疫情刚冒头时用的：一个大国里的几十个病例占不到人口的百万分之一，等比例够了早就晚了。
+ */
 const LEVELS = [
-  { every: 7, lockAt: 3e-3, commands: 4, reserve: 20, targeted: false },
-  { every: 4, lockAt: 8e-4, commands: 10, reserve: 10, targeted: true },
-  { every: 2, lockAt: 3e-4, commands: 24, reserve: 6, targeted: true },
+  { every: 7, lockAt: 3e-3, lockCases: 400, commands: 4, reserve: 20, targeted: false },
+  { every: 4, lockAt: 8e-4, lockCases: 45, commands: 10, reserve: 10, targeted: true },
+  { every: 2, lockAt: 3e-4, lockCases: 35, commands: 24, reserve: 6, targeted: true },
 ] as const;
 
 /** 维持费最多到收入的这个倍数；手头宽裕（超过 RICH）时可以暂时超支 */
@@ -74,11 +78,15 @@ function wanted(
   view: OutbreakView,
   config: OutbreakConfig,
   region: number,
-  lockAt: number,
-  targeted: boolean,
+  level: AiLevel,
 ): Set<Measure> {
+  const { lockAt, lockCases, targeted } = LEVELS[level];
   const { population, wealth, climate } = config.regions[region]!;
-  const share = population > 0 ? view.cases[region]! / population : 0;
+  // 病例占人口的比例；病例数到了按人数的那条线，也当它到了封锁的线
+  const share = Math.max(
+    population > 0 ? view.cases[region]! / population : 0,
+    (view.cases[region]! / lockCases) * lockAt,
+  );
   const current = view.measures[region]!;
   const has = (measure: Measure) => measureLevel(current, measure) > 0;
   /** 到了线就开；已经开着的，降到线的六分之一以下才撤 */
@@ -124,7 +132,7 @@ function dispatch(view: OutbreakView, config: OutbreakConfig): Command[] {
 }
 
 export function defend(view: OutbreakView, config: OutbreakConfig, level: AiLevel): Command[] {
-  const { every, lockAt, commands: limit, reserve, targeted } = LEVELS[level];
+  const { every, commands: limit, reserve } = LEVELS[level];
   if (view.tick % every !== 0) return [];
   const commands: Command[] = research(view, config, reserve);
   const { rules } = config;
@@ -145,7 +153,7 @@ export function defend(view: OutbreakView, config: OutbreakConfig, level: AiLeve
   const openings: { region: number; measure: Measure; share: number; from: MeasureLevel }[] = [];
   for (let region = 0; region < config.regions.length; region++) {
     const current = view.measures[region]!;
-    const target = wanted(view, config, region, lockAt, targeted);
+    const target = wanted(view, config, region, level);
     if (current === 0 && target.size === 0) continue;
     const share = view.cases[region]! / Math.max(1, config.regions[region]!.population);
     for (const measure of MEASURES) {

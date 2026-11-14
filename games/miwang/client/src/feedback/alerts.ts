@@ -15,6 +15,8 @@ export type AlertTone = 'signal' | 'danger' | 'calm';
 
 export type AlertData =
   | { readonly kind: 'firstDeath' }
+  /** 守方：头一个地区上报了病例（之前它什么都看不到） */
+  | { readonly kind: 'firstReport'; readonly region: number }
   | { readonly kind: 'regions'; readonly count: number }
   | { readonly kind: 'infected'; readonly count: number }
   | { readonly kind: 'calamity'; readonly share: number }
@@ -24,7 +26,6 @@ export type AlertData =
   | { readonly kind: 'trust'; readonly level: number }
   | { readonly kind: 'runway'; readonly days: number }
   | { readonly kind: 'vaccine' }
-  | { readonly kind: 'identified' }
   | { readonly kind: 'goal'; readonly share: number }
   | { readonly kind: 'deadline'; readonly days: number }
   /** 这一方换到了一个性状 / 对面换了一个性状（守方知道底细时才看得到） */
@@ -101,9 +102,16 @@ const CRACKDOWN: readonly Measure[] = ['lockdown', 'borders', 'airports', 'ports
 const tightened = (before: number, now: number) =>
   CRACKDOWN.some((measure) => measureLevel(now, measure) > measureLevel(before, measure));
 
+const newsKey = (item: OutbreakView['news'][number]) =>
+  `${item.tick}:${item.kind}:${item.region}:${item.subject}`;
+
 /** 一条“事.选项”是不是守方的事 */
 const defenderDecided = (subject: string) =>
   DECISIONS.find((decision) => subject.startsWith(`${decision.id}.`))?.side === 'defender';
+
+/** 一条“事.选项”选的是不是第一个选项（“照旧”的那个） */
+const choseDefault = (subject: string) =>
+  DECISIONS.some((decision) => subject === `${decision.id}.${decision.options[0]?.id}`);
 
 /** 盯着这一方的状态出提示。要在组件的 setup 里调（它用了 watchEffect） */
 export function watchAlerts(view: () => OutbreakView | null): Alerts {
@@ -125,9 +133,9 @@ export function watchAlerts(view: () => OutbreakView | null): Alerts {
 
   function push(tone: AlertTone, data: AlertData) {
     const id = nextId++;
-    // 同一种“对面在动”的提示只留最新的一条：电脑一天动一次，不合并就成了刷屏
+    // 这两种提示只留最新的一条：电脑一天动一次；自己推广一次是好几条命令、各出一条。不合并就成了刷屏
     const kept =
-      data.kind === 'crackdown'
+      data.kind === 'crackdown' || data.kind === 'measures'
         ? list.value.filter((it) => it.data.kind !== data.kind)
         : list.value;
     list.value = [...kept, { id, tone, data }].slice(-SHOWN);
@@ -170,7 +178,10 @@ export function watchAlerts(view: () => OutbreakView | null): Alerts {
     }
     once('vaccine', now.defense.vaccinating, forDefender, { kind: 'vaccine' });
     if (!now.attacker) {
-      once('identified', now.pathogen.known, 'calm', { kind: 'identified' });
+      once('firstReport', now.totals.regions > 0, 'danger', {
+        kind: 'firstReport',
+        region: now.cases.findIndex((cases) => cases > 0),
+      });
       // 预算快见底：照现在的收支撑不过两周
       const burn = now.defense.upkeep - now.defense.income;
       const days = burn > 0 ? now.resource / burn : Infinity;
@@ -227,10 +238,15 @@ export function watchAlerts(view: () => OutbreakView | null): Alerts {
     if (!now.attacker) {
       const [only] = changed;
       if (changed.length === 1 && only !== undefined) {
+        // 一套预案是好几条命令、一条一条生效的：同一个地区只留一条提示，起点沿用最早的那条
+        const earlier = list.value.find(
+          (it) => it.data.kind === 'measure' && it.data.region === only,
+        );
+        if (earlier) dismiss(earlier.id);
         push('calm', {
           kind: 'measure',
           region: only,
-          from: before.suppression[only]!,
+          from: earlier?.data.kind === 'measure' ? earlier.data.from : before.suppression[only]!,
           to: now.suppression[only]!,
         });
       } else if (changed.length > 1) {
@@ -271,9 +287,11 @@ export function watchAlerts(view: () => OutbreakView | null): Alerts {
     if (now.task && now.task.id !== before.task?.id) {
       push('signal', { kind: 'taskNew', task: now.task.id });
     }
-    // 这几样在模拟里都记成了新闻：上一份状态之后新出的那几条各说一声
+    // 这几样在模拟里都记成了新闻：上一份状态里还没有的那几条各说一声
+    // （命令立刻生效，同一天里会收到好几份状态：只按“哪一天的”分不出新旧）
+    const known = new Set(before.news.map(newsKey));
     for (const item of now.news) {
-      if (item.tick < before.tick) continue;
+      if (item.tick < before.tick || known.has(newsKey(item))) continue;
       if (item.kind === 'skill') {
         push('calm', { kind: 'skill', skill: item.subject, region: item.region });
       } else if (item.kind === 'devolve') {
@@ -292,6 +310,8 @@ export function watchAlerts(view: () => OutbreakView | null): Alerts {
       } else if (item.kind === 'decision') {
         // 攻方那边的事只有攻方看得到；守方的决定是公开的
         const mine = now.attacker ? !defenderDecided(item.subject) : true;
+        // 对面照旧、什么都没变的决定不值得打断人
+        if (!mine && choseDefault(item.subject)) continue;
         push(mine ? 'calm' : 'danger', { kind: 'decided', subject: item.subject, own: mine });
       }
     }

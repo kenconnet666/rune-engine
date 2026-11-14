@@ -45,7 +45,7 @@ export const CHAPTERS: readonly ChapterDef[] = [
     pathogen: 'novel',
     origin: (region) => region.neighbors.length >= 3,
     rules: CALM,
-    goals: [{ metric: 'infected', target: 4_000 }],
+    goals: [{ metric: 'infected', target: 1_300 }],
     days: 150,
   },
   // 由此孕育出邪念——变异：攒变异点、换性状，让它成为更难对付的东西
@@ -56,7 +56,7 @@ export const CHAPTERS: readonly ChapterDef[] = [
     rules: CALM,
     goals: [
       { metric: 'traits', target: 4 },
-      { metric: 'infected', target: 100_000 },
+      { metric: 'infected', target: 3_000 },
     ],
     days: 240,
   },
@@ -66,7 +66,7 @@ export const CHAPTERS: readonly ChapterDef[] = [
     pathogen: 'influenza',
     origin: (region) => region.neighbors.length >= 5,
     rules: LAND_ONLY,
-    goals: [{ metric: 'regions', target: 30 }],
+    goals: [{ metric: 'regions', target: 12 }],
     days: 300,
   },
   // 翻越山丘——越过防线：从穷的地方起源，闯进医疗和监测都强的富裕地区
@@ -75,8 +75,8 @@ export const CHAPTERS: readonly ChapterDef[] = [
     pathogen: 'novel',
     origin: (region) => region.wealth <= 1 && region.neighbors.length >= 3,
     rules: {},
-    goals: [{ metric: 'wealthy', target: 18 }],
-    days: 365,
+    goals: [{ metric: 'wealthy', target: 28 }],
+    days: 200,
   },
   // 播撒灾厄于长空——航线与海运、全球的终局：完整的一局，按灾厄线分胜负
   {

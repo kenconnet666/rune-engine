@@ -71,6 +71,7 @@ export function taskProgress(
 
 /** 这件任务现在发下去有没有意义 */
 function eligible(state: OutbreakState, task: TaskDef): boolean {
+  if (state.tick < (task.after ?? 0)) return false;
   const value = taskValue(state, task.metric, task.side === 'attacker');
   if (value < (task.from ?? 0)) return false;
   // 研究都做完了就不再发“完成研究”的任务
