@@ -227,6 +227,7 @@ self.onmessage = ({ data }: MessageEvent<RenderControl>) => {
     case 'ui-image':
     case 'ui-material':
     case 'ui-place':
+    case 'ui-scroll':
     case 'ui-clear':
     case 'ui-remove':
       ui.handle(data);

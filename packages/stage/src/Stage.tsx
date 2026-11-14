@@ -20,6 +20,7 @@ import {
   createCanvasUi,
   type CanvasUi,
   type CanvasUiLayer,
+  type ScrollRegion,
 } from './canvas-ui.ts';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css, type SxStyles } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
@@ -50,6 +51,15 @@ export interface StageHandle {
   material(layer: StageLayerName, material: Partial<UiMaterial>, durationMs?: number): void;
   /** 一层“闪一下”：立刻变成 peak 的样子，再用 durationMs 毫秒回到它原来的贴法 */
   pulse(layer: StageLayerName, peak: Partial<UiMaterial>, durationMs: number): void;
+  /**
+   * 一层里有个滚动的盒子：说了它是谁、滚动的内容在层里占哪一块，界面画在画布里时滚动就顺了
+   * （见 canvas-ui.ts 的 followScroll）。界面没画在画布里时什么也不做。返回“不跟了”的函数
+   */
+  followScroll(
+    layer: StageLayerName,
+    scroller: HTMLElement,
+    region: () => ScrollRegion,
+  ): () => void;
 }
 
 export interface StageProps {
@@ -120,6 +130,27 @@ export const Stage = _component(
     }
     const extras = new Set<Extra>();
 
+    /** 说过要跟着滚的盒子：界面搬进画布时接上，搬出来时放掉 */
+    interface Follow {
+      readonly layer: StageLayerName;
+      readonly scroller: HTMLElement;
+      readonly region: () => ScrollRegion;
+      stop?: () => void;
+    }
+    const follows = new Set<Follow>();
+    const attach = (follow: Follow) => {
+      follow.stop = handles[follow.layer]?.followScroll(follow.scroller, follow.region);
+    };
+    const followScroll: StageHandle['followScroll'] = (layer, scroller, region) => {
+      const follow: Follow = { layer, scroller, region };
+      follows.add(follow);
+      attach(follow);
+      return () => {
+        follows.delete(follow);
+        follow.stop?.();
+      };
+    };
+
     const overlays = createOverlayHost({
       root: () => root.value,
       *layers() {
@@ -181,8 +212,13 @@ export const Stage = _component(
           }
         }
         for (const extra of extras) enterExtra(created, extra);
+        for (const follow of follows) attach(follow);
         if (send) created.connect(send);
         return;
+      }
+      for (const follow of follows) {
+        follow.stop?.();
+        follow.stop = undefined;
       }
       ui?.dispose();
       ui = undefined;
@@ -274,6 +310,7 @@ export const Stage = _component(
         refresh: () => ui?.refresh(),
         material,
         pulse,
+        followScroll,
       });
     });
     onBeforeUnmount(() => {

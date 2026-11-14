@@ -29,7 +29,7 @@
 import { PLAIN_MATERIAL, type UiMaterial } from '@rune-engine/render/ui-types';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css, type SxStyles } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
-import { onBeforeUnmount, onMounted, Teleport, watch, type VNodeChild } from 'vue';
+import { onBeforeUnmount, Teleport, watch, type VNodeChild } from 'vue';
 import type { OverlayEntry, OverlayOptions } from './overlays.ts';
 import { useStage, type StageLayerHandle } from './stage-context.ts';
 
@@ -77,11 +77,25 @@ export const StageLayer = _component(
     children,
   }: StageLayerProps) => {
     const stage = useStage();
-    let element = _state.raw<HTMLElement | null>(null);
+    let element: HTMLElement | null = null;
     let handle: StageLayerHandle | undefined;
     let entry: OverlayEntry | undefined;
 
-    onMounted(() => {
+    /** 从舞台上拿掉：先从弹层里拿掉（焦点要还回去，这时元素还在），再收层 */
+    const leave = () => {
+      entry?.close();
+      handle?.remove();
+      entry = undefined;
+      handle = undefined;
+    };
+    /**
+     * 这一层的元素有了（或者没了）。不能只在组件挂上的那一刻登记：和舞台一起渲染出来的层，
+     * 那一刻舞台自己还没挂上、没有地方传送，元素是晚一拍才出现的
+     */
+    const attach = (next: unknown) => {
+      if (next === element) return;
+      leave();
+      element = next as HTMLElement | null;
       layerRef?.(element);
       if (!element || !stage) return;
       // 选项每次现读：onDismiss、要不要点外面关都可以跟着渲染变
@@ -95,7 +109,7 @@ export const StageLayer = _component(
       } else {
         handle.set(target);
       }
-    });
+    };
     watch(
       () => material,
       (next) => handle?.set({ ...PLAIN_MATERIAL, ...next }, transitionMs),
@@ -105,17 +119,12 @@ export const StageLayer = _component(
       () => [x, y] as const,
       ([nextX, nextY]) => handle?.moveTo(nextX, nextY),
     );
-    onBeforeUnmount(() => {
-      // 先从弹层里拿掉（焦点要还回去，这时元素还在），再收层
-      entry?.close();
-      handle?.remove();
-      layerRef?.(null);
-    });
+    onBeforeUnmount(() => attach(null));
 
     return () => {
       const layer = (
         <div
-          ref={_toRef(element)}
+          ref={attach}
           // 不在舞台里：没人替它摆位置，自己用 translate 摆过去
           style={!stage && fit === 'content' ? { translate: `${x}px ${y}px` } : undefined}
           {...css.attrs(fit === 'stage' ? styles.stage : styles.content, sx)}

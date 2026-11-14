@@ -25,6 +25,18 @@ const styles = css.create({
   page: { position: 'absolute', inset: 0, pointerEvents: 'auto' },
 });
 
+/**
+ * 整页滚动的时候真正在动的那一块：顶栏下面、左右两栏之间（它们粘在边上不跟着滚）。
+ * 站点的外壳是组件库的 AppShell：顶栏是 header，正文是 main
+ */
+function scrollRegion() {
+  const header = document.querySelector('header');
+  const main = document.querySelector('main');
+  const top = header?.getBoundingClientRect().bottom ?? 0;
+  const side = main?.getBoundingClientRect() ?? new DOMRect(0, 0, innerWidth, 0);
+  return { x: side.left, y: top, width: side.width, height: innerHeight - top };
+}
+
 export const StageApp = _component(() => {
   const router = useRouter();
   let page = _state.raw<HTMLElement | null>(null);
@@ -43,7 +55,9 @@ export const StageApp = _component(() => {
     <Stage
       sx={styles.stage}
       onReady={(stage) => {
-        if (stageMode === 'canvas') runUiRenderer(stage);
+        if (stageMode !== 'canvas') return;
+        runUiRenderer(stage);
+        if (page) stage.followScroll('hud', page, scrollRegion);
       }}
     >
       <ScrollArea

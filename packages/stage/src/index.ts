@@ -12,6 +12,7 @@ export {
   type CanvasUiLayer,
   type CanvasUiLayerOptions,
   type CanvasUiOptions,
+  type ScrollRegion,
 } from './canvas-ui.ts';
 export {
   createOverlayHost,
