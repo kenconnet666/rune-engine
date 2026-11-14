@@ -51,6 +51,8 @@ export function planChanges(
 ) {
   let setup = 0;
   let daily = 0;
+  /** 里面有没有往下撤的（不花钱：手里一分钱没有也做得了） */
+  let lowers = false;
   const changes: { measure: Measure; level: MeasureLevel; regions: number[] }[] = [];
   for (const measure of MEASURES) {
     const level = plan[measure];
@@ -61,11 +63,12 @@ export function planChanges(
     if (touched.length === 0) continue;
     for (const region of touched) {
       const from = measureLevel(measures[region] ?? 0, measure);
+      if (level < from) lowers = true;
       setup += setupCost(reference, region, measure, level, from);
       daily +=
         upkeepOf(reference, region, measure, level) - upkeepOf(reference, region, measure, from);
     }
     changes.push({ measure, level, regions: touched });
   }
-  return { setup, daily, changes };
+  return { setup, daily, changes, lowers };
 }

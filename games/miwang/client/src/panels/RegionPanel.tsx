@@ -137,7 +137,7 @@ export const RegionPanel = _component(
 
       /** 一套预案的按钮 */
       const preset = (id: PresetId | 'custom', plan: MeasurePlan) => {
-        const { setup, daily, changes } = planChanges(plan, [index], view.measures);
+        const { setup, daily, changes, lowers } = planChanges(plan, [index], view.measures);
         return (
           <Tile
             key={id}
@@ -156,7 +156,8 @@ export const RegionPanel = _component(
                 : // 只是往下撤的不花钱：不写价钱
                   setup > 0 && ui.region.presetCost(format.amount(setup))
             }
-            disabled={readonly || changes.length === 0 || view.resource < setup}
+            // 付不起的那几项主机不会开；但里面只要有往下撤的就让点——钱见底的时候正是要收缩的时候
+            disabled={readonly || changes.length === 0 || (view.resource < setup && !lowers)}
             onPress={() => applyHere(plan)}
           />
         );
