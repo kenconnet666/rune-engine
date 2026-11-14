@@ -202,8 +202,10 @@ export async function launchChrome({
          * 等到页面里的一个表达式为真；超时就报错，报错里带上当时页面上的文字。
          * 表达式算的时候出错也当“还没等到”：页面正在刷新的那一刻 document.body 还不在，这是常事；
          * 一直出错的话（表达式写错了）最后的报错里带着那条错误。
+         * show 是没等到时另外想看的东西（一个在页面里算的表达式）：等的那样东西旁边的状态，
+         * 往往不在页面开头那一段字里。
          */
-        async waitFor(expression, { timeoutMs = 15_000, what = expression } = {}) {
+        async waitFor(expression, { timeoutMs = 15_000, what = expression, show } = {}) {
           const deadline = Date.now() + timeoutMs;
           let lastError = '';
           while (Date.now() < deadline) {
@@ -216,7 +218,12 @@ export async function launchChrome({
             await new Promise((resolve) => setTimeout(resolve, 100));
           }
           const text = await page.evaluate('document.body?.innerText.slice(0, 400)');
-          throw new Error(`等了 ${timeoutMs} 毫秒没等到：${what}\n页面上是：${text}${lastError}`);
+          const more = show
+            ? `\n相关的状态：${await page.evaluate(show).catch((error) => `（没取到：${error.message}）`)}`
+            : '';
+          throw new Error(
+            `等了 ${timeoutMs} 毫秒没等到：${what}\n页面上是：${text}${more}${lastError}`,
+          );
         },
         /** 点一下页面上的某个位置（CSS 像素） */
         async click(x, y) {

@@ -219,27 +219,46 @@ try {
   await page.evaluate(`document.querySelector('[aria-label="1 倍速"]').click()`);
   const measure = (id) => `document.querySelector('[data-measure="${id}"]')`;
   const preset = (id) => `document.querySelector('[data-preset="${id}"]')`;
+  // 这一步在 CI 上偶尔等不到（2026-11-14 两次，各卡在不同的地方）：没等到时把当时的局面打出来——
+  // 第几天、哪些按钮按着、各项措施开在哪一档、预案按不按得动、那块面板上写着什么
+  const defenseState = `JSON.stringify({
+    day: document.body.innerText.match(/第 ([0-9]+) 天/)?.[1],
+    pressed: [...document.querySelectorAll('[aria-pressed="true"]')].map((b) => b.getAttribute('aria-label') ?? b.textContent.trim().slice(0, 8)),
+    measures: Object.fromEntries([...document.querySelectorAll('[data-measure]')].map((m) => [m.dataset.measure, m.dataset.level + (m.disabled ? '（按不动）' : '')])),
+    presets: Object.fromEntries([...document.querySelectorAll('[data-preset]')].map((p) => [p.dataset.preset, p.disabled ? '按不动' : '能按'])),
+    panel: document.querySelector('[data-measure], [data-preset]')?.closest('section, aside')?.innerText.slice(0, 600),
+    dialog: !!document.querySelector('dialog[open]'),
+  })`;
   await page.clickButton('轻');
   // 换到守方之前电脑替守方管着：这里的检测要是已经开在轻的那一档，再点是关掉——先关了再开
   if (await page.evaluate(`${measure('testing')}?.dataset.level === '1'`)) {
     await page.evaluate(`${measure('testing')}.click()`);
     await page.waitFor(`${measure('testing')}?.dataset.level === '0'`, {
       what: '先把“加强检测”关掉',
+      show: defenseState,
     });
   }
   await page.evaluate(`${measure('testing')}.click()`);
   await page.waitFor(`${measure('testing')}?.dataset.level === '1'`, {
     what: '“加强检测”开到轻的那一档',
+    show: defenseState,
   });
   await page.clickButton('预案与推广');
   await page.waitFor(`${preset('contain')} && !${preset('contain')}.disabled`, {
     what: '“围堵”预案',
+    show: defenseState,
   });
   await page.evaluate(`${preset('contain')}.click()`);
   // 这里已经是预案的样子时，那块预案亮着、点不动
-  await page.waitFor(`${preset('contain')}?.disabled`, { what: '“围堵”预案生效' });
+  await page.waitFor(`${preset('contain')}?.disabled`, {
+    what: '“围堵”预案生效',
+    show: defenseState,
+  });
   await page.clickButton('措施');
-  await page.waitFor(`${measure('lockdown')}?.dataset.level === '3'`, { what: '封锁开到了全力' });
+  await page.waitFor(`${measure('lockdown')}?.dataset.level === '3'`, {
+    what: '封锁开到了全力',
+    show: defenseState,
+  });
   await done('措施：分档开了一项，再用预案一次设到位');
 
   // 换到守方之前电脑替守方管着：队伍可能已经在这里（不用再派），也可能三支都派去了别处
