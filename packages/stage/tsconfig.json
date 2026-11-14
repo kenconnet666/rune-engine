@@ -6,5 +6,7 @@
     "jsxImportSource": "@zerodep-dev/vue-tsx-pro-tsx",
     "types": ["@zerodep-dev/vue-tsx-pro-tsx/runes"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  // 渲染线程里的那个文件按 Worker 的环境另外检查（tsconfig.worker.json）
+  "exclude": ["src/ui-renderer/worker.ts"]
 }

@@ -1,0 +1,60 @@
+// 动态列表：发生时间写相对时间，随时间自动更新，悬停看完整的日期；一周以前的直接写日期。
+// format 是详略：long “3 分钟前”、short、narrow（窄栏、移动端）。
+// 演示数据相对页面打开的时刻（服务端渲染与浏览器打开的时刻不同，数据本身就不一样）：列表包在 ClientOnly 里，只在浏览器里画
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import {
+  Avatar,
+  Card,
+  ClientOnly,
+  Flex,
+  ItemList,
+  ItemListItem,
+  RelativeTime,
+  Text,
+  ToggleGroup,
+  ToggleItem,
+} from '@rune-engine/components';
+
+const MINUTE = 60_000;
+
+export default _component(() => {
+  const opened = Date.now();
+  const events = [
+    { who: '林小满', what: '评论了“首页改版”', at: new Date(opened - 20_000) },
+    { who: '周一航', what: '合并了 #1024', at: new Date(opened - 7 * MINUTE) },
+    { who: '陈默', what: '把“支付回调”标为已解决', at: new Date(opened - 3 * 60 * MINUTE) },
+    { who: '许悠', what: '创建了里程碑“v2.0”', at: new Date(opened - 26 * 60 * MINUTE) },
+    { who: '王晴', what: '上传了设计稿', at: new Date(opened - 12 * 24 * 60 * MINUTE) },
+  ];
+  let format = _state<Intl.RelativeTimeFormatStyle>('long');
+  return () => (
+    <Flex direction="column" gap="md">
+      <ToggleGroup _value={format} required aria-label="详略" size="sm">
+        <ToggleItem value="long">long</ToggleItem>
+        <ToggleItem value="short">short</ToggleItem>
+        <ToggleItem value="narrow">narrow</ToggleItem>
+      </ToggleGroup>
+      <ClientOnly>
+        <Card padding="sm">
+          <ItemList>
+            {events.map((event) => (
+              <ItemListItem
+                key={event.who}
+                align="start"
+                start={<Avatar size="sm" name={event.who} />}
+                title={
+                  <>
+                    <Text weight="medium">{event.who}</Text> {event.what}
+                  </>
+                }
+                description={
+                  <RelativeTime value={event.at} format={format} threshold={{ days: 7 }} />
+                }
+              />
+            ))}
+          </ItemList>
+        </Card>
+      </ClientOnly>
+    </Flex>
+  );
+});

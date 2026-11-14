@@ -1,0 +1,96 @@
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { Code, Kbd } from '@rune-engine/components';
+import alertDialogApi from 'virtual:api/AlertDialogProps';
+import api from 'virtual:api/DialogProps';
+import modalCoreApi from 'virtual:api/ModalCoreProps';
+import { ApiReference } from '../../../site/ApiReference';
+import { DocPage } from '../../../site/DocPage';
+import { Example } from '../../../site/Example';
+import { ExampleColumn, Examples } from '../../../site/Examples';
+import { KeyboardReference } from '../../../site/KeyboardReference';
+import Confirm from './demo/Confirm.tsx?demo';
+import Draggable from './demo/Draggable.tsx?demo';
+import Imperative from './demo/Imperative.tsx?demo';
+import Import from './demo/Import.tsx?demo';
+import Profile from './demo/Profile.tsx?demo';
+import Terms from './demo/Terms.tsx?demo';
+
+export const meta = {
+  title: 'Dialog 对话框',
+  description:
+    '模态面板：居中的 Dialog 与需要确认的 AlertDialog（从一侧滑入的见 Drawer）。建在原生 dialog 上，焦点、Esc、背景不可操作都由浏览器负责。',
+  order: 1,
+};
+
+export default _component(() => () => (
+  <DocPage
+    wide
+    meta={meta}
+    imports="import { AlertDialog, Dialog, useConfirm, useDialog } from '@rune-engine/components';"
+  >
+    <Examples>
+      <ExampleColumn>
+        <Example id="dialog" title="编辑表单" demo={Profile}>
+          <Code>_open</Code> 双向绑定；<Code>title</Code> 与 <Code>description</Code>{' '}
+          是对话框的无障碍名称与描述。写了 <Code>onConfirm</Code> 页脚就有“取消 / 确认”：返回
+          Promise 时确认按钮加载中、这期间关不掉，完成后关闭；返回 false
+          或失败时对话框留着（校验没过、保存失败）。<Code>confirmText</Code>、<Code>tone</Code>、
+          <Code>propsConfirm</Code> 改确认按钮，别的按钮写在 <Code>footer</Code>{' '}
+          里，排在它们前面。打开时焦点落在 autofocus
+          的元素上（没有就是第一个可聚焦的），关闭后回到打开它的按钮。
+        </Example>
+        <Example id="alert-dialog" title="确认操作" demo={Confirm}>
+          AlertDialog 用于不可撤销的操作：role="alertdialog"，焦点先落在取消上，点遮罩不关闭。
+          <Code>onConfirm</Code> 返回 Promise 时确认按钮显示加载中，完成才关。不想维护 open 状态时用{' '}
+          <Code>useConfirm()</Code>，await 得到 true / false；给了 <Code>reason</Code>{' '}
+          时对话框里多一个多行输入框（驳回、作废要写理由），await 得到填的理由、取消时得到
+          null，必填没填时提示且不关闭。<Code>confirmText</Code> / <Code>cancelText</Code>{' '}
+          改按钮文字，默认取语言包。要先填一两个字段的操作（退回写原因、改派选人）用页面组合里的{' '}
+          <Code>useFormDialog</Code>。
+        </Example>
+        <Example id="long-content" title="宽度与长内容" demo={Terms}>
+          <Code>size</Code> 与 Container 同档（xs–xl），另有 full
+          占满视口。内容长时只滚正文（ScrollArea），标题与页脚一直看得见。
+        </Example>
+      </ExampleColumn>
+      <ExampleColumn>
+        <Example id="imperative" title="命令式与关闭的原因" demo={Imperative}>
+          <Code>useDialog()</Code>（setup 里调用）的 <Code>open(options)</Code>{' '}
+          不必在页面里放对话框、管 open：从列表的一行、回调里直接弹出，关上后自动卸载。属性同
+          Dialog，正文写在 <Code>content</Code>；给函数时拿到句柄，正文里的按钮可以{' '}
+          <Code>update</Code> 标题、<Code>close</Code> 关上。<Code>await handle.closed</Code>{' '}
+          得到关上的原因（确认是 confirm）。所有浮层的{' '}
+          <Code>onOpenChange(open, &#123; reason &#125;)</Code> 都报告原因：关闭按钮 close、
+          <Kbd>Esc</Kbd> escape、点遮罩 outside、确认 confirm、代码调用 imperative；父级直接改 open
+          时不报告。要在关闭前拦下用 <Code>beforeClose</Code>，它也拿到原因。
+        </Example>
+        <Example id="blocking" title="进行中的任务" demo={Import}>
+          <Code>closable={'{false}'}</Code> 去掉右上角的关闭按钮，
+          <Code>dismissible={'{false}'}</Code> 让点遮罩不关闭——任务进行中别被误关；<Kbd>Esc</Kbd>{' '}
+          仍然可以关（浏览器的约定），关闭时原生 dialog 发出 <Code>close</Code> 事件，在{' '}
+          <Code>onClose</Code> 里收尾。
+        </Example>
+        <Example id="draggable" title="可以拖动" demo={Draggable}>
+          <Code>draggable</Code>{' '}
+          {
+            '时按住标题栏能把对话框挪开（核对数据时看后面被挡住的内容），拖到哪都不超出窗口，下次打开回到正中；标题栏上的关闭按钮照常点。位移用 '
+          }
+          <Code>translate</Code>，不影响进场动画。
+        </Example>
+      </ExampleColumn>
+    </Examples>
+    <KeyboardReference
+      keys={[
+        [
+          'Tab / Shift+Tab',
+          '在对话框里的可聚焦元素之间移动；页面其余部分不可操作（原生模态 dialog 的 inert）',
+        ],
+        ['Esc', '关闭对话框（AlertDialog 相当于取消），焦点回到打开它的元素'],
+        ['Enter / Space', '按下聚焦的按钮；AlertDialog 打开时焦点在取消上，误按 Enter 不会执行'],
+      ]}
+    >
+      打开时焦点落在带 <Code>autofocus</Code> 的元素上，没有就是第一个可聚焦的元素。
+    </KeyboardReference>
+    <ApiReference api={[api, alertDialogApi, modalCoreApi]} />
+  </DocPage>
+));

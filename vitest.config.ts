@@ -21,6 +21,8 @@ export default defineConfig({
       },
       // 组件库的测试要先编译 TSX、在模拟的 DOM 里跑：用它自己的配置
       'packages/components',
+      // 文档站（也是复制来的）自带的测试：每个示例都渲染得出来、文档页的结构对
+      'apps/docs',
     ],
   },
 });

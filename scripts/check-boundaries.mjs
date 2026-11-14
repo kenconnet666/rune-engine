@@ -20,6 +20,8 @@ const ALLOWED = {
   '@rune-engine/ui': ['@rune-engine/stage'],
   // 从 vue-tsx-pro 复制来的组件库（见它的 UPSTREAM.md）；接上舞台之后再加依赖
   '@rune-engine/components': [],
+  // 组件库的文档站（也是复制来的）：整站放在一个舞台里
+  '@rune-engine/docs': ['@rune-engine/components', '@rune-engine/stage'],
   '@rune-engine/input': [],
   '@rune-engine/audio': [],
   '@rune-engine/i18n': [],
@@ -53,7 +55,7 @@ const FORBIDDEN =
 
 const problems = [];
 
-const packageDirs = ['packages', 'games/miwang'].flatMap((dir) =>
+const packageDirs = ['packages', 'apps', 'games/miwang'].flatMap((dir) =>
   readdirSync(join(root, dir), { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => join(root, dir, entry.name)),

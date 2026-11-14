@@ -1,0 +1,28 @@
+// 12 / 24 小时制：默认跟随语言（中文 24 小时、美国 12 小时加 AM / PM），hourCycle 可以指定；值总是 24 小时制
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { Code, enUS, Field, Grid, Provider, TimeField } from '@rune-engine/components';
+
+export default _component(() => {
+  let time = _state<string | null>('19:45');
+  return () => (
+    <Grid minItemWidth="13rem" gap="lg">
+      <Field label="简体中文（24 小时制）" description={<Code>{time ?? 'null'}</Code>}>
+        <TimeField _value={time} />
+      </Field>
+      <Field label='hourCycle="h12"' description="中文的上午 / 下午">
+        <TimeField _value={time} hourCycle="h12" />
+      </Field>
+      <Provider lang={enUS}>
+        <Field label="English (US)" description="Type a / p in the last segment">
+          <TimeField _value={time} />
+        </Field>
+      </Provider>
+      <Field label='granularity="second"'>
+        <TimeField _value="08:30:15" granularity="second" />
+      </Field>
+      <Field label='granularity="hour"'>
+        <TimeField _value="08:00" granularity="hour" />
+      </Field>
+    </Grid>
+  );
+});

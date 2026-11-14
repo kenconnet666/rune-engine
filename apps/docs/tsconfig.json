@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    "jsxImportSource": "@zerodep-dev/vue-tsx-pro-tsx",
+    "types": ["node", "vite/client", "@zerodep-dev/vue-tsx-pro-tsx/runes"],
+    // 复制过来的代码是按没有这一项写的（和 packages/components 一样）
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["src", "build", "*.config.ts"],
+  // 真浏览器里跑的那批测试（要 playwright）还没接上：等“两种摆法各跑一遍”的对比工具做的时候一起接
+  "exclude": ["src/**/*.browser.test.ts", "src/**/*.browser.test.tsx"]
+}

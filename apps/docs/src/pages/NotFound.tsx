@@ -1,0 +1,7 @@
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { LinkButton, Result } from '@rune-engine/components';
+
+/** 找不到页面 */
+export default _component(() => () => (
+  <Result status="404" action={<LinkButton href="/">回到首页</LinkButton>} />
+));

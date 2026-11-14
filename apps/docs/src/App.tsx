@@ -1,0 +1,219 @@
+/**
+ * 文档站的外壳：AppShell 的顶栏（站点名、搜索、组件演练场、主题切换、仓库链接、全屏）、左侧的站点导航、右侧的本页目录，
+ * 正文是当前路由的页面，末尾是上一篇 / 下一篇。
+ */
+import { Box, DatabaseZap } from '@lucide/icons';
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import {
+  CommandPalette,
+  Container,
+  IconLinkButton,
+  LinkButton,
+  LoadingBar,
+  NavItem,
+  NavList,
+  NavSection,
+  Pager,
+  TableOfContents,
+  useHeadings,
+  useTextMatcher,
+} from '@rune-engine/components';
+import { GithubIcon } from '@rune-engine/components/docs-kit';
+import { AppShell, AppShellBrand, ThemeSwitcher } from '@rune-engine/components/patterns';
+import { breakpoints } from '@rune-engine/components/tokens';
+import { RouterView, useRoute, useRouter } from 'vue-router';
+import { loadingBar } from './site/loading-bar';
+import { allPages, sectionOf, sections } from './site/nav';
+import { FontSwitcher } from './site/FontSwitcher';
+import { PropsPlaygroundButton } from './site/PropsPlaygroundButton';
+import { isFrame } from './router';
+import { preference } from './site/theme';
+
+const pageEnter = css.keyframes({
+  from: { opacity: 0, transform: 'translateY(6px)' },
+  to: { opacity: 1, transform: 'none' },
+});
+
+const styles = css.create({
+  // 搜索与各个按钮靠顶栏的结束边
+  tools: { display: 'flex', alignItems: 'center', gap: '_md', marginInlineStart: 'auto' },
+  page: { display: 'flex', flexDirection: 'column', gap: '_xl' },
+  // 换页时新页面轻轻浮上来；时长取主题 token，“减少动态效果”时为 0
+  enter: {
+    animationName: pageEnter,
+    animationDuration: '_durations.md',
+    animationTimingFunction: '_easings.enter',
+  },
+  // 标题离顶栏远一点，页底留出空白，不贴着窗口下沿
+  main: { paddingBlockStart: '2.5rem', paddingBlockEnd: '4rem' },
+  pager: { marginBlockStart: '_xl' },
+  // 手机宽度顶栏放不下：外部链接只在顶栏或抽屉里出现一处
+  wideOnly: { display: { default: 'none', [breakpoints.md]: 'inline-flex' } },
+  narrowOnly: { display: { default: 'block', [breakpoints.md]: 'none' } },
+});
+
+/** 搜索面板的一项：页面或示例；keywords 是示例说明里写到的属性名，按它们也能搜到 */
+interface SearchItem {
+  value: string;
+  label: string;
+  description: string;
+  group: string;
+  keywords: readonly string[];
+}
+
+/** 每个页面一项，按侧栏分组 */
+const pageItems: SearchItem[] = allPages.map((page) => ({
+  value: page.path,
+  label: page.title,
+  description: page.description,
+  group: sectionOf(page),
+  keywords: [],
+}));
+
+/** 页面之后是各页的示例（锚点直达那一节）：没输入时不列出，输入后才一起搜 */
+const allItems: SearchItem[] = [
+  ...pageItems,
+  ...allPages.flatMap((page) =>
+    (page.examples ?? []).map((example) => ({
+      value: `${page.path}#${example.id}`,
+      label: example.title,
+      description: page.title,
+      group: '示例',
+      keywords: example.keywords,
+    })),
+  ),
+];
+
+export const App = _component(() => {
+  const route = useRoute();
+  const router = useRouter();
+  const textMatcher = useTextMatcher();
+  // 搜索框里的文字：有输入时才把示例也列进来
+  let query = _state('');
+  /** 标题、简介按文字匹配（拼音也认）；属性名按包含（不分大小写） */
+  const matchesSearch = (item: SearchItem, text: string) => {
+    const match = textMatcher();
+    const lower = text.trim().toLowerCase();
+    return (
+      match(item.label, text) ||
+      match(item.description, text) ||
+      item.keywords.some((keyword) => keyword.toLowerCase().includes(lower))
+    );
+  };
+  let content = _state.raw<HTMLElement | null>(null);
+  // 示例里的标题（data-demo 里面）是示例内容，不进本页目录
+  const headings = useHeadings(
+    () => content,
+    'h2[id]:not([data-demo] *), h3[id]:not([data-demo] *)',
+  );
+
+  // 浏览器标签上的标题（_effect 不在服务端执行：预渲染时 build/prerender.ts 直接写进 <title>）
+  _effect(() => {
+    const title = route.meta.title as string | undefined;
+    document.title = title ? `${title} · vue-tsx-pro` : 'vue-tsx-pro';
+  });
+
+  const neighbors = () => {
+    const index = allPages.findIndex((page) => page.path === route.path);
+    if (index < 0) return {};
+    const link = (page: (typeof allPages)[number] | undefined) =>
+      page && { href: page.path, label: page.title };
+    return { previous: link(allPages[index - 1]), next: link(allPages[index + 1]) };
+  };
+
+  return () => {
+    // 整页示例在 iframe 里单独渲染，流程中心有自己的应用外壳：都不套站点外壳
+    if (isFrame || route.path === '/flow' || route.path.startsWith('/flow/')) return <RouterView />;
+    const isHome = route.path === '/';
+    return (
+      <>
+        <LoadingBar controller={loadingBar} />
+        <AppShell
+          brand={
+            <AppShellBrand href="/" icon={Box}>
+              vue-tsx-pro
+            </AppShellBrand>
+          }
+          header={
+            <>
+              <LinkButton
+                href="https://easy-query-ts.zerodep.dpdns.org"
+                external
+                icon={DatabaseZap}
+                size="sm"
+                variant="ghost"
+                tone="neutral"
+                sx={styles.wideOnly}
+              >
+                easy-query-ts
+              </LinkButton>
+              <div {...css.attrs(styles.tools)}>
+                <CommandPalette
+                  items={query.trim() ? allItems : pageItems}
+                  _inputValue={query}
+                  filter={matchesSearch}
+                  onAction={(item) => void router.push(item.value)}
+                />
+                <PropsPlaygroundButton />
+                <ThemeSwitcher preference={preference} />
+                <FontSwitcher />
+                <IconLinkButton
+                  href="https://github.com/kenconnet666/vue-tsx-pro"
+                  external
+                  icon={GithubIcon}
+                  aria-label="GitHub 仓库"
+                  sx={styles.wideOnly}
+                />
+              </div>
+            </>
+          }
+          sidebar={
+            <NavList aria-label="文档">
+              {sections.map((section) => (
+                <NavSection key={section.label} label={section.label}>
+                  {section.pages.map((page) => (
+                    <NavItem key={page.path} href={page.path}>
+                      {page.title}
+                    </NavItem>
+                  ))}
+                </NavSection>
+              ))}
+              <NavSection label="链接" sx={styles.narrowOnly}>
+                <NavItem
+                  href="https://easy-query-ts.zerodep.dpdns.org"
+                  target="_blank"
+                  icon={DatabaseZap}
+                >
+                  easy-query-ts
+                </NavItem>
+                <NavItem
+                  href="https://github.com/kenconnet666/vue-tsx-pro"
+                  target="_blank"
+                  icon={GithubIcon}
+                >
+                  GitHub
+                </NavItem>
+              </NavSection>
+            </NavList>
+          }
+          // 目录要挂载后才收集得到：右栏一直留着，不按有没有标题决定，刷新时正文不会跳一下
+          aside={!isHome && <TableOfContents items={headings.value} />}
+          propsMain={{ sx: styles.main }}
+        >
+          <div ref={_toRef(content)} {...css.attrs(styles.page)}>
+            {/* 按路由换 key：每次换页重新播放进场动画 */}
+            <div key={route.path} {...css.attrs(styles.enter)}>
+              <RouterView />
+            </div>
+            {!isHome && (
+              <Container size={route.path.startsWith('/components/') ? 'xl' : 'md'} padding="none">
+                <Pager {...neighbors()} sx={styles.pager} />
+              </Container>
+            )}
+          </div>
+        </AppShell>
+      </>
+    );
+  };
+});

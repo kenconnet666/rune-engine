@@ -62,6 +62,9 @@ packages/            引擎，不知道任何具体游戏
   components         组件库：从 vue-tsx-pro 复制来、在这边分叉着改，目标是整套能画进画布（见它的 UPSTREAM.md）；
                      游戏之后换到它上面，packages/ui 到时候删掉
   i18n               多语言：当前语言、各语言的文案、跟着语言走的数字与日期写法
+apps/
+  docs               组件库的文档站（从 vue-tsx-pro 的文档站复制来的）：整站放在一个舞台里，
+                     可以画进画布（?stage=canvas）、也可以当普通网页看（?stage=dom），两种摆法对比着改
   assets-build       构建时的素材处理：地理数据 → 地区网格
 games/miwang/        《迷惘》
   sim                规则，只依赖 core：浏览器、Worker、Node 里算出逐位相同的结果；电脑对手也在这里
@@ -82,6 +85,7 @@ scripts/             检查与核对：包的边界、下载体积的预算、�
 ```bash
 pnpm install
 pnpm dev            # 《迷惘》的开发服务器：http://localhost:5180
+pnpm dev:docs       # 组件库的文档站：http://localhost:5181（右下角换“画进画布 / 普通网页”）
 pnpm online         # 同上，再加本地的服务端（联机、云存档；wrangler 在本机模拟 Cloudflare，听 8787）
 pnpm check          # 格式、lint、边界、类型、测试
 ```

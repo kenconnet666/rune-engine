@@ -1,0 +1,74 @@
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { Code } from '@rune-engine/components';
+import dropApi from 'virtual:api/FileDropProps';
+import api from 'virtual:api/UploadProps';
+import { ApiReference } from '../../../site/ApiReference';
+import { DocPage } from '../../../site/DocPage';
+import { Example } from '../../../site/Example';
+import { KeyboardReference } from '../../../site/KeyboardReference';
+import { ExampleColumn, Examples } from '../../../site/Examples';
+import Folder from './demo/Folder.tsx?demo';
+import Import from './demo/Import.tsx?demo';
+import Photos from './demo/Photos.tsx?demo';
+import Resume from './demo/Resume.tsx?demo';
+import Wall from './demo/Wall.tsx?demo';
+
+export const meta = {
+  title: 'Upload 上传',
+  description:
+    '选文件、看进度、失败重试：Upload 管列表与状态，怎么上传由 upload 函数决定；FileDrop 是只负责选文件的拖放区域。',
+  order: 13,
+};
+
+export default _component(() => () => (
+  <DocPage wide meta={meta} imports="import { FileDrop, Upload } from '@rune-engine/components';">
+    <Example id="wall" title="图片墙：预览、排序与粘贴" demo={Wall}>
+      <Code>listType="picture"</Code> 时文件是方形缩略图（<Code>thumbnailSize</Code>，默认 104
+      px）：选的图片用本地地址马上显示，不等上传；点开看大图（墙上的图共用一个预览，左右切换），别的文件显示图标与文件名。上传中盖一层进度，失败标红、可以重试；选文件的区域是墙上最后一格，到了{' '}
+      <Code>maxFiles</Code> 就收起。<Code>sortable</Code>{' '}
+      时每张图上有把手，拖动或聚焦后用空格拿起、方向键移动，顺序写回 value；<Code>pasteable</Code>{' '}
+      时焦点在组件里按 Ctrl + V，剪贴板里的图片（截图）就加进来。
+    </Example>
+    <Examples>
+      <ExampleColumn>
+        <Example id="photos" title="选好就上传" demo={Photos}>
+          给了 <Code>upload</Code> 时选到文件就开始上传：它拿到文件、报告进度的{' '}
+          <Code>onProgress</Code> 和中止用的 <Code>signal</Code>，返回
+          Promise。失败的可以重试，移除正在上传的会中止。超过 <Code>maxSize</Code>、不在{' '}
+          <Code>accept</Code> 里的也列出来，带错误、不上传。不写 upload 时可以给 <Code>action</Code>
+          ：用应用配置的请求客户端（<Code>createUi</Code> 的 <Code>http</Code>
+          ，同一套 baseURL、令牌与拆包）把文件 POST 过去，字段名默认 file（<Code>fieldName</Code>
+          ）；fetch 拿不到上传进度，要进度时写 upload。父级放进 value 的“已选择”文件（带{' '}
+          <Code>file</Code>）同样马上开始上传。
+        </Example>
+        <Example id="file-drop" title="FileDrop" demo={Import}>
+          只负责选文件：点击、聚焦后按 Enter / 空格、或把文件拖进来。选到的经 <Code>onFiles</Code>{' '}
+          交出去；拖放不受 accept 限制，不合格的经 <Code>onReject</Code> 交出去。
+        </Example>
+      </ExampleColumn>
+      <ExampleColumn>
+        <Example id="form" title="随表单提交与已有文件" demo={Resume}>
+          之前上传过、从后端读回来的文件用 <Code>existingUploadFile</Code> 放进
+          value：状态是完成、不重新上传，给了 <Code>url</Code> 时文件名链到它，可以移除。不给{' '}
+          <Code>upload</Code> 时新选的停在“已选择”，等提交时一起处理；写了 <Code>name</Code>{' '}
+          时有一个隐藏的 file input 带着新选的文件，原生提交、FormData
+          都拿得到。单选时新文件替换旧的。
+        </Example>
+        <Example id="folder" title="上传整个文件夹" demo={Folder}>
+          <Code>directory</Code>{' '}
+          {'时对话框里选文件夹（webkitdirectory），拖进来的文件夹也递归读出里面的文件；各文件的 '}
+          <Code>webkitRelativePath</Code> 是相对路径（拖进来的也补上），列表里显示它。FileDrop
+          同样有这个属性。
+        </Example>
+      </ExampleColumn>
+    </Examples>
+    <KeyboardReference
+      keys={[
+        ['Enter / Space', '在选择区域上：打开系统的文件对话框（原生 input[type=file]）'],
+        ['Tab', '每个文件的“重试”“移除”按钮都在 Tab 顺序里'],
+        ['Enter / Space', '在“重试”“移除”上：重新上传 / 移除这个文件（上传中的会中止）'],
+      ]}
+    />
+    <ApiReference api={[api, dropApi]} />
+  </DocPage>
+));

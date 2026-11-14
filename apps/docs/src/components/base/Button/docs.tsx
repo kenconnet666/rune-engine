@@ -1,0 +1,121 @@
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { Code } from '@rune-engine/components';
+import api from 'virtual:api/ButtonProps';
+import groupApi from 'virtual:api/ButtonGroupProps';
+import copyApi from 'virtual:api/CopyButtonProps';
+import iconApi from 'virtual:api/IconButtonProps';
+import iconLinkApi from 'virtual:api/IconLinkButtonProps';
+import linkApi from 'virtual:api/LinkButtonProps';
+import { ApiReference } from '../../../site/ApiReference';
+import { DocPage } from '../../../site/DocPage';
+import { ExampleColumn, Examples } from '../../../site/Examples';
+import { Example } from '../../../site/Example';
+import Basic from './demo/Basic.tsx?demo';
+import Disabled from './demo/Disabled.tsx?demo';
+import FullWidth from './demo/FullWidth.tsx?demo';
+import Group from './demo/Group.tsx?demo';
+import IconButtons from './demo/IconButtons.tsx?demo';
+import Links from './demo/Links.tsx?demo';
+import Loading from './demo/Loading.tsx?demo';
+import Presets from './demo/Presets.tsx?demo';
+import Radius from './demo/Radius.tsx?demo';
+import Sizes from './demo/Sizes.tsx?demo';
+import Tones from './demo/Tones.tsx?demo';
+import Types from './demo/Types.tsx?demo';
+import Variants from './demo/Variants.tsx?demo';
+import WithIcon from './demo/WithIcon.tsx?demo';
+
+export const meta = {
+  title: 'Button 按钮',
+  description:
+    '触发一个操作：提交表单、打开对话框、删除一项。只有图标时用 IconButton，跳转到别的页面用 LinkButton / IconLinkButton；关闭、复制有预设的按钮。',
+  order: 1,
+};
+
+export default _component(() => () => (
+  <DocPage
+    wide
+    meta={meta}
+    imports="import { Button, IconButton, ButtonGroup, LinkButton, IconLinkButton, CloseButton, ClearButton, CopyButton } from '@rune-engine/components';"
+  >
+    <Examples>
+      <ExampleColumn>
+        <Example id="basic" title="基础用法" demo={Basic}>
+          一组操作里只有一个主要操作用默认的实底样式，其余按重要程度依次减弱；破坏性操作放在另一侧。
+        </Example>
+        <Example id="variants" title="样式" demo={Variants}>
+          六种样式对应不同的强调程度：<Code>solid</Code> 最醒目，<Code>link</Code>{' '}
+          像文字链接，放在句子中间。
+        </Example>
+        <Example id="tones" title="色调" demo={Tones}>
+          六种色调与六种样式任意组合，和 Badge、Alert 等是同一套色调：<Code>neutral</Code>{' '}
+          用于不需要强调的操作（如“取消”），<Code>danger</Code> 用于删除这类破坏性操作，
+          <Code>info</Code>、<Code>success</Code>、<Code>warning</Code> 用于和提示信息呼应的操作。
+        </Example>
+        <Example id="sizes" title="尺寸" demo={Sizes}>
+          <Code>size</Code>{' '}
+          对应主题的字号档位，内边距、图标随之按比例缩放；不写时继承所在文字的字号。IconButton
+          同样适用。
+        </Example>
+        <Example id="radius" title="圆角" demo={Radius}>
+          <Code>radius</Code> 从直角到胶囊形，七档与 Badge、Card、输入框共用（对应主题的
+          radii，随字号缩放）；图标按钮写 <Code>full</Code> 是圆形。整个应用统一改用{' '}
+          <Code>createUi</Code> 的 <Code>defaults.Button</Code>。
+        </Example>
+        <Example id="types" title="表单里的按钮与波纹" demo={Types}>
+          <Code>type</Code> 默认是 <Code>button</Code>，放在表单里也不会误提交；
+          <Code>submit</Code> 提交所在的表单，<Code>reset</Code> 触发表单的 reset 事件。
+          <Code>ripple={'{false}'}</Code> 关掉单个按钮的点击波纹，全局默认由 <Code>createUi</Code>{' '}
+          的 <Code>ripple</Code> 决定。
+        </Example>
+      </ExampleColumn>
+      <ExampleColumn>
+        <Example id="icons" title="图标" demo={WithIcon}>
+          <Code>icon</Code> 在文字前，<Code>iconEnd</Code>{' '}
+          在文字后；文字旁也可以放快捷键、计数。只有图标时用 IconButton，见下一节。
+        </Example>
+        <Example id="icon-buttons" title="图标按钮" demo={IconButtons}>
+          <Code>IconButton</Code>
+          {
+            ' 宽高相等，默认 ghost 样式、中性色（一排图标不会满屏品牌色）；样式、色调、尺寸、圆角同 Button。没有文字，类型上必须给 '
+          }
+          <Code>aria-label</Code>，读屏才知道它是做什么的。
+        </Example>
+        <Example id="presets" title="关闭、清空与复制" demo={Presets}>
+          <Code>CloseButton</Code>、<Code>ClearButton</Code>
+          {
+            ' 带好了图标与读屏名称（取语言包）；ClearButton 是输入框里的清空按钮，TextField、Select 的 '
+          }
+          <Code>clearable</Code>
+          {' 用的就是它。'}
+          <Code>CopyButton</Code> 复制成功时图标换成对勾、读屏播报“已复制”；
+          <Code>value</Code> 可以是返回 Promise 的函数（点击时才生成，等待时转圈），
+          <Code>timeout</Code> 是对勾停留的毫秒数，<Code>onCopied</Code> 拿到是否成功。
+        </Example>
+        <Example id="loading" title="加载中" demo={Loading}>
+          加载中显示旋转指示，宽度不变，点击无效，焦点留在按钮上；很快完成的操作不会闪一下。
+        </Example>
+        <Example id="full-width" title="占满宽度" demo={FullWidth}>
+          <Code>fullWidth</Code> 让按钮占满容器宽度，并排的几个平分：登录框、移动端底部的操作。
+        </Example>
+        <Example id="links" title="链接按钮" demo={Links}>
+          跳转到别的页面用 <Code>LinkButton</Code>（a 元素）而不是 Button
+          加点击跳转：能右键、在新标签页打开，读屏念“链接”。外观同 Button，站内链接经 router
+          不刷新页面地跳转，<Code>external</Code> 在新窗口打开。只有图标的链接用{' '}
+          <Code>IconLinkButton</Code>。
+        </Example>
+        <Example id="group" title="按钮组" demo={Group}>
+          ButtonGroup 把相关的按钮连成一条：拆分按钮、翻页、缩放、对齐方式。组上写的{' '}
+          <Code>variant</Code>、<Code>tone</Code>、<Code>size</Code> 是组里按钮的默认值；
+          <Code>orientation="vertical"</Code> 竖排。
+        </Example>
+        <Example id="disabled" title="不可用" demo={Disabled}>
+          <Code>disabled</Code> 是原生的不可用，按钮不能聚焦；需要说明原因时加{' '}
+          <Code>focusableWhenDisabled</Code>
+          ，按钮仍能聚焦，悬停或聚焦时提示照常显示。
+        </Example>
+      </ExampleColumn>
+    </Examples>
+    <ApiReference api={[api, iconApi, groupApi, linkApi, iconLinkApi, copyApi]} />
+  </DocPage>
+));

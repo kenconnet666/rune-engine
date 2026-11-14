@@ -1,0 +1,35 @@
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { Card, Grid, Stat } from '@rune-engine/components';
+
+export default _component(() => () => (
+  <Grid minItemWidth="12em" balanced gap="md">
+    <Card>
+      <Stat label="订单数" value={1284} change={0.123} changeLabel="较上月" />
+    </Card>
+    <Card>
+      <Stat label="客单价" value={86.4} unit="元" change={-0.042} changeLabel="较上月" />
+    </Card>
+    <Card>
+      <Stat
+        label="平均响应时间"
+        value={212}
+        unit="ms"
+        change={-0.18}
+        changeLabel="较上周"
+        invertChange
+        description="越低越好：下降显示为改善"
+      />
+    </Card>
+    <Card>
+      {/* 变化量是绝对数而不是比例：changeFormat 换成带符号的整数 */}
+      <Stat
+        label="新增会员"
+        value={342}
+        unit="人"
+        change={58}
+        changeFormat={{ signDisplay: 'exceptZero' }}
+        changeLabel="较昨日"
+      />
+    </Card>
+  </Grid>
+));

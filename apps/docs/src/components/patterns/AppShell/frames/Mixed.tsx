@@ -1,0 +1,162 @@
+// 混合布局：顶栏是一级导航（NavBar），侧栏是当前模块的二级导航（品牌格右侧的按钮把它收起成图标栏）
+import {
+  BarChart3,
+  Box,
+  FileSignature,
+  FileText,
+  House,
+  LogOut,
+  ReceiptText,
+  Scale,
+  ShoppingCart,
+  Truck,
+  Users,
+} from '@lucide/icons';
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import {
+  Card,
+  Flex,
+  Grid,
+  H1,
+  ItemList,
+  ItemListItem,
+  Menu,
+  MenuItem,
+  NavBar,
+  NavItem,
+  NavList,
+  Small,
+  Stat,
+  Strong,
+  UserButton,
+  type NavBarItem,
+} from '@rune-engine/components';
+import { AppShell, AppShellBrand } from '@rune-engine/components/patterns';
+
+const sidePages = {
+  po: { title: '采购单', icon: ReceiptText },
+  quote: { title: '询价比价', icon: Scale },
+  contract: { title: '合同', icon: FileSignature },
+  suppliers: { title: '供应商', icon: Users },
+  logistics: { title: '到货跟踪', icon: Truck },
+} as const;
+
+// 各页的几个指标：示例里页面只有标题与指标
+const stats: Record<string, [label: string, value: number, unit?: string][]> = {
+  home: [
+    ['待我审批', 6],
+    ['本月采购额', 1_284_000, '元'],
+    ['在途订单', 23],
+  ],
+  po: [
+    ['草稿', 4],
+    ['审批中', 9],
+    ['已下单', 57],
+  ],
+  quote: [
+    ['进行中的询价', 2],
+    ['已收报价', 11],
+    ['平均降幅', 6.8, '%'],
+  ],
+  contract: [
+    ['生效中', 38],
+    ['30 天内到期', 3],
+    ['待盖章', 1],
+  ],
+  suppliers: [
+    ['合格供应商', 142],
+    ['考察中', 7],
+    ['本季新增', 5],
+  ],
+  logistics: [
+    ['今日到货', 8],
+    ['延误', 2],
+    ['待验收', 5],
+  ],
+};
+type SidePage = keyof typeof sidePages;
+
+// 顶栏的一级导航：各模块（示例里只有“采购”是做好的）
+const modules: NavBarItem[] = [
+  { label: '工作台', href: '#home', icon: House },
+  { label: '采购', href: '#purchase', icon: ShoppingCart },
+  { label: '报表', href: '#reports', icon: BarChart3 },
+  { label: '文档', href: '#docs', icon: FileText },
+];
+
+// 侧栏底部的按钮把侧栏收成图标栏，二级导航只剩图标，悬停看名称；右上角的按钮进入全屏
+const todos = [
+  ['审核供应商资质：华辰精密', '采购部 · 林小满', '今天'],
+  ['确认报价：线束卡箍二期', '商务部 · 周一航', '明天'],
+  ['复核对账单：九月', '财务部 · 陈默', '周五'],
+];
+
+export default _component(() => {
+  let current = _state('home');
+  let collapsed = _state(false);
+  const title = () => (current === 'home' ? '工作台' : sidePages[current as SidePage].title);
+
+  return () => (
+    <AppShell
+      brand={
+        <AppShellBrand href="#home" icon={Box}>
+          采购协同
+        </AppShellBrand>
+      }
+      nav={<NavBar items={modules} aria-label="模块" />}
+      header={
+        // 顶栏放了一级导航，账号只留头像
+        <Menu trigger={(props) => <UserButton {...props} name="林小满" compact />}>
+          <MenuItem icon={LogOut} tone="danger">
+            退出登录
+          </MenuItem>
+        </Menu>
+      }
+      sidebar={
+        <NavList aria-label="采购">
+          {(Object.keys(sidePages) as SidePage[]).map((page) => (
+            <NavItem
+              key={page}
+              href={`#${page}`}
+              icon={sidePages[page].icon}
+              active={current === page}
+              badge={page === 'quote' ? 2 : 0}
+              onClick={(event: MouseEvent) => {
+                event.preventDefault();
+                current = page;
+              }}
+            >
+              {sidePages[page].title}
+            </NavItem>
+          ))}
+        </NavList>
+      }
+      sidebarCollapsible
+      _sidebarCollapsed={collapsed}
+    >
+      <Flex direction="column" gap="md">
+        <H1>{title()}</H1>
+        <Grid minItemWidth="10rem" gap="md" balanced>
+          {(stats[current] ?? []).map(([label, value, unit]) => (
+            <Card key={label}>
+              <Stat label={label} value={value} unit={unit} />
+            </Card>
+          ))}
+        </Grid>
+        <Card header={<Strong>待我处理</Strong>} padding="sm">
+          <ItemList divided inset="sm">
+            {todos.map(([title, from, due]) => (
+              <ItemListItem
+                key={title}
+                title={title}
+                description={from}
+                end={<Small tone="muted">{due}</Small>}
+                href={`#todo-${encodeURIComponent(title)}`}
+              />
+            ))}
+          </ItemList>
+        </Card>
+      </Flex>
+    </AppShell>
+  );
+});

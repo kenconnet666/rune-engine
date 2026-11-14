@@ -1,0 +1,663 @@
+/**
+ * 从组件库的类型与 JSDoc 生成 API 文档的数据：`import api from 'virtual:api/ButtonProps'`。
+ *
+ * 读的是写代码时就有的信息，不另外手写：
+ * - 每个 prop 的类型、必填、说明（JSDoc）、`@default` 标签；
+ * - 档位类的类型（`keyof ButtonVariants`、`TextSize`）展开成可选值，每个值带上接口里那个键的注释；
+ * - 组件实现的参数解构里的默认值（`type = 'button'`）与 `_bindable(…)`（可以 `_bind` 双向绑定）；
+ * - 接口自己的注释（“未声明的属性落到 button 上”）；
+ * - 部件的标记（源码里的 partAttrs、部件辅助函数、配方的 parts）与能不能在 components 里定制（UiComponents 的键与注释）。
+ * 只列组件库里声明的 prop；继承来的原生属性与通用的 sx 不逐条列出。
+ *
+ * 用 TypeScript 7 的程序化 API（typescript/sync）：程序与检查器在 tsc 子进程里，这里同步调用。程序只建一次，
+ * 组件库的源码变了，下次读取时重建（热更新时 API 表跟着变）。提取放在 Worker 线程里（api-worker.ts），
+ * 开发服务器启动时就开始建程序，期间照常响应其他请求。
+ * 提取结果按源码哈希存在磁盘上（apiCache），源码没变时重启、再次构建都直接读，不建程序。
+ */
+import { createHash } from 'node:crypto';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Worker } from 'node:worker_threads';
+import { version as typescriptVersion } from 'typescript';
+import {
+  type Declaration,
+  type Expression,
+  type Node,
+  type NodeArray,
+  SyntaxKind,
+  type TypeElement,
+  type TypeNode,
+  getNameOfDeclaration,
+  isArrowFunction,
+  isAsExpression,
+  isCallExpression,
+  isFunctionExpression,
+  isIdentifier,
+  isInterfaceDeclaration,
+  isIntersectionTypeNode,
+  isLiteralTypeNode,
+  isObjectBindingPattern,
+  isParenthesizedTypeNode,
+  isPropertyDeclaration,
+  isPropertySignatureDeclaration,
+  isSatisfiesExpression,
+  isStringLiteral,
+  isTypeAliasDeclaration,
+  isTypeAssertion,
+  isTypeLiteralNode,
+  isTypeOperatorNode,
+  isTypeReferenceNode,
+  isUnionTypeNode,
+  isVariableDeclaration,
+} from 'typescript/ast';
+import { API, SymbolFlags, type Checker, type Program, type Symbol } from 'typescript/sync';
+import type { Plugin } from 'vite';
+import { keyboardByComponent } from './keyboard.ts';
+import type {
+  ApiProp,
+  ApiPropKinds,
+  ApiValue,
+  ComponentApi,
+} from '@rune-engine/components/docs-kit';
+
+// vite.config 把 fs 映射成浏览器里的替身（演练场的 Babel 要用），测试加载本文件时也会被映射：直接取 Node 的内置模块
+const { existsSync, globSync, mkdirSync, readFileSync, rmSync, writeFileSync } =
+  process.getBuiltinModule('node:fs');
+
+const ui = resolve(dirname(fileURLToPath(import.meta.url)), '../../../packages/components');
+const src = join(ui, 'src').split('\\').join('/');
+/** 部件属性的通用部分（sx）声明在这里：不逐条列出 */
+const PART_PROPS_FILE = `${src}/utils/props.ts`;
+
+/** 组件的定制登记在这里（UiComponents）：键是配方名，注释里写了共用它的组件 */
+const COMPONENTS_FILE = `${src}/config/components.ts`;
+
+/** 组件库的 package.json：入口登记在它的 exports 里 */
+const MANIFEST = join(ui, 'package.json').split('\\').join('/');
+
+/** 组件库的全部入口：导入路径（@rune-engine/components/patterns）与源码文件（相对 src） */
+function readEntries() {
+  const exports = JSON.parse(readFileSync(MANIFEST, 'utf8')).exports as Record<string, unknown>;
+  return Object.entries(exports).flatMap(([key, target]) =>
+    typeof target === 'string'
+      ? [{ name: `@rune-engine/components${key.slice(1)}`, source: target.replace('./src/', '') }]
+      : [],
+  );
+}
+
+/** 当前程序的入口：每次重建程序时重读，加了子路径不用重启开发服务器 */
+let entries = readEntries();
+let api: API | undefined;
+let program: Program | undefined;
+/** 当前程序里各入口导出的名字 → 符号（别名已解开）与导出它的入口；同名时取先登记的入口 */
+let exported = new Map<string, { symbol: Symbol; entry: string }>();
+let stale = true;
+
+/** 组件库源码变了：下次读取时重建程序 */
+export function invalidateProgram(): void {
+  stale = true;
+}
+
+/** 提前建好程序（Worker 空闲时做），之后提取 API 不用等 */
+export function warmProgram(): void {
+  currentProgram();
+}
+
+function currentProgram(): Program {
+  if (program && !stale) return program;
+  api ??= new API();
+  const { options } = api.parseConfigFile(join(ui, 'tsconfig.json'));
+  // 只从入口出发：tsconfig 里的测试文件会把 vitest、playwright 的类型也拉进来，程序大一倍
+  entries = readEntries();
+  program?.getProject().dispose();
+  program = api.createProgram(
+    entries.map((entry) => `${src}/${entry.source}`),
+    options,
+  );
+  exported = exportTable(api, program);
+  stale = false;
+  return program;
+}
+
+// 每次调用检查器都是一次跨进程往返：导出表建程序时一次取齐，一批符号的注释用 api.batch 一次取回
+function exportTable(api: API, program: Program) {
+  const { checker } = program.getProject();
+  const table = new Map<string, { symbol: Symbol; entry: string }>();
+  for (const entry of entries) {
+    const file = program.getSourceFile(`${src}/${entry.source}`)!;
+    for (const symbol of checker.getExportsOfModule(checker.getSymbolAtLocation(file)!)) {
+      if (!table.has(symbol.name)) table.set(symbol.name, { symbol, entry: entry.name });
+    }
+  }
+  const aliases = [...table.values()].filter(({ symbol }) => symbol.flags & SymbolFlags.Alias);
+  const targets = api.batch(...aliases.map(({ symbol }) => checker.getAliasedSymbol.gen(symbol)));
+  aliases.forEach((item, index) => (item.symbol = targets[index]!));
+  return table;
+}
+
+const currentChecker = (): Checker => currentProgram().getProject().checker;
+
+const docOf = (symbol: Symbol, checker: Checker) => symbol.getDocumentationComment(checker).trim();
+
+const docsOf = (symbols: readonly Symbol[], checker: Checker) =>
+  api!
+    .batch(...symbols.map((symbol) => checker.getDocumentationCommentOfSymbol.gen(symbol)))
+    .map((doc) => doc.trim());
+
+/** 符号的声明里第一个满足条件的语法树节点（声明是句柄，按需从程序取回） */
+function declarationOf<T extends Node>(
+  symbol: Symbol,
+  is: (node: Node) => node is T,
+): T | undefined {
+  for (const handle of symbol.declarations) {
+    const node = handle.resolve();
+    if (node && is(node)) return node;
+  }
+  return undefined;
+}
+
+const fileOf = (node: Node) => node.getSourceFile().fileName.split('\\').join('/');
+
+const resolveAlias = (symbol: Symbol | undefined, checker: Checker) =>
+  symbol && symbol.flags & SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+
+/**
+ * 成员按源码里写的顺序：自己的成员在前，再按 extends 的顺序展开基类型；交叉、联合逐个展开，
+ * Omit、Pick 这类工具类型展开第一个类型参数。检查器给出的属性顺序是实现细节（TypeScript 6、7 就不一样），
+ * 文档表不跟着它变
+ */
+function memberOrder(symbol: Symbol, checker: Checker, seen = new Set<number>()): string[] {
+  if (seen.has(symbol.id)) return [];
+  seen.add(symbol.id);
+  const ofType = (node: TypeNode): string[] => {
+    if (isTypeLiteralNode(node)) return memberNames(node.members);
+    if (isIntersectionTypeNode(node) || isUnionTypeNode(node)) return node.types.flatMap(ofType);
+    if (isParenthesizedTypeNode(node)) return ofType(node.type);
+    if (isTypeReferenceNode(node)) return ofReference(node.typeName, node.typeArguments);
+    return [];
+  };
+  const ofReference = (name: Node, typeArguments?: NodeArray<TypeNode>) => {
+    const target = resolveAlias(checker.getSymbolAtLocation(name), checker);
+    const first = typeArguments?.[0];
+    return [...(target ? memberOrder(target, checker, seen) : []), ...(first ? ofType(first) : [])];
+  };
+  return symbol.declarations.flatMap((handle) => {
+    const node = handle.resolve();
+    if (node && isTypeAliasDeclaration(node)) return ofType(node.type);
+    if (!node || !isInterfaceDeclaration(node)) return [];
+    const bases = (node.heritageClauses ?? []).flatMap((clause) =>
+      clause.types.flatMap((type) =>
+        isTypeReferenceNode(type) ? ofType(type) : ofReference(type.expression, type.typeArguments),
+      ),
+    );
+    return [...memberNames(node.members), ...bases];
+  });
+}
+
+const memberNames = (members: NodeArray<TypeElement>) =>
+  members.flatMap((member) => getNameOfDeclaration(member)?.getText() ?? []);
+
+/** 按 memberOrder 排序；顺序里找不到的排在最后，保持原来的相对顺序 */
+function sortByOrder<T>(items: T[], order: string[], nameOf: (item: T) => string): T[] {
+  const rank = new Map<string, number>();
+  order.forEach((name, index) => rank.has(name) || rank.set(name, index));
+  const of = (item: T) => rank.get(nameOf(item)) ?? order.length;
+  return items.sort((a, b) => of(a) - of(b));
+}
+
+/** 组件的符号；入口没有导出这个名字时 undefined */
+const componentSymbol = (name: string): Symbol | undefined => exported.get(name)?.symbol;
+
+/** 组件库入口（含子路径）导出的名字 → 符号 */
+function exportedSymbol(name: string): Symbol {
+  const symbol = componentSymbol(name);
+  if (symbol) return symbol;
+  throw new Error(
+    `@rune-engine/components 的入口（${entries.map((entry) => entry.name).join('、')}）都没有导出 ${name}`,
+  );
+}
+
+/** 档位类型展开成可选值：`keyof X` 取 X 的键与注释；类型别名顺着找；字面量联合直接列出 */
+function valuesOf(node: TypeNode | undefined, checker: Checker, depth = 0): ApiValue[] | undefined {
+  if (!node || depth > 3) return undefined;
+  if (isTypeOperatorNode(node) && node.operator === SyntaxKind.KeyOfKeyword) {
+    const properties = checker.getPropertiesOfType(checker.getTypeFromTypeNode(node.type));
+    const descriptions = docsOf(properties, checker);
+    const values = properties.map((property, index) => ({
+      value: property.name,
+      description: descriptions[index]!,
+    }));
+    const target =
+      isTypeReferenceNode(node.type) &&
+      resolveAlias(checker.getSymbolAtLocation(node.type.typeName), checker);
+    return target
+      ? sortByOrder(values, memberOrder(target, checker), (item) => item.value)
+      : values;
+  }
+  if (isTypeReferenceNode(node)) {
+    const resolved = resolveAlias(checker.getSymbolAtLocation(node.typeName), checker);
+    const alias = resolved && declarationOf(resolved, isTypeAliasDeclaration);
+    return alias ? valuesOf(alias.type, checker, depth + 1) : undefined;
+  }
+  if (isUnionTypeNode(node)) {
+    const literals = node.types.flatMap((type) =>
+      isLiteralTypeNode(type) && isStringLiteral(type.literal) ? [type.literal.text] : [],
+    );
+    // 联合里混着别的类型（如 TextSize | number）时只展开其中的档位
+    const nested = node.types.flatMap((type) => valuesOf(type, checker, depth + 1) ?? []);
+    const values = [...literals.map((value) => ({ value, description: '' })), ...nested];
+    return values.length ? values : undefined;
+  }
+  return undefined;
+}
+
+/** 组件实现的参数解构：prop → 默认值的源码、是否 _bindable */
+function implementationDefaults(componentName: string) {
+  const defaults = new Map<string, { value?: string; bindable: boolean }>();
+  const symbol = componentSymbol(componentName);
+  const call = symbol && declarationOf(symbol, isVariableDeclaration)?.initializer;
+  if (!call || !isCallExpression(call)) return defaults;
+  const setup = call.arguments[0];
+  if (!setup || !(isArrowFunction(setup) || isFunctionExpression(setup))) return defaults;
+  const pattern = setup.parameters[0]?.name;
+  if (!pattern || !isObjectBindingPattern(pattern)) return defaults;
+  for (const element of pattern.elements) {
+    const key = element.propertyName ?? element.name;
+    const name = key && (isIdentifier(key) || isStringLiteral(key)) ? key.text : undefined;
+    if (!name || !element.initializer) continue;
+    const initializer = element.initializer;
+    const isBindable =
+      isCallExpression(initializer) && initializer.expression.getText() === '_bindable';
+    const expression = isBindable ? initializer.arguments[0] : initializer;
+    defaults.set(name, {
+      value: expression && withoutAssertions(expression).getText(),
+      bindable: isBindable,
+    });
+  }
+  return defaults;
+}
+
+/** 默认值里的类型断言只是给类型检查看的（_bindable(0 as V)）：表格里显示表达式本身 */
+function withoutAssertions(node: Expression): Expression {
+  while (isAsExpression(node) || isSatisfiesExpression(node) || isTypeAssertion(node)) {
+    node = node.expression;
+  }
+  return node;
+}
+
+function kindOf(name: string): keyof ApiPropKinds {
+  if (/^props[A-Z]/.test(name)) return 'part';
+  if (/^on[A-Z]/.test(name)) return 'event';
+  if (name === 'children' || /^render[A-Z]/.test(name)) return 'content';
+  return 'prop';
+}
+
+/**
+ * Props 接口对应的组件：接口名去掉 Props（ButtonBaseProps → ButtonBase）；
+ * 没有这个导出时是泛型组件的 XxxBaseProps，再去掉 Base（SelectBaseProps → Select）
+ */
+function componentOf(interfaceName: string): string {
+  const component = interfaceName.replace(/Props$/, '');
+  return componentSymbol(component) ? component : component.replace(/Base$/, '');
+}
+
+const isPropertyLike = (node: Node) =>
+  isPropertySignatureDeclaration(node) || isPropertyDeclaration(node);
+
+/** 属性的声明按源码位置排：联合类型的同名 prop（单选、多选两种写法）以先写的那种为准 */
+function sourceOrder(property: Symbol): Node[] {
+  return property.declarations
+    .flatMap((handle) => handle.resolve() ?? [])
+    .sort((a, b) => fileOf(a).localeCompare(fileOf(b)) || a.pos - b.pos);
+}
+
+/** 联合类型的同名 prop：各个声明的注释按源码顺序拼起来，相同的只留一份 */
+function unionDoc(declarations: Node[], checker: Checker): string {
+  const docs = docsOf(
+    declarations.map((node) => api!.getSymbol(node as Declaration)),
+    checker,
+  );
+  return [...new Set(docs.filter(Boolean))].join('\n');
+}
+
+/** 一个 Props 接口的 API 数据，默认值从对应组件的参数里读 */
+/** 组件名 → 连字符小写（data-scope 的写法，同 partAttrs） */
+const kebab = (name: string) =>
+  name.replace(/[A-Z]/g, (c, index: number) => (index ? `-${c.toLowerCase()}` : c.toLowerCase()));
+
+/** 能在 components 里定制的组件：组件名 → UiComponents 的键（注释里列了共用同一个配方的组件） */
+function customizableNames(): Map<string, string> {
+  const text = readFileSync(COMPONENTS_FILE, 'utf8');
+  const body = text.slice(text.indexOf('export interface UiComponents'));
+  const names = new Map<string, string>();
+  for (const match of body.matchAll(/\/\*\*([^*]*)\*\/\s*\n\s*(\w+): ComponentConfig/g)) {
+    const key = match[2]!;
+    names.set(key, key);
+    for (const name of match[1]!.match(/[A-Z][A-Za-z]+/g) ?? []) names.set(name, key);
+  }
+  return names;
+}
+
+/** 配方名 → 它的部件（`css.recipe({ name: 'Button', parts: ['root', …] })`），在整个组件库的源码里找 */
+let recipeParts: Map<string, string[]> | undefined;
+function recipePartsOf(name: string): string[] | undefined {
+  if (!recipeParts) {
+    recipeParts = new Map();
+    for (const file of globSync(`${src}/**/*.{ts,tsx}`)) {
+      const text = readFileSync(file, 'utf8');
+      for (const match of text.matchAll(
+        /name:\s*'(\w+)',(?:\s*\/\/[^\n]*)*\s*parts:\s*\[([^\]]*)\]/g,
+      )) {
+        recipeParts.set(
+          match[1]!,
+          [...match[2]!.matchAll(/'([\w-]+)'/g)].map((part) => part[1]!),
+        );
+      }
+    }
+  }
+  return recipeParts.get(name);
+}
+
+/**
+ * 组件的部件标记：组件所在文件里给这个组件名打的标记（partAttrs({ name }, 'x')、部件辅助函数 xxxPart('x')），
+ * 再加上同名配方的部件；都没有时是 undefined
+ */
+function partsOf(component: string, file: string | undefined, recipe: string | undefined) {
+  const names = new Set<string>();
+  if (file) {
+    const text = readFileSync(file, 'utf8');
+    const helpers = new Map<string, string>();
+    for (const match of text.matchAll(
+      /const (\w+) = \(part: string\) => partAttrs\(\{ name: '(\w+)' \}, part\)/g,
+    ))
+      helpers.set(match[1]!, match[2]!);
+    for (const match of text.matchAll(/(\w+)\('([\w-]+)'\)/g))
+      if (helpers.get(match[1]!) === component) names.add(match[2]!);
+    for (const match of text.matchAll(/partAttrs\(\{ name: '(\w+)' \}, '([\w-]+)'\)/g))
+      if (match[1] === component) names.add(match[2]!);
+  }
+  const fromRecipe = recipePartsOf(recipe ?? component);
+  if (fromRecipe) for (const part of fromRecipe) names.add(part);
+  if (names.size === 0) return undefined;
+  return { scope: kebab(recipe && fromRecipe ? recipe : component), names: [...names] };
+}
+
+export function extractComponentApi(interfaceName: string): ComponentApi {
+  const checker = currentChecker();
+  const symbol = exportedSymbol(interfaceName);
+  if (!symbol.declarations.length) throw new Error(`找不到 ${interfaceName} 的声明`);
+  const type = checker.getDeclaredTypeOfSymbol(symbol);
+  const component = componentOf(interfaceName);
+  const defaults = implementationDefaults(component);
+
+  // 继承来的原生属性只看声明在哪个文件，不取注释
+  const declared = checker.getPropertiesOfType(type).flatMap((property) => {
+    const declarations = sourceOrder(property);
+    const file = declarations[0] && fileOf(declarations[0]);
+    return file?.startsWith(src) && file !== PART_PROPS_FILE ? [{ property, declarations }] : [];
+  });
+  sortByOrder(declared, memberOrder(symbol, checker), ({ property }) => property.name);
+  const symbols = declared.map(({ property }) => property);
+  const descriptions = docsOf(symbols, checker);
+  const tags = api!.batch(...symbols.map((property) => checker.getJsDocTagsOfSymbol.gen(property)));
+  const props: ApiProp[] = declared.map(({ property, declarations }, index) => {
+    const declaration = declarations[0]!;
+    const typeNode = isPropertyLike(declaration) ? declaration.type : undefined;
+    const tag = tags[index]!.find((item) => item.name === 'default');
+    const implementation = defaults.get(property.name);
+    return {
+      name: property.name,
+      kind: kindOf(property.name),
+      type:
+        typeNode?.getText().replace(/\s+/g, ' ') ??
+        checker.typeToString(checker.getTypeOfSymbol(property)),
+      required: !(property.flags & SymbolFlags.Optional),
+      default: tag ? tag.text : implementation?.value,
+      bindable: implementation?.bindable || undefined,
+      description: declarations.length > 1 ? unionDoc(declarations, checker) : descriptions[index]!,
+      values: valuesOf(typeNode, checker),
+    };
+  });
+  // 说明取组件自己的注释（“按钮（button）：样式、色调…”），没有时才用接口的（“未声明的属性落到…上”这类）
+  const componentDoc = componentSymbol(component);
+  const customizable = customizableNames().get(component);
+  const declaration = componentDoc && declarationOf(componentDoc, isVariableDeclaration);
+  const parts = partsOf(component, declaration && fileOf(declaration), customizable);
+  return {
+    name: interfaceName,
+    component,
+    description: (componentDoc && docOf(componentDoc, checker)) || docOf(symbol, checker),
+    props,
+    ...(parts ? { parts } : {}),
+    ...(customizable ? { customizable } : {}),
+  };
+}
+
+/** 组件目录里的一项：组件名、从哪个入口导入、所在分类（源码目录）与 API 数据 */
+export interface CatalogEntry {
+  name: string;
+  entry: string;
+  category: string;
+  api: ComponentApi;
+}
+
+/**
+ * 各入口导出的组件：同一个入口同时导出了值 Xxx 与接口 XxxProps 的都算，按组件名排序。
+ * 演练场的目录只要属性与内容；full 时是完整的 API（组件规格，给 C# 版本比对）
+ */
+export function extractCatalog(full = false): CatalogEntry[] {
+  currentProgram();
+  const entryOf = (name: string) => exported.get(name)?.entry;
+  const catalog: CatalogEntry[] = [];
+  for (const name of [...exported.keys()].sort()) {
+    const component = name.replace(/Props$/, '');
+    if (component === name || !/^[A-Z]/.test(component) || entryOf(component) !== entryOf(name))
+      continue;
+    const declaration = exportedSymbol(component).declarations[0]?.resolve();
+    const path = declaration && fileOf(declaration);
+    if (!path?.startsWith(src)) continue;
+    const api = extractComponentApi(name);
+    // 演练场只调属性与内容：部件属性、事件不进目录，数据小一半
+    const props = full
+      ? api.props
+      : api.props.filter((prop) => prop.kind === 'prop' || prop.kind === 'content');
+    catalog.push({
+      name: component,
+      entry: entryOf(component)!,
+      category: path.slice(src.length + 1).split('/')[0]!,
+      api: { ...api, props },
+    });
+  }
+  return catalog;
+}
+
+const PREFIX = 'virtual:api/';
+const CATALOG = 'virtual:api-catalog';
+
+/** 发给 api-worker.ts 的请求：接口名（`ButtonProps`）或整个目录（full 时是完整的组件规格）；回复是模块代码 */
+export type ApiRequest = { id: number; interfaceName?: string; full?: boolean };
+export type ApiResponse = { id: number; code: string } | { id: number; error: string };
+
+/** 在 Worker 线程里提取 API；Worker 第一次用到时才启动 */
+function apiWorker() {
+  let worker: Worker | undefined;
+  let nextId = 0;
+  let rebuild: ReturnType<typeof setTimeout> | undefined;
+  const pending = new Map<
+    number,
+    { resolve: (code: string) => void; reject: (error: Error) => void }
+  >();
+
+  const current = () => {
+    if (worker) return worker;
+    worker = new Worker(new URL('./api-worker.ts', import.meta.url));
+    worker.unref();
+    worker.on('message', (response: ApiResponse) => {
+      const request = pending.get(response.id);
+      pending.delete(response.id);
+      if ('error' in response) request?.reject(new Error(response.error));
+      else request?.resolve(response.code);
+    });
+    worker.on('error', (error) => {
+      for (const request of pending.values()) request.reject(error);
+      pending.clear();
+      worker = undefined;
+    });
+    return worker;
+  };
+
+  return {
+    /** 接口的 API 数据（不传接口名时是组件目录，full 时是完整的组件规格），返回模块代码 */
+    load: (interfaceName?: string, full?: boolean) =>
+      new Promise<string>((resolve, reject) => {
+        const id = nextId++;
+        pending.set(id, { resolve, reject });
+        current().postMessage({ id, interfaceName, full } satisfies ApiRequest);
+      }),
+    /** 源码变了：马上作废程序；连着保存几个文件时停下来半秒再在后台重建，不一次次重建 */
+    invalidate: () => {
+      current().postMessage('invalidate');
+      clearTimeout(rebuild);
+      rebuild = setTimeout(() => current().postMessage('warm'), 500);
+    },
+    /** 提前建好程序 */
+    warm: () => current().postMessage('warm'),
+    /** 构建结束、服务器关闭：停掉 Worker，不留它在后台建程序 */
+    close: () => {
+      clearTimeout(rebuild);
+      void worker?.terminate();
+      worker = undefined;
+    },
+  };
+}
+
+/**
+ * 提取结果存在 cacheDir/docs-api/<源码哈希> 下：重启开发服务器、再次构建时直接读，不用等 Worker 建几秒的
+ * TypeScript 程序。哈希取组件库与 tsx 包的源码、本文件与 TypeScript 的版本，源码一改就换目录，旧目录删掉
+ */
+function apiCache(cacheDir: string) {
+  const root = join(cacheDir, 'docs-api');
+  let dir: string | undefined;
+  const current = () => (dir ??= join(root, sourceHash()));
+  const file = (name: string) => join(current(), `${name}.js`);
+  return {
+    /** 当前源码已经有缓存（不必预热 Worker） */
+    has: () => existsSync(current()),
+    read(name: string) {
+      try {
+        return readFileSync(file(name), 'utf8');
+      } catch {
+        return undefined;
+      }
+    },
+    write(name: string, code: string) {
+      try {
+        if (!existsSync(current())) {
+          rmSync(root, { recursive: true, force: true });
+          mkdirSync(current(), { recursive: true });
+        }
+        writeFileSync(file(name), code);
+      } catch {
+        // 写不了就下次重新提取
+      }
+    },
+    /** 源码变了：下次读写时重新算哈希 */
+    invalidate: () => (dir = undefined),
+  };
+}
+
+function sourceHash() {
+  const hash = createHash('sha1')
+    .update(typescriptVersion)
+    .update(readFileSync(fileURLToPath(import.meta.url)));
+  const tsx = join(ui, '../tsx');
+  const files = [
+    ...globSync('src/**/*.{ts,tsx}', { cwd: ui }).map((path) => join(ui, path)),
+    ...globSync('{src,types}/**/*.ts', { cwd: tsx }).map((path) => join(tsx, path)),
+  ].sort();
+  for (const path of files) hash.update(path).update(readFileSync(path));
+  return hash.digest('hex').slice(0, 16);
+}
+
+/** 文档页所在的目录：组件规格的键盘行为从这里的 docs.tsx 读 */
+const COMPONENTS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../src/components');
+
+/** 组件规格在站点上的路径：CSharpUi、Blazor 的 CI 取线上的这份与自己的比对 */
+export const SPEC_FILE = 'spec/components.json';
+
+/**
+ * Vite 插件：`virtual:api/<接口名>` 导出那个接口的 API 数据，`virtual:api-catalog` 导出全部组件的目录（组件演练场用）；
+ * 组件库源码变了重新生成。构建时另外输出组件规格（SPEC_FILE）：全部组件的属性、默认值、可选值、部件、能否定制，
+ * 以及文档页键盘一节写的按键（keyboard）
+ */
+export function componentApi(): Plugin {
+  const worker = apiWorker();
+  const loaded = new Set<string>();
+  let cache: ReturnType<typeof apiCache> | undefined;
+  let building = false;
+  const load = async (name: string, interfaceName?: string, full?: boolean) => {
+    const cached = cache?.read(name);
+    if (cached !== undefined) return cached;
+    const code = await worker.load(interfaceName, full);
+    cache?.write(name, code);
+    return code;
+  };
+  return {
+    name: 'docs:component-api',
+    configResolved(config) {
+      cache = apiCache(config.cacheDir);
+      building = config.command === 'build' && !config.build.ssr;
+    },
+    async generateBundle() {
+      if (!building) return;
+      const code = await load('spec', undefined, true);
+      const catalog = JSON.parse(code.replace(/^export default /, '').replace(/;\s*$/, '')) as {
+        name: string;
+      }[];
+      // 键盘行为来自文档页的键盘一节：挂到那一页介绍的组件上
+      const keyboard = keyboardByComponent(COMPONENTS_DIR);
+      const components = catalog.map((entry) =>
+        keyboard.has(entry.name) ? { ...entry, keyboard: keyboard.get(entry.name) } : entry,
+      );
+      const { version } = JSON.parse(readFileSync(MANIFEST, 'utf8')) as { version: string };
+      this.emitFile({
+        type: 'asset',
+        fileName: SPEC_FILE,
+        source: `${JSON.stringify({ package: '@rune-engine/components', version, components }, null, 1)}\n`,
+      });
+    },
+    resolveId: (id) => (id.startsWith(PREFIX) || id === CATALOG ? `\0${id}` : undefined),
+    load(id) {
+      if (id === `\0${CATALOG}`) {
+        loaded.add(id);
+        return load('catalog');
+      }
+      if (!id.startsWith(`\0${PREFIX}`)) return;
+      loaded.add(id);
+      const interfaceName = id.slice(PREFIX.length + 1);
+      return load(interfaceName, interfaceName);
+    },
+    // 构建结束、开发服务器与测试的服务器关闭时都会调用：停掉 Worker。
+    // 只 unref 不够：Worker 的消息端口仍会拖住进程，构建、测试结束后不退出
+    closeBundle: () => worker.close(),
+    configureServer(server) {
+      // Vitest 的服务器没有 httpServer：不预热、不监听文件
+      if (!server.httpServer) return;
+      // 当前源码已有缓存时不必预热：页面直接读缓存，源码改了才需要程序
+      if (!cache?.has()) worker.warm();
+      // 组件库源码在 docs 根目录之外：Vite 只监听页面加载过的文件，没打开过的入口（three/index.ts）改了收不到，
+      // API 数据就一直是旧的。整个源码目录都监听上；package.json 改了 exports（加子路径）也要重建
+      server.watcher.add([src, MANIFEST]);
+      server.watcher.on('change', (file) => {
+        const path = file.split('\\').join('/');
+        if (!path.startsWith(src) && path !== MANIFEST) return;
+        worker.invalidate();
+        cache?.invalidate();
+        for (const id of loaded) {
+          const module = server.moduleGraph.getModuleById(id);
+          if (module) server.moduleGraph.invalidateModule(module);
+        }
+      });
+    },
+  };
+}

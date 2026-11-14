@@ -1,6 +1,7 @@
-# 逐个写出包族：引擎（packages/）、游戏（games/<名字>/）
+# 逐个写出包族：引擎（packages/）、应用（apps/，组件库的文档站）、游戏（games/<名字>/）
 packages:
   - packages/*
+  - apps/*
   - games/miwang/*
 
 # 共享依赖的精确版本；各包用 "catalog:" 引用，升级只改这里。
@@ -45,6 +46,9 @@ catalog:
   three: 0.186.1
   '@types/three': 0.186.0
   shiki: 4.5.0
+  # 文档站（apps/docs，也是复制来的）：只加载用到的几种语言的语法；站点的字体（rune-ui-font 仓库的包）
+  '@shikijs/langs': 4.5.0
+  rune-ui-font: 0.2.0
   pinyin-pro: 3.29.5
   exceljs: 4.4.0
   '@codemirror/autocomplete': 6.20.3

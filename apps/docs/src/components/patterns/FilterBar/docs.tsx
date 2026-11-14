@@ -1,0 +1,56 @@
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { Code, Link } from '@rune-engine/components';
+import api from 'virtual:api/FilterBarProps';
+import { ApiReference } from '../../../site/ApiReference';
+import { DocPage } from '../../../site/DocPage';
+import { Example } from '../../../site/Example';
+import Advanced from './demo/Advanced.tsx?demo';
+import Tasks from './demo/Tasks.tsx?demo';
+
+export const meta = {
+  title: 'FilterBar 查询栏',
+  description:
+    '列表页上方的筛选条件：自动排成栅格，查询与重置在栅格的结束边，不常用的条件收起，在输入框里回车就是查询。',
+  order: 3,
+};
+
+export default _component(() => () => (
+  <DocPage wide meta={meta} imports="import { FilterBar } from '@rune-engine/components/patterns';">
+    <Example id="tasks" title="项目任务的查询" demo={Tasks}>
+      {'条件是 Field。默认只显示一排：按钮在结束边，按剩下的宽度量出放得下几个条件（每个不窄于 '}
+      <Code>minFieldWidth</Code>
+      {'，默认 14em），常用条件在前、'}
+      <Code>more</Code>
+      {
+        ' 在后，放得下的铺满这一排；其余的都收进“展开”，展开后从第二排起，列宽与第一排的每格相同。全部放得下时不出“展开”。比一格宽的条件（一排单选）包一层 '
+      }
+      <Code>GridItem span={'{2}'}</Code> 跨两格。<Code>actions</Code> 是加在“重置”前面的按钮，
+      <Code>end</Code> 接在“查询”后面（QueryTable 的工具栏按钮），
+      <Code>start</Code> 在条件前面（标题）。标签默认在起始边、宽度随文字（
+      <Code>labelWidth</Code> 默认 auto，控件紧跟着标签；条件多、要几行对齐时写固定宽度）。
+      <Code>moreActive</Code>{' '}
+      是收起的条件里已经填了几项，显示在“展开”旁边，免得忘了还有条件生效。外层是{' '}
+      <Code>role="search"</Code> 的表单：在输入框里按回车就是 <Code>onSearch</Code>，
+      <Code>loading</Code> 时“查询”显示加载中。
+    </Example>
+    <Example id="advanced" title="高级筛选" demo={Advanced}>
+      <Code>conditionFields</Code> 给出能组合的字段时，按钮区多一个“高级筛选”，展开后在查询栏下面用{' '}
+      <Link href="/components/condition-builder">ConditionBuilder</Link> 编辑{' '}
+      <Code>_condition</Code>，写出任一满足、介于、不包含这类固定条件写不出的组合。
+      {'收起时有条件就写成一句话，带“清空”；“重置”同时把条件清成 null。'}
+      条件是纯 JSON，交给后端或用 <Code>matchesCondition</Code> 在前端筛。
+      {'这里的关键字与能组合的字段写在一份 zod schema 里（标签、占位、可选值写在 '}
+      <Code>.meta()</Code>
+      {'）：'}
+      <Code>schemaFilters</Code>
+      {' 生成第一排的条件（值读写传进去的对象，QueryTable 的 '}
+      <Code>filters</Code>
+      {' 里传 draft），'}
+      <Code>schemaConditionFields</Code>
+      {' 给出高级筛选的字段，和 '}
+      <Link href="/components/form#generated">SchemaForm</Link>
+      {' 是同一套字段描述。'}
+    </Example>
+    <ApiReference api={api} />
+  </DocPage>
+));

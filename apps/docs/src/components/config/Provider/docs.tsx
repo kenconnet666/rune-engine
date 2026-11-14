@@ -1,0 +1,84 @@
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { Code, CodeBlock } from '@rune-engine/components';
+import canApi from 'virtual:api/CanProps';
+import scopeApi from 'virtual:api/ConfigScopeProps';
+import api from 'virtual:api/ProviderProps';
+import { ApiReference } from '../../../site/ApiReference';
+import { DocPage } from '../../../site/DocPage';
+import { Example } from '../../../site/Example';
+import { ExampleColumn, Examples } from '../../../site/Examples';
+import Locales from './demo/Locales.tsx?demo';
+import Permissions from './demo/Permissions.tsx?demo';
+import Rtl from './demo/Rtl.tsx?demo';
+import Scoped from './demo/Scoped.tsx?demo';
+import Services from './demo/Services.tsx?demo';
+
+export const meta = {
+  title: 'Provider 配置与权限',
+  description:
+    '主题、语言包、组件默认值、路由适配、权限：应用级用 createUi 一次装好，局部用 Provider 覆盖；useFormat 按当前语言格式化数字、金额与日期，Can 按权限点显示界面。',
+  order: 1,
+};
+
+const setup = `import { createUi, zhCN } from '@rune-engine/components';
+import { createPinyinMatcher } from '@rune-engine/components/pinyin';
+import { vueRouterAdapter } from '@rune-engine/components/vue-router';
+
+app.use(
+  createUi({
+    theme: () => preference.theme,          // ref 或 getter：运行时切换主题
+    lang: zhCN,
+    components: { Button: { defaults: { radius: 'full' } } }, // 统一改组件的默认外观，还能追加样式：见样式指南
+    router: vueRouterAdapter(router),        // 站内链接不刷新页面
+    textMatcher: createPinyinMatcher(),      // 选项过滤、命令面板认拼音（可选依赖 pinyin-pro）
+  }),
+);`;
+
+export default _component(() => () => (
+  <DocPage
+    wide
+    meta={meta}
+    imports="import { Can, ConfigScope, createUi, Provider, useCan, useFormat } from '@rune-engine/components';"
+  >
+    <CodeBlock code={setup} lang="ts" title="main.ts" />
+    <Example id="scoped" title="局部主题与默认值" demo={Scoped}>
+      <Code>Provider</Code> 只覆盖写了的配置，其余沿用上一层。默认值的优先级：组件上显式写的 prop
+      &gt; 最近一层 Provider &gt; createUi &gt;
+      组件自己的默认值；只收外观类的选项（样式、尺寸、色调）。
+    </Example>
+    <Examples>
+      <ExampleColumn>
+        <Example id="locales" title="语言包与 useFormat" demo={Locales}>
+          语言包里是组件的全部文字与格式习惯（币种、一周从哪天开始、时区）；
+          <Code>defineLang(zhCN, {'{…}'})</Code> 改其中几项。<Code>useFormat()</Code>{' '}
+          按当前语言格式化，字符串与 Decimal 按十进制原样格式化，金额不丢精度。
+        </Example>
+        <Example id="permissions" title="权限：按角色显示按钮" demo={Permissions}>
+          组件库不知道权限从哪来（后端返回的权限点、角色…），应用在 <Code>createUi</Code> 或{' '}
+          <Code>Provider</Code> 的 <Code>permissions</Code> 里接入一个{' '}
+          <Code>{'(权限点) => boolean'}</Code>
+          ，在渲染时读响应式状态，登录、退出、换角色后界面随之更新。<Code>Can</Code> 的{' '}
+          <Code>permission</Code> 给数组时有其中任意一个就算有；<Code>fallback</Code>{' '}
+          是没有权限时显示的内容。要自己判断（禁用按钮、过滤菜单项）时用 <Code>useCan()</Code>。
+          {
+            '没接入 permissions 时一律放行，没有权限体系的应用不受影响。这只控制界面，不是安全边界：接口上的权限校验才是。'
+          }
+        </Example>
+      </ExampleColumn>
+      <ExampleColumn>
+        <Example id="rtl" title="从右到左" demo={Rtl}>
+          语言包的 <Code>direction</Code> 是 rtl 时，Provider 写上
+          dir="rtl"：组件都用逻辑属性，布局、箭头与方向键自动镜像。传送到 body
+          的内容（Toaster、浮层）用 <Code>ConfigScope</Code> 重新带上主题、语言与方向。
+        </Example>
+        <Example id="services" title="高亮器与波纹" demo={Services}>
+          <Code>highlighter</Code> 是代码 + 语言 → 只含 span 与 br 的
+          HTML（文字由它转义），CodeBlock
+          经它高亮；这里换成一个只认日志级别的小高亮器，站点其余地方仍用 Shiki。
+          <Code>ripple</Code> 是点击波纹的开关，只影响这一层里的组件。
+        </Example>
+      </ExampleColumn>
+    </Examples>
+    <ApiReference api={[api, scopeApi, canApi]} />
+  </DocPage>
+));

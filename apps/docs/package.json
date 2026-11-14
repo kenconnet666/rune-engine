@@ -1,0 +1,46 @@
+{
+  "name": "@rune-engine/docs",
+  "version": "0.0.0",
+  "private": true,
+  "description": "组件库的文档站：从 vue-tsx-pro 的文档站复制过来（见 packages/components/UPSTREAM.md），整站放在一个舞台里，可以画进画布和原样对比",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite --configLoader native",
+    "build": "vite build --configLoader native",
+    "preview": "vite preview --configLoader native",
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "catalog:",
+    "@codemirror/commands": "catalog:",
+    "@codemirror/lang-javascript": "catalog:",
+    "@codemirror/language": "catalog:",
+    "@codemirror/search": "catalog:",
+    "@codemirror/state": "catalog:",
+    "@codemirror/view": "catalog:",
+    "@internationalized/date": "catalog:",
+    "@lezer/highlight": "catalog:",
+    "@lucide/icons": "catalog:",
+    "@rune-engine/components": "workspace:^",
+    "@rune-engine/stage": "workspace:^",
+    "@shikijs/langs": "catalog:",
+    "@zerodep-dev/vue-tsx-pro-tsx": "catalog:",
+    "decimal.js": "catalog:",
+    "pinyin-pro": "catalog:",
+    "rune-ui-font": "catalog:",
+    "shiki": "catalog:",
+    "tabbable": "catalog:",
+    "three": "catalog:",
+    "vue": "catalog:",
+    "vue-router": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/three": "catalog:",
+    "happy-dom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

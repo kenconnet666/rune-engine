@@ -1,0 +1,48 @@
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import { Code } from '@rune-engine/components';
+import api from 'virtual:api/FieldCompareProps';
+import fieldApi from 'virtual:api/CompareField';
+import valueChangeApi from 'virtual:api/ValueChangeProps';
+import { ApiReference } from '../../../site/ApiReference';
+import { DocPage } from '../../../site/DocPage';
+import { Example } from '../../../site/Example';
+import Changes from './demo/Changes.tsx?demo';
+import ValueChange from './demo/ValueChange.tsx?demo';
+import Versions from './demo/Versions.tsx?demo';
+
+export const meta = {
+  title: 'FieldCompare 字段对比与值的变化',
+  description:
+    '两份记录按字段列出原值与新值（测算版本对比、编辑前后、审批前后），数值字段带变化量与变化率，按好坏着色；单个值的变化用 ValueChange。',
+  order: 5.5,
+};
+
+export default _component(() => () => (
+  <DocPage
+    wide
+    meta={meta}
+    imports="import { FieldCompare, ValueChange } from '@rune-engine/components';"
+  >
+    <Example id="versions" title="版本对比：表格" demo={Versions}>
+      <Code>fields</Code> 的写法与表格的列相同（<Code>key</Code>、<Code>header</Code>、
+      <Code>type</Code>、<Code>format</Code>、<Code>statuses</Code>、<Code>value</Code>
+      ），表格里的列定义可以直接拿来用。默认是字段、原值、新值、变化四列，列出全部字段、没改的淡显，
+      <Code>onlyChanged</Code> 只列改了的。两边都是数值时给出变化量（按字段的格式、带正负号，Decimal
+      精确计算）与变化率；
+      <Code>better</Code> 写 <Code>'lower'</Code>（成本、单价）或 <Code>'higher'</Code>
+      （利润率、产量）时按好坏着色。比较建在 <Code>diffFields</Code> 上，要自己排版时直接用它。
+    </Example>
+    <Example id="changes" title="编辑前后：列表" demo={Changes}>
+      <Code>layout="list"</Code> 一行一个字段：原值划掉、箭头、新值（<Code>ValueChange</Code>
+      ，要自己排版时单独用），默认只列改了的，放在保存前的确认、审批意见、时间线的一项里（见
+      Timeline 的操作记录）。原值是 del、新值是 ins，中间有给读屏的“改为”；
+      <Code>before</Code> 为空（新建）时只列新值，什么都没改时显示“没有改动”（语言包可改）。
+    </Example>
+    <Example id="value-change" title="单个值的变化：操作记录" demo={ValueChange}>
+      <Code>ValueChange</Code> 是一个值的变化：<Code>before</Code> 划掉、箭头、<Code>after</Code>
+      ，放在表格单元格、操作记录、审批意见里；没有原值（新建）时只显示新值。表格里标出改过的格见
+      DataTable 的“数据修正”。
+    </Example>
+    <ApiReference api={[api, fieldApi, valueChangeApi]} />
+  </DocPage>
+));

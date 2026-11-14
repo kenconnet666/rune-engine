@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "WebWorker"],
+    "types": ["@webgpu/types"]
+  },
+  "include": ["src/ui-renderer/worker.ts", "src/ui-renderer/messages.ts"]
+}

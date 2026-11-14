@@ -7,10 +7,11 @@
   "license": "MIT",
   "exports": {
     ".": "./src/index.ts",
-    "./anchor": "./src/Anchored.tsx"
+    "./anchor": "./src/Anchored.tsx",
+    "./ui-renderer": "./src/ui-renderer/run.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo && tsc -p tsconfig.worker.json --incremental --tsBuildInfoFile node_modules/.cache/typecheck-worker.tsbuildinfo"
   },
   "dependencies": {
     "@floating-ui/core": "catalog:",
@@ -20,6 +21,7 @@
     "vue": "catalog:"
   },
   "devDependencies": {
+    "@webgpu/types": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

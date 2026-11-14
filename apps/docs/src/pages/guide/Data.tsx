@@ -1,0 +1,280 @@
+/**
+ * 指南：请求与数据。配置请求客户端（拆后端的包装、加令牌）、换成 axios 或 ky、useRequest 的行为（演示连着内存里的假接口）、
+ * 服务端分页、滚动加载、出错与取消
+ */
+import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
+import {
+  Alert,
+  Code,
+  CodeBlock,
+  Flex,
+  H2,
+  Link,
+  List,
+  ListItem,
+  Paragraph,
+  Provider,
+} from '@rune-engine/components';
+import { CodePreview } from '@rune-engine/components/docs-kit';
+import { h } from 'vue';
+import { DocPage } from '../../site/DocPage';
+import { demoHttp } from './data/fake-api';
+import SupplierSearch from './data/SupplierSearch.tsx?demo';
+import SupplierTable from './data/SupplierTable.tsx?demo';
+
+const meta = {
+  title: 'Data 请求与数据',
+  description:
+    '组件只依赖 HttpClient 接口：默认是原生 fetch 的薄封装，也可以换成 axios、ky；useRequest 管加载、出错、防抖与取消。',
+};
+
+const client = `import { createHttpClient, createUi } from '@rune-engine/components';
+
+// 后端回 { code: 'ok', data } 或 { code: 'flow.forbidden', message, params, errors }：客户端自己拆，失败的码抛 HttpError
+const http = createHttpClient({
+  baseURL: '/api',
+  timeout: 15_000, // 默认 30 秒
+  // 发出之前：加令牌
+  onRequest: (request) => request.headers.set('Authorization', \`Bearer \${auth.token}\`),
+});
+
+// 后端用别的包装（{ code: 0, data }）时关掉 envelope，在 onResponse 里自己拆：
+// createHttpClient({ envelope: false, onResponse: (body, context) => { …; throw new HttpError(message, { ...context, code }) } })
+
+app.use(createUi({ http }));
+
+// 页面里也能直接用它的简写
+const user = await http.get<User>('/users/42');
+await http.post('/users', { name: '林小满' }); // 普通对象按 JSON 发送`;
+
+const adapter = `import axios from 'axios';
+import type { HttpClient } from '@rune-engine/components';
+
+// 组件只调用 request：把字段对上就行（query → params，body → data）
+const http: HttpClient = {
+  request: ({ query, body, ...rest }) =>
+    instance.request({ ...rest, params: query, data: body }).then((response) => response.data),
+};
+
+app.use(createUi({ http }));`;
+
+const cachedRequest = `import { createCache, indexedDbDriver } from '@zerodep-dev/storage';
+
+// 存在 IndexedDB：一分钟内新鲜，过期一天内还先显示旧的
+const cache = createCache(indexedDbDriver({ name: 'app' }), { ttl: 60_000, stale: 86_400_000 });
+
+const cities = useRequest((province, signal) => http.get<City[]>('/cities', { query: { province }, signal }), {
+  params: () => province.value,
+  // tags：依赖的表；t_city 失效时正显示着的这个请求自动重新请求
+  cache: { store: cache, key: (p) => \`cities:\${p}\`, tags: () => ['t_city'] },
+});
+
+// 全栈框架（kit）里：服务端的写入经 SSE 推来改了的表名
+listenInvalidation((tags) => (tags ? cache.invalidateTag(tags) : cache.invalidatePrefix('')));`;
+
+const infiniteList = `import { InfiniteListStatus, useHttp, useInfiniteList, VirtualList } from '@rune-engine/components';
+
+const http = useHttp();
+const orders = useInfiniteList(
+  async (page = 1, { keyword }, signal) => {
+    const result = await http.get<Page<Order>>('/orders', { query: { keyword, page, pageSize: 20 }, signal });
+    return { items: result.rows, next: page * 20 < result.total ? page + 1 : undefined };
+  },
+  { params: () => ({ keyword }), debounce: 300, key: (order) => order.id },
+);
+
+<VirtualList items={orders.items} loading={orders.loading} onRangeChange={orders.onRangeChange} getKey={(order) => order.id}>
+  {(order) => <OrderRow order={order} />}
+</VirtualList>
+<InfiniteListStatus list={orders} />`;
+
+const errors = `import { defineLang, HttpError, isAbortError, useErrorMessage, zhCN } from '@rune-engine/components';
+
+// 语言包补上自己命名空间的码（与自带的 http.、query. 合并）
+createUi({ lang: defineLang(zhCN, { errorCodes: { 'app.code-taken': ({ code }) => \`编号 \${String(code)} 已经被占用\` } }) });
+
+// 页面里按码显示
+const describe = useErrorMessage();
+try {
+  await http.post('/tasks', values);
+} catch (error) {
+  if (isAbortError(error)) return; // 主动取消的，不是错误
+  if (error instanceof HttpError && error.code === 'app.code-taken') form.setError('code', describe(error));
+  else toast.danger(describe(error));
+}
+
+// 表单：onSubmit 里直接请求；后端回的 errors 明细（{ field, code, message }）自动标到字段上，其余是 formError
+const form = useForm({ schema, initial, onSubmit: (values) => http.post('/tasks', values) });`;
+
+export default _component(() => () => (
+  <DocPage meta={meta}>
+    <Flex direction="column" gap="md">
+      <H2 id="client" size="xl" anchor>
+        配置请求客户端
+      </H2>
+      <Paragraph>
+        远程选项、上传、列表查询这些组件都通过 <Code>useHttp()</Code> 拿到请求客户端，客户端在{' '}
+        <Code>createUi</Code>（或局部的 <Code>Provider</Code>）的 <Code>http</Code> 里给出。默认实现{' '}
+        <Code>createHttpClient</Code> 是原生 fetch 的薄封装：baseURL、query（null 与 undefined
+        不写进地址，数组写成重复的键）、普通对象按 JSON
+        发送、超时与取消。响应按业务错误码的约定拆开：HTTP 一律 200，
+        <Code>{"{ code: 'ok', data }"}</Code> 交出 data，别的码抛带这个码的 <Code>HttpError</Code>。
+      </Paragraph>
+      <CodeBlock title="main.ts" code={client} lang="ts" />
+      <Paragraph>
+        值按线上的 typed JSON 传（与 query 库同一套写法）：请求体里的 bigint、Decimal、CalendarDate
+        写成文字（Decimal 不用科学计数法，日期是 ISO），根上附一张 <Code>$types</Code>{' '}
+        记下它们的位置；地址栏参数写成同样的文字；响应带 <Code>$types</Code> 时先还原再交给{' '}
+        <Code>onResponse</Code>。默认 bigint 还原成 bigint，decimal 与日期留作文字（组件都认）；给{' '}
+        <Code>{'wire: { decimal: Decimal }'}</Code> 时 decimal 还原成 Decimal，
+        <Code>{"dates: 'objects'"}</Code> 时日期还原成 CalendarDate 等，<Code>wire: false</Code>{' '}
+        时按普通 JSON。<Code>toWire</Code>、<Code>fromWire</Code>、<Code>wireText</Code>{' '}
+        也可以单独用。
+      </Paragraph>
+    </Flex>
+    <Flex direction="column" gap="md">
+      <H2 id="adapter" size="xl" anchor>
+        换成 axios、ky
+      </H2>
+      <Paragraph>
+        项目里已经有请求库、拦截器时不必换：<Code>HttpClient</Code> 只有一个 <Code>request</Code>
+        ，包一层交给 createUi 即可，令牌、拆包照旧写在原来的拦截器里。
+      </Paragraph>
+      <CodeBlock title="http.ts" code={adapter} lang="ts" />
+    </Flex>
+    <Flex direction="column" gap="md">
+      <H2 id="use-request" size="xl" anchor>
+        请求的状态：useRequest
+      </H2>
+      <Paragraph>
+        <Code>useRequest(fetcher, {'{ params, debounce }'})</Code> 管一个请求的数据、出错与加载：
+      </Paragraph>
+      <List>
+        <ListItem>
+          <Code>params</Code> 读到的值变了、且内容确实不同时才重新请求；<Code>debounce</Code>{' '}
+          让输入停下一会儿再发。点一下的变化（翻页）调用 <Code>refresh()</Code>，不用等。
+        </ListItem>
+        <ListItem>
+          只采用最后一次的结果：发新请求时取消上一次（fetcher 收到的 <Code>signal</Code>
+          ），晚到的旧结果也不会覆盖。
+        </ListItem>
+        <ListItem>
+          重新请求时保留上一次的数据（<Code>keepPrevious</Code> 默认开），表格不闪成空的；
+          <Code>mutate</Code> 直接改数据，做乐观更新。
+        </ListItem>
+        <ListItem>
+          <Code>cache</Code> 把结果存进 IndexedDB、localStorage（前端存储包{' '}
+          <Code>@zerodep-dev/storage</Code> 的 <Code>createCache</Code>
+          ）：有缓存先显示，新鲜的不再请求，过期的后台刷新；<Code>key</Code> 由参数算出，
+          <Code>tags</Code> 标上依赖的表，表改了（kit 的失效推送，或自己保存后{' '}
+          <Code>invalidateTag</Code>）正显示着的请求自动重新请求。
+        </ListItem>
+      </List>
+      <CodeBlock title="cached-request.ts" code={cachedRequest} lang="ts" />
+      <Paragraph>
+        下面的演示连着内存里的假接口（300–800 ms
+        的随机延迟）：快速输入只发最后一次，翻页立即请求，“模拟一次失败”让下一次请求返回业务错误。
+      </Paragraph>
+      <CodePreview code={SupplierSearch.source}>
+        {h(Provider, { http: demoHttp }, () => h(SupplierSearch.component))}
+      </CodePreview>
+    </Flex>
+    <Flex direction="column" gap="md">
+      <H2 id="table-query" size="xl" anchor>
+        服务端分页：useTableQuery
+      </H2>
+      <Paragraph>
+        列表页的页码、每页条数、排序、已应用的筛选条件、总数、加载与出错交给{' '}
+        <Code>useTableQuery</Code>
+        （建在 useRequest 上）。<Code>page</Code>、<Code>pageSize</Code>、<Code>sort</Code> 直接{' '}
+        <Code>_bind</Code> 到 PaginationBar、DataTable（加 <Code>manualSort</Code>
+        ，排序交给服务端；多列排序的表格加 <Code>multiSort</Code> 并绑 <Code>sorts</Code>
+        ）；查询栏点“查询”时调用 <Code>search(条件)</Code>
+        。换排序、条数、条件或 <Code>params</Code>
+        （当前页签这类）回到第一页，只请求一次；删掉数据后当前页空了，自动退到最后一页。表头筛选（DataTable
+        的 <Code>filters</Code> 加 <Code>manualFilter</Code>）绑 <Code>columnFilters</Code>
+        。只翻页、换排序或条数时，交给 fetcher 的 <Code>total</Code>{' '}
+        是上一次的总数，服务端可以不再数行数。
+      </Paragraph>
+      <Paragraph>
+        fetcher 用 <Code>tableParams(query, columns)</Code> 把一次查询写成接口的参数：
+        <Code>page</Code>、<Code>pageSize</Code>、<Code>sort=-amount,name</Code>（减号是倒序，同
+        JSON:API）、已知时的 <Code>total</Code>，表头多选写成 <Code>filter.列=值</Code>
+        ，关键字写成 <Code>search.列=关键字</Code>
+        ，查询栏的条件按字段名平铺（Decimal 不用科学计数法、日期是
+        ISO，区间写成两个同名参数）。query 库的 <Code>parseTableRequest</Code> 与{' '}
+        <Code>db.table(查询, 请求)</Code>
+        （Java 是 <Code>TableRequest.parse</Code>）读的就是这套参数：筛选、排序只认结果里的列。
+      </Paragraph>
+      <Paragraph>
+        <Code>syncToUrl: true</Code> 把页码、条数、排序（<Code>sort=-amount,name</Code>{' '}
+        先按金额倒序再按名称）、筛选条件放进地址的查询参数：刷新、分享链接、从别的页带着条件点进来都是同一份列表；等于初始值的不写。页签这类单个的值用{' '}
+        <Code>{"useQueryState('view', 'all')"}</Code>
+        ，按初始值的类型读写，固定几个值的用 <Code>{'queryCodecs.oneOf([...])'}</Code>
+        。需要路由适配给出 <Code>query</Code> 与 <Code>replaceQuery</Code>（vueRouterAdapter
+        有），没配路由时就是普通的状态。项目台账用的就是它。
+      </Paragraph>
+      <CodePreview code={SupplierTable.source}>
+        {h(Provider, { http: demoHttp }, () => h(SupplierTable.component))}
+      </CodePreview>
+    </Flex>
+    <Flex direction="column" gap="md">
+      <H2 id="infinite-list" size="xl" anchor>
+        滚动加载：useInfiniteList
+      </H2>
+      <Paragraph>
+        动态、日志、长列表往下滚接着取的那种列表交给 <Code>useInfiniteList</Code>
+        ：一页一页取、接在已有的后面，按 <Code>key</Code>{' '}
+        {
+          '去掉重复的项（翻页期间有新数据插进来时，下一页开头会和上一页结尾重复），记住还有没有下一页。fetcher 拿到上一页给的游标（页码、偏移、服务端的 cursor，第一页时是 undefined），返回 '
+        }
+        <Code>{'{ items, next }'}</Code>，没有下一页时不给 next。
+      </Paragraph>
+      <List>
+        <ListItem>
+          <Code>onRangeChange</Code> 直接交给 VirtualList、DataTable：可见范围离末尾不到{' '}
+          <Code>threshold</Code>（默认 5）项时取下一页，正在取、取完了时不取；
+          <Code>loading</Code> 交给它们，骨架接在末尾。
+        </ListItem>
+        <ListItem>
+          失败时停下：列表下方放 <Code>InfiniteListStatus</Code>
+          {'，显示出错原因与“重试”，取完了显示“没有更多了”；再滚动、或调用 '}
+          <Code>loadMore()</Code> 也会接着取。
+        </ListItem>
+        <ListItem>
+          <Code>params</Code> 变了（<Code>debounce</Code> 之后）、调用 <Code>refresh()</Code>{' '}
+          时从第一页重来：先清空、取消进行中的，只采用最后一次的结果。
+        </ListItem>
+        <ListItem>
+          Select、Combobox、Mentions 的远程选项是同一套：<Code>load</Code> 返回{' '}
+          <Code>{'{ items, next }'}</Code> 时滚到列表末尾取下一页（见{' '}
+          <Link href="/components/select#paged">Select 的远程搜索与分页</Link>）。
+        </ListItem>
+      </List>
+      <CodeBlock title="orders.tsx" code={infiniteList} lang="tsx" />
+      <Paragraph>
+        能动的例子在 <Link href="/components/virtual-list#feed">VirtualList 的滚动加载</Link>（第 3
+        页第一次失败，试试重试）与{' '}
+        <Link href="/components/data-table#infinite">DataTable 的滚动加载</Link>。
+      </Paragraph>
+    </Flex>
+    <Flex direction="column" gap="md">
+      <H2 id="errors" size="xl" anchor>
+        出错与取消
+      </H2>
+      <Paragraph>
+        <Code>HttpError</Code> 带着 <Code>code</Code>（后端回的业务错误码，或请求层的{' '}
+        <Code>http.network</Code>、<Code>http.timeout</Code>、<Code>http.status</Code>、
+        <Code>http.parse</Code>）、<Code>params</Code>、<Code>errors</Code>（按字段的明细）、
+        <Code>status</Code>、<Code>data</Code>、<Code>request</Code> 与 <Code>response</Code>
+        。调用方取消的请求原样交出 AbortError，用 <Code>isAbortError</Code> 判断，不当作错误显示。
+      </Paragraph>
+      <CodeBlock code={errors} lang="ts" />
+      <Alert tone="info">
+        组件自己按码取文案：QueryTable
+        加载失败时在表格上方说明原因并给重试，远程选项的列表、上传失败的文件、表单提交都一样；语言包里没有这个码时用后端给的
+        message。HttpError 自己的 message 是给开发者看的（带着请求方法与地址）。
+      </Alert>
+    </Flex>
+  </DocPage>
+));
