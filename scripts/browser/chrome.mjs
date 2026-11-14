@@ -278,9 +278,11 @@ export async function launchChrome({
         /**
          * 录一段浏览器自己的跟踪（run 跑着的那段时间），返回跟踪事件：主线程的时间不在我们的脚本里时，
          * 用它看是花在排版、绘制还是别的哪一步上。
+         * categories 换成 ['disabled-by-default-v8.cpu_profiler'] 就是 CPU 采样（事件里的 ProfileChunk）：看时间花在哪个函数上。
          * @param {() => Promise<void>} run
+         * @param {string[]} [categories]
          */
-        async trace(run) {
+        async trace(run, categories = ['devtools.timeline', 'toplevel', 'blink', 'cc']) {
           const events = [];
           const collect = (message) => {
             if (message.method === 'Tracing.dataCollected') events.push(...message.params.value);
@@ -288,7 +290,7 @@ export async function launchChrome({
           listeners.add(collect);
           await call('Tracing.start', {
             transferMode: 'ReportEvents',
-            traceConfig: { includedCategories: ['devtools.timeline', 'toplevel', 'blink', 'cc'] },
+            traceConfig: { includedCategories: categories },
           });
           await run();
           const complete = new Promise((resolve) => {

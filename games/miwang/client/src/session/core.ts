@@ -129,6 +129,9 @@ export interface SessionCore {
   readonly cleanups: (() => void)[];
 }
 
+/** 界面两次跟着主机换状态之间至少隔这么久（毫秒）：一秒十次，够看清数字在变，又不至于把主线程占满 */
+const VIEW_GAP_MS = 100;
+
 export function createCore(canvas: HTMLCanvasElement, opponent: 'ai' | 'human'): SessionCore {
   const view = shallowRef<OutbreakView | null>(null);
   const speed = shallowRef(1);
@@ -181,9 +184,14 @@ export function createCore(canvas: HTMLCanvasElement, opponent: 'ai' | 'human'):
 
   // ───── 连着主机的会话 ─────
   let session: Session<Command> | undefined;
-  const cleanups: (() => void)[] = [stopObserving, stopPalette, () => render.terminate()];
+  const cleanups: (() => void)[] = [
+    stopObserving,
+    stopPalette,
+    () => render.terminate(),
+    () => clearTimeout(holding),
+  ];
 
-  function onView(message: FromHost) {
+  function apply(message: FromHost) {
     // 开发时看“改完代码到画面接上”要多久：performance.getEntriesByName('miwang:first-view')
     if (!view.value) performance.mark('miwang:first-view');
     // 分出胜负的那一刻把时间停下：之后状态不会再变，没必要让主机空转
@@ -191,6 +199,43 @@ export function createCore(canvas: HTMLCanvasElement, opponent: 'ai' | 'human'):
     view.value = message.view;
     speed.value = message.speed;
     paused.value = message.paused;
+    appliedAt = performance.now();
+  }
+
+  /**
+   * 主机每走一天发来一份状态。界面不用每一份都跟：10 倍速时一秒二十多份，每跟一次整套面板就要重新排版、绘制一遍
+   * （十几到二十几毫秒），主线程有一半时间花在这上面，数字也跳得看不清。所以两次之间至少隔 VIEW_GAP_MS，
+   * 中间来的只留最新的一份。地图不受影响：它在渲染线程里另有一路数据。
+   * 这几种情况不等，马上换：头一份；日子没往前走的（下了命令、换了边、新开了一局）；暂停、倍速变了；分出了胜负。
+   */
+  let appliedAt = -Infinity;
+  let held: FromHost | undefined;
+  let holding: ReturnType<typeof setTimeout> | undefined;
+  function onView(message: FromHost) {
+    const shown = view.value;
+    const wait = appliedAt + VIEW_GAP_MS - performance.now();
+    const urgent =
+      !shown ||
+      message.view.tick <= shown.tick ||
+      message.view.player !== shown.player ||
+      message.paused !== paused.value ||
+      message.speed !== speed.value ||
+      (message.view.outcome !== null) !== (shown.outcome !== null);
+    if (urgent || wait <= 0) {
+      clearTimeout(holding);
+      holding = undefined;
+      held = undefined;
+      apply(message);
+      return;
+    }
+    held = message;
+    holding ??= setTimeout(() => {
+      holding = undefined;
+      const next = held;
+      held = undefined;
+      // 这期间要是换了一局（状态被清掉了），留着的那份是上一局的：不要了
+      if (next && view.value) apply(next);
+    }, wait);
   }
 
   return {
