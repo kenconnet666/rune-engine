@@ -1,6 +1,7 @@
 /** 设置：语言、配色、界面质感、要不要自动暂停、音量 */
 import type { Locale } from '@miwang/content';
-import { Dialog, Note, Scroll, Segmented, Slider, space, Stack, useStage } from '@rune-engine/ui';
+import { useStage } from '@rune-engine/stage';
+import { Dialog, Note, Scroll, Segmented, Slider, space, Stack } from '@rune-engine/ui';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { i18n, LOCALE_NAMES, useFormats, useUi } from '../i18n.ts';

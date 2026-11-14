@@ -10,17 +10,8 @@
  * 地图和界面互相配合：指针停在一个地区上，旁边出现它的名字；点一下选中，右侧出现它的详情；
  * 点一条和地区有关的新闻，地图飞过去并选中它。
  */
-import {
-  Callout,
-  colors,
-  colorSafeTheme,
-  fonts,
-  Note,
-  Scroll,
-  space,
-  Stage,
-  type StageHandle,
-} from '@rune-engine/ui';
+import { Callout, colors, colorSafeTheme, fonts, Note, Scroll, space } from '@rune-engine/ui';
+import { Stage, type StageHandle } from '@rune-engine/stage';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { CHAPTERS, type ChapterId } from '@miwang/content';

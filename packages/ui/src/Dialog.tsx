@@ -10,14 +10,13 @@
  * 界面画在画布里时，对话框是一块块“显现”出来的（贴它那一层的时候过的效果，见 Stage 的 material）；
  * 想换一种出现的样子就传 enter。
  */
-import { PLAIN_MATERIAL, type UiMaterial } from '@rune-engine/render/ui-types';
+import { PLAIN_MATERIAL, useStage, type UiMaterial } from '@rune-engine/stage';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { X } from 'lucide';
 import { onBeforeUnmount, onMounted, Teleport, type VNodeChild } from 'vue';
 import { Icon } from './Icon.tsx';
 import { mergeAttrs, type PartProps } from './props.ts';
-import { useStage } from './stage-context.ts';
 import { focusRing, pressable } from './styles.ts';
 import { colors, fonts, space } from './tokens.ts';
 

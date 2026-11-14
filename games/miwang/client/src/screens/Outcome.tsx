@@ -17,8 +17,8 @@ import {
   Scroll,
   space,
   Stack,
-  StageLayer,
 } from '@rune-engine/ui';
+import { StageLayer } from '@rune-engine/stage';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { ArrowRight, RotateCcw, Skull, Trophy } from 'lucide';

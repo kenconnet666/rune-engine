@@ -24,7 +24,6 @@ import {
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css, type SxStyles } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { onBeforeUnmount, onMounted, provide, shallowRef, type VNodeChild } from 'vue';
-import { mergeAttrs, type PartProps } from './props.ts';
 import { STAGE, STAGE_LAYERS, type StageContext, type StageLayerName } from './stage-context.ts';
 import { attachTips } from './tips.ts';
 
@@ -46,7 +45,9 @@ export interface StageHandle {
   pulse(layer: StageLayerName, peak: Partial<UiMaterial>, durationMs: number): void;
 }
 
-export interface StageProps extends PartProps<'div'> {
+export interface StageProps {
+  /** 最外面那个元素的样式（摆位置、给主题） */
+  sx?: SxStyles;
   /** 画布的名称（读屏念它） */
   canvasLabel?: string;
   /** 画布的样式（光标之类） */
@@ -84,7 +85,7 @@ function relocate(parent: Element, element: Element) {
 }
 
 export const Stage = _component(
-  ({ canvasLabel, canvasSx, world, children, onReady, ...rest }: StageProps) => {
+  ({ sx, canvasLabel, canvasSx, world, children, onReady }: StageProps) => {
     const supported = canvasUiSupported();
     const root = shallowRef<HTMLElement | null>(null);
     let canvas = _state.raw<HTMLCanvasElement | null>(null);
@@ -253,7 +254,7 @@ export const Stage = _component(
       return (
         <div
           ref={(element: unknown) => (root.value = element as HTMLElement | null)}
-          {...mergeAttrs<'div'>({ sx: styles.root }, rest)}
+          {...css.attrs(styles.root, sx)}
         >
           <canvas
             ref={_toRef(canvas)}

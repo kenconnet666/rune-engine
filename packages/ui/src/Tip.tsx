@@ -14,7 +14,7 @@ import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
 import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { Teleport, type VNodeChild } from 'vue';
 import { mergeAttrs, type PartProps } from './props.ts';
-import { useStage } from './stage-context.ts';
+import { useStage } from '@rune-engine/stage';
 import { colors, durations, fonts, space } from './tokens.ts';
 
 export interface TipProps extends PartProps<'div', 'role'> {

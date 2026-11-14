@@ -11,12 +11,13 @@
  */
 import { PLAIN_MATERIAL, type UiMaterial } from '@rune-engine/render/ui-types';
 import { _component } from '@zerodep-dev/vue-tsx-pro-tsx';
-import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
+import { css, type SxStyles } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import { onBeforeUnmount, onMounted, Teleport, watch, type VNodeChild } from 'vue';
-import { mergeAttrs, type PartProps } from './props.ts';
 import { useStage, type StageLayerHandle } from './stage-context.ts';
 
-export interface StageLayerProps extends PartProps<'div'> {
+export interface StageLayerProps {
+  /** 这一层的样式（它铺满舞台；里面的东西怎么摆写在这里） */
+  sx?: SxStyles;
   /** 上下的次序，默认 1.5（hud 的上面、对话框的下面） */
   order?: number;
   /** 这一层怎么贴（没写的项是原样）；改了它就过渡过去 */
@@ -33,7 +34,7 @@ const styles = css.create({
 });
 
 export const StageLayer = _component(
-  ({ order = 1.5, material, transitionMs = 0, enter, children, ...rest }: StageLayerProps) => {
+  ({ sx, order = 1.5, material, transitionMs = 0, enter, children }: StageLayerProps) => {
     const stage = useStage();
     let element = _state.raw<HTMLElement | null>(null);
     let handle: StageLayerHandle | undefined;
@@ -58,7 +59,7 @@ export const StageLayer = _component(
 
     return () => {
       const layer = (
-        <div ref={_toRef(element)} {...mergeAttrs<'div'>({ sx: styles.root }, rest)}>
+        <div ref={_toRef(element)} {...css.attrs(styles.root, sx)}>
           {children}
         </div>
       );
