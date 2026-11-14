@@ -91,7 +91,7 @@ export const mapColors = (page) =>
 
 /**
  * 界面是不是画在画布里（新的 Chrome 才行）。等渲染线程的画面接上、几层界面搬进画布，然后在面板那一层里找一个
- * 底色不透明又鲜艳的按钮（选中的那个倍速按钮是橙的），从画布上读它那里的颜色：读出来就是它的底色，
+ * 露在外面、底色不透明又鲜艳的按钮（选中的那个倍速按钮是橙的），从画布上读它那里的颜色：读出来就是它的底色，
  * 说明它是渲染线程贴上去的（网页元素本身是读不进画布的）。地图上不会恰好在那里有同一种颜色。
  * 返回 'drawn'；'unsupported'（这个浏览器没有这套接口：界面照老办法叠在画布上面，不算错）；或者一句哪里不对。
  */
@@ -106,10 +106,18 @@ export async function interfaceInCanvas(page) {
   const check = `(() => {
     const canvas = document.querySelector('canvas');
     const parse = (color) => color.match(/[0-9.]+/g).map(Number);
+    // 要真的露在外面的：面板一长，有的按钮滚到了看不见的地方（被卷走的那里画的不是它）
+    const shown = (button) => {
+      const box = button.getBoundingClientRect();
+      return document.elementFromPoint(box.x + 4, box.y + 4) === button;
+    };
     const solid = [...canvas.querySelectorAll(':scope > [data-stage-layer="hud"] button')]
       .map((button) => ({ button, color: parse(getComputedStyle(button).backgroundColor) }))
-      .find(({ color: [r, g, b, a = 1] }) => a === 1 && Math.max(r, g, b) - Math.min(r, g, b) > 80);
-    if (!solid) return '面板那一层里没有底色鲜艳的按钮可以比';
+      .find(
+        ({ button, color: [r, g, b, a = 1] }) =>
+          a === 1 && Math.max(r, g, b) - Math.min(r, g, b) > 80 && shown(button),
+      );
+    if (!solid) return '面板那一层里没有露在外面、底色鲜艳的按钮可以比';
     const box = solid.button.getBoundingClientRect();
     const ratio = canvas.width / canvas.clientWidth;
     const probe = document.createElement('canvas');
