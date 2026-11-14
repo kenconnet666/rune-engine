@@ -2,6 +2,7 @@
  * 一条新闻写成一句话。新闻面板和结算时的大事记都用它。
  * 要在组件的渲染函数里调（它读当前语言的文案，切换语言时跟着重画）。
  */
+import { CALENDAR } from '@miwang/content';
 import type { NewsItem } from '@miwang/sim';
 import { placeName, useContent, useFormats, useUi } from '../i18n.ts';
 
@@ -64,6 +65,14 @@ export function newsSentence(item: NewsItem, attacker: boolean): string {
       if (line === 'regions') return all.alerts.regions(Number(mark));
       if (line === 'calamity') return all.alerts.calamity(useFormats().percent(Number(mark) / 100));
       return all.alerts.firstDeath;
+    }
+    case 'calendar': {
+      const [id, phase] = split(item.subject);
+      const name = content.calendar[id]?.name ?? id;
+      if (phase === 'begin')
+        return place ? ui.calendarBeginAt(place, name) : ui.calendarBegin(name);
+      const days = CALENDAR.find((def) => def.id === id)?.notice ?? 0;
+      return place ? ui.calendarSoonAt(place, name, days) : ui.calendarSoon(name, days);
     }
     case 'outcome':
       return content.outcomes[item.subject as keyof typeof content.outcomes] ?? item.subject;

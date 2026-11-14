@@ -2,6 +2,7 @@
 import { chance } from '@rune-engine/core';
 import type { Links, PathogenStats } from '../config.ts';
 import { REACHED, type Hop, type OutbreakState } from '../state.ts';
+import { calendarBoost } from './calendar.ts';
 import { expose, type DayTally } from './epidemic.ts';
 import { after, strengthOf } from './regional.ts';
 
@@ -25,6 +26,9 @@ export function travel(
   const firstRoute: Hop['route'][] = [];
   // 潜伏的人照常出行；发病的人病得越重越走不动
   const mobility = 1 / (1 + rules.severityImmobility * pathogen.severity);
+  // 日程：出行高峰时各条路线上的人都多；有国际赛事时坐飞机的人多
+  const peak = 1 + calendarBoost(state, 'travel');
+  const flights = peak + calendarBoost(state, 'games');
 
   /** 这个地区的口子现在漏不漏风（有人在走私）：漏的话关着也只剩几成效果 */
   const tight = (region: number) => (state.leakUntil[region]! > state.tick ? rules.leakGate : 1);
@@ -81,25 +85,27 @@ export function travel(
     const leaving =
       carriers * after(rules, state.measures[from]!, 'lockdown', rules.lockdownTravel, comply);
     const region = regions[from]!;
+    // 遭了灾的地方，人沿陆路往外逃
+    const fleeing = state.disasterUntil[from]! > state.tick ? rules.refugeeLand : 1;
     for (const to of region.neighbors) {
       send(
         from,
         to,
         'land',
-        leaving * rules.landRate * gate(from, to, 'borders', rules.bordersEffect),
+        leaving * rules.landRate * peak * fleeing * gate(from, to, 'borders', rules.bordersEffect),
       );
     }
     along(
       from,
       region.air,
-      leaving * rules.airRate * (1 + pathogen.aviation),
+      leaving * rules.airRate * flights * (1 + pathogen.aviation),
       'airports',
       rules.airportsEffect,
     );
     along(
       from,
       region.sea,
-      leaving * rules.seaRate * (1 + pathogen.maritime),
+      leaving * rules.seaRate * peak * (1 + pathogen.maritime),
       'ports',
       rules.portsEffect,
     );

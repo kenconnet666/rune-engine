@@ -147,8 +147,24 @@ export const en: ClientText = {
     devolvedSeen: (name) => `The pathogen lost a trait: ${name}`,
     decision: (name, option) => `${name} — ${option}`,
     decisionAt: (place, name, option) => `${place}: ${name} — ${option}`,
+    calendarSoon: (name, days) => `${name} begins in ${days} days`,
+    calendarSoonAt: (place, name, days) => `${name} begins in ${place} in ${days} days`,
+    calendarBegin: (name) => `${name} has begun`,
+    calendarBeginAt: (place, name) => `${name} has begun in ${place}`,
     taskDone: (name) => `Objective met: ${name}`,
     taskFailed: (name) => `Objective missed: ${name}`,
+  },
+
+  calendar: {
+    title: 'Calendar',
+    startsIn: (days) => `in ${days} days`,
+    daysLeft: (days) => `under way · ${days} days left`,
+    at: (place) => `In ${place}`,
+    effects: {
+      travel: (amount) => `Travel on every route ${amount}`,
+      rains: (amount) => `Water- and mosquito-borne spread in the tropics ${amount}`,
+      games: (amount) => `Gathering in the host region · air travel ${amount}`,
+    },
   },
 
   tasks: {
@@ -228,7 +244,8 @@ export const en: ClientText = {
     relief: 'Temporary medical support is here: more of the sick can be saved.',
     leak: 'The crossings here leak: closing them holds back little.',
     surge: 'A surge is under way here: it spreads faster.',
-    disaster: 'A natural disaster has struck here.',
+    disaster:
+      'A natural disaster has struck here: care and testing are crippled, and people are fleeing overland.',
     measures: 'Measures',
     plans: 'Playbooks',
     defenderHere: (names) => `The response here: ${names}`,

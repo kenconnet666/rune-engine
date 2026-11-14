@@ -26,6 +26,8 @@ export {
   TROPICAL,
   VACCINE_POLICIES,
   withMeasure,
+  type CalendarDef,
+  type CalendarKind,
   type Climate,
   type DecisionDef,
   type DecisionOption,
@@ -60,6 +62,7 @@ export {
   type VaccinePolicy,
 } from './config.ts';
 export { DEFAULT_RULES } from './defaults.ts';
+export type { CalendarEntry } from './rules/calendar.ts';
 export { outbreak } from './outbreak.ts';
 export { setupCost, upkeepOf } from './rules/defense.ts';
 export type { History } from './rules/history.ts';

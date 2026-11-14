@@ -1,5 +1,6 @@
 /** 开一局：把世界、病原体档案、各张表和规则数值拼成模拟要的配置；打的是某一章的话，再按那一章改 */
 import { DEFAULT_RULES, type OutbreakConfig, type PathogenProfile } from '@miwang/sim';
+import { CALENDAR } from './tables/calendar.ts';
 import type { ChapterDef } from './tables/chapters.ts';
 import { DECISIONS } from './tables/decisions.ts';
 import { EVENTS } from './tables/events.ts';
@@ -53,6 +54,7 @@ export function createConfig(
     traits: TRAITS,
     techs: TECHS,
     events: EVENTS,
+    calendar: CALENDAR,
     skills: SKILLS,
     decisions: DECISIONS,
     tasks: TASKS,

@@ -37,6 +37,7 @@ import { autoPause, hudLook } from './preferences.ts';
 import { AlertStack } from './panels/AlertStack.tsx';
 import { CommandPanel } from './panels/CommandPanel.tsx';
 import { ControlBar } from './panels/ControlBar.tsx';
+import { CalendarPanel } from './panels/CalendarPanel.tsx';
 import { DecisionPanel } from './panels/DecisionPanel.tsx';
 import { GoalPanel } from './panels/GoalPanel.tsx';
 import { HintPanel } from './panels/HintPanel.tsx';
@@ -299,6 +300,7 @@ export const App = _component(() => {
             <StatusPanel view={view} />
             {view?.scenario && <GoalPanel view={view} />}
             {view?.task && !view.outcome && <TaskPanel view={view} />}
+            {view && !view.outcome && <CalendarPanel view={view} onLocate={locate} />}
             {hints.current.value && overlay === null && !watching && (
               <HintPanel hint={hints.current.value} onDismiss={hints.dismiss} />
             )}

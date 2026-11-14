@@ -12,6 +12,7 @@ import { measureLevel, type Measure, type OutbreakView, type VaccinePolicy } fro
 import { shallowRef, watchEffect, type ShallowRef } from 'vue';
 
 export type AlertTone = 'signal' | 'danger' | 'calm';
+type NewsItemView = OutbreakView['news'][number];
 
 export type AlertData =
   | { readonly kind: 'firstDeath' }
@@ -64,6 +65,9 @@ export type AlertData =
   | { readonly kind: 'skill'; readonly skill: string; readonly region: number }
   /** 退掉了一个性状（守方知道底细时也看得到） */
   | { readonly kind: 'devolve'; readonly trait: string; readonly own: boolean }
+  /** 日程上的一件事预告了、开始了：item 是那条新闻（提示上的话和新闻里的一样）；赛事带着主办地 */
+  | { readonly kind: 'calendar'; readonly item: NewsItemView }
+  | { readonly kind: 'calendar'; readonly item: NewsItemView; readonly region: number }
   /** 接到一件短期任务 / 一件任务有了结果 */
   | { readonly kind: 'taskNew'; readonly task: string }
   | { readonly kind: 'taskResult'; readonly task: string; readonly done: boolean };
@@ -313,6 +317,13 @@ export function watchAlerts(view: () => OutbreakView | null): Alerts {
           task: item.subject.slice(0, item.subject.indexOf('.')),
           done,
         });
+      } else if (item.kind === 'calendar') {
+        push(
+          'signal',
+          item.region >= 0
+            ? { kind: 'calendar', item, region: item.region }
+            : { kind: 'calendar', item },
+        );
       } else if (item.kind === 'decision') {
         // 攻方那边的事只有攻方看得到；守方的决定是公开的
         const mine = now.attacker ? !defenderDecided(item.subject) : true;

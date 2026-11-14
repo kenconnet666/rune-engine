@@ -182,6 +182,23 @@ export const en: ContentText = {
     mutation: label('Spontaneous mutation', 'The pathogen gains extra mutation points.'),
   },
 
+  calendar: {
+    homecoming: label(
+      'New-year homecoming',
+      'Hundreds of millions are on the move: every route is busier.',
+    ),
+    monsoon: label(
+      'Rainy season',
+      'Standing water across the tropics: water- and mosquito-borne spread grows.',
+    ),
+    summerTravel: label('Summer travel', 'Holiday trips: every route is busier.'),
+    games: label(
+      'International games',
+      'Crowds in the host region, and full flights from all over the world.',
+    ),
+    yearEnd: label('Year-end holidays', 'Family visits and holidays: every route is busier.'),
+  },
+
   skills: {
     spillover: label(
       'Spillover',

@@ -7,6 +7,7 @@ import {
   type PathogenStats,
   type VaccinePolicy,
 } from './config.ts';
+import { calendarNow, type CalendarEntry } from './rules/calendar.ts';
 import { compliance, dailyBalance } from './rules/defense.ts';
 import { reproductionIn, strainIn } from './rules/epidemic.ts';
 import { HISTORY_EVERY, type History } from './rules/history.ts';
@@ -146,6 +147,8 @@ export interface OutbreakView {
     readonly amount: number;
     readonly daysLeft: number;
   }[];
+  /** 日程：正在进行的、已经预告的（出行高峰、雨季、国际赛事），快的排前面；双方都看得到 */
+  readonly calendar: readonly CalendarEntry[];
   /**
    * 等着这一方拿主意的事：哪一件、还剩几天（到期按第一个选项办）、冲着哪个地区（-1 是不针对某个地区）；
    * 没有是 null
@@ -255,6 +258,11 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
   const balance = attacker ? { income: 0, upkeep: 0 } : dailyBalance(state);
   const line = state.config.rules.calamityShare * state.worldPopulation;
   const pending = state.config.decisions[state.pendingDecision[player] ?? -1];
+  const calendar = calendarNow(state);
+  // 赛事开始的当天，主办地的集会要等这一天走完才记上：这里先标出来，免得日程说开始了、地图上还没有
+  for (const entry of calendar) {
+    if (entry.startsIn === 0 && entry.region >= 0) happening[entry.region]! |= HAS_GATHERING;
+  }
   const task = state.config.tasks[state.task[player] ?? -1];
   const taskNow = task && taskProgress(state, task, state.taskStart[player]!);
 
@@ -334,6 +342,7 @@ export function observe(state: OutbreakState, player: PlayerId): OutbreakView {
         ? [{ key: item.key, amount: item.amount, daysLeft: item.until - state.tick }]
         : [],
     ),
+    calendar,
     decision: pending
       ? {
           id: pending.id,

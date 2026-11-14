@@ -98,6 +98,14 @@ export const zh: ContentText = {
     mutation: label('自发变异', '病原体得到额外的变异点。'),
   },
 
+  calendar: {
+    homecoming: label('年初的返乡潮', '几亿人在路上：各条路线上的人都多。'),
+    monsoon: label('雨季', '热带地区到处是积水：水源和蚊子传的病更厉害。'),
+    summerTravel: label('暑期出行', '假期里出门的人多：各条路线上的人都多。'),
+    games: label('国际赛事', '主办地人群聚集，全世界去看比赛的人坐满了航班。'),
+    yearEnd: label('年末假期', '探亲、度假的人多：各条路线上的人都多。'),
+  },
+
   skills: {
     spillover: label(
       '外溢',

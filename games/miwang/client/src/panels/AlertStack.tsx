@@ -9,6 +9,7 @@ import { css } from '@zerodep-dev/vue-tsx-pro-tsx/styles';
 import {
   Activity,
   Ambulance,
+  CalendarDays,
   Coins,
   Dna,
   FlaskConical,
@@ -30,6 +31,7 @@ import {
   Zap,
 } from 'lucide';
 import type { Alert, AlertData } from '../feedback/alerts.ts';
+import { newsSentence } from '../feedback/news-text.ts';
 import { placeName, useContent, useFormats, useUi } from '../i18n.ts';
 import { skillIcon } from '../icons.ts';
 
@@ -69,6 +71,7 @@ const ICONS: Readonly<Record<AlertData['kind'], IconData>> = {
   decided: Scale,
   skill: Zap,
   devolve: Undo2,
+  calendar: CalendarDays,
   taskNew: Target,
   taskResult: Target,
 };
@@ -185,6 +188,13 @@ export const AlertStack = _component(
             return {
               title: data.region < 0 ? ui.skill(name) : ui.skillAt(name, placeName(data.region)),
               detail: content.skills[data.skill]?.detail,
+            };
+          }
+          case 'calendar': {
+            const [id = ''] = data.item.subject.split('.');
+            return {
+              title: newsSentence(data.item, view.attacker),
+              detail: content.calendar[id]?.detail,
             };
           }
           case 'taskNew':

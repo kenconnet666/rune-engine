@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CHAPTER_IDS, CHAPTERS } from '../tables/chapters.ts';
 import { CREDITS } from '../tables/credits.ts';
 import { DECISIONS } from '../tables/decisions.ts';
+import { CALENDAR } from '../tables/calendar.ts';
 import { EVENTS } from '../tables/events.ts';
 import { PATHOGENS, SOURCES } from '../tables/pathogens.ts';
 import { SKILLS } from '../tables/skills.ts';
@@ -18,6 +19,7 @@ describe('内容的文案', () => {
       expect(Object.keys(text.traits).sort()).toEqual(ids(TRAITS));
       expect(Object.keys(text.techs).sort()).toEqual(ids(TECHS));
       expect(Object.keys(text.events).sort()).toEqual(ids(EVENTS));
+      expect(Object.keys(text.calendar).sort()).toEqual(ids(CALENDAR));
       expect(Object.keys(text.skills).sort()).toEqual(ids(SKILLS));
       expect(Object.keys(text.tasks).sort()).toEqual(ids(TASKS));
       expect(Object.keys(text.decisions).sort()).toEqual(ids(DECISIONS));
@@ -38,6 +40,7 @@ describe('内容的文案', () => {
         text.traits,
         text.techs,
         text.events,
+        text.calendar,
         text.skills,
         text.tasks,
         text.measures,

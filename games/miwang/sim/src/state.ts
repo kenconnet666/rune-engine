@@ -30,6 +30,7 @@ export const FOR_BOTH = 3;
  *   decision 一方对一件事拿了主意（subject 是“事.选项”）
  *   task 一件短期任务有了结果（subject 是“任务.done”或“任务.failed”）
  *   milestone 头一回越过一条线（subject 是 firstDeath、regions.50、calamity.25 这样的）
+ *   calendar 日程上的一件事预告了、开始了（subject 是“事.soon”或“事.begin”，region 是赛事的主办地）
  */
 export type NewsKind =
   | 'spread'
@@ -46,7 +47,8 @@ export type NewsKind =
   | 'devolve'
   | 'decision'
   | 'task'
-  | 'milestone';
+  | 'milestone'
+  | 'calendar';
 
 export interface NewsItem {
   readonly tick: number;

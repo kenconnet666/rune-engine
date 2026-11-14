@@ -134,8 +134,26 @@ export const zh = {
     devolvedSeen: (name: string) => `病原体失去了一个性状：${name}`,
     decision: (name: string, option: string) => `${name}——${option}`,
     decisionAt: (place: string, name: string, option: string) => `${place}：${name}——${option}`,
+    calendarSoon: (name: string, days: number) => `${name}：${days} 天后开始`,
+    calendarSoonAt: (place: string, name: string, days: number) =>
+      `${name}：${days} 天后在${place}开始`,
+    calendarBegin: (name: string) => `${name}开始了`,
+    calendarBeginAt: (place: string, name: string) => `${name}在${place}开始了`,
     taskDone: (name: string) => `任务完成：${name}`,
     taskFailed: (name: string) => `任务没做到：${name}`,
+  },
+
+  calendar: {
+    title: '日程',
+    startsIn: (days: number) => `还有 ${days} 天`,
+    daysLeft: (days: number) => `进行中 · 还剩 ${days} 天`,
+    at: (place: string) => `在${place}`,
+    /** 各类日程改变了什么，amount 是写好的“+50%” */
+    effects: {
+      travel: (amount: string) => `各条路线的出行 ${amount}`,
+      rains: (amount: string) => `热带的水源、蚊媒传播 ${amount}`,
+      games: (amount: string) => `主办地有集会 · 航线的出行 ${amount}`,
+    },
   },
 
   tasks: {
@@ -218,7 +236,7 @@ export const zh = {
     relief: '这里有临时的医疗支援：救得回来的人多一些。',
     leak: '这里的口子在漏风：关着也拦不住多少。',
     surge: '这里正在激增：传得更快。',
-    disaster: '这里正遭受自然灾害。',
+    disaster: '这里正遭受自然灾害：医疗和检测瘫痪，逃难的人沿陆路往外走。',
     measures: '措施',
     plans: '预案与推广',
     defenderHere: (names: string) => `守方在这里：${names}`,

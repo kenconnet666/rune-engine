@@ -57,6 +57,8 @@ export const DEFAULT_RULES: Rules = {
   gatheringBoost: 1.6,
   disasterCare: 0.35,
   disasterWater: 1.6,
+  refugeeLand: 2.5,
+  calendarStrength: 1,
   decisionChance: 0.035,
   decisionAfter: 25,
   decisionGap: 14,

@@ -19,6 +19,7 @@ import {
   Biohazard,
   Brain,
   Bug,
+  CalendarDays,
   CircleDotDashed,
   ClipboardCheck,
   ClipboardPlus,
@@ -193,6 +194,7 @@ const NEWS: Readonly<Record<NewsKind, IconData>> = {
   decision: Scale,
   task: Target,
   milestone: Flag,
+  calendar: CalendarDays,
 };
 
 const PATHOGENS: Readonly<Record<string, IconData>> = {

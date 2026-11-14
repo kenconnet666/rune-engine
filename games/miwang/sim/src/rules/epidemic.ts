@@ -10,6 +10,7 @@ import {
   REPORTED,
   type OutbreakState,
 } from '../state.ts';
+import { rainsIn } from './calendar.ts';
 import { modifier } from './modifiers.ts';
 import { after, climateFit, detectionIn, effectiveWealth, teamAt, winter } from './regional.ts';
 
@@ -71,14 +72,18 @@ export function transmissionIn(
     after(rules, bits, 'lockdown', rules.lockdownContact, comply);
   // 蚊子：热带全年，温带、寒带只在夏天（冬天的程度是负数时才有）
   const mosquitoSeason = region.climate === TROPICAL ? 1 : Math.max(0, -cold);
+  // 雨季（日程上的）：热带的积水多了，水源和蚊子都更厉害
+  const rains = rainsIn(state, r);
   const others =
     (pathogen.water *
       effectiveWealth(rules.waterByWealth, region.wealth, 0) *
       (struck ? rules.disasterWater : 1) *
+      rains *
       after(rules, bits, 'sanitation', rules.sanitationWater, comply) +
       pathogen.vector *
         (rules.vectorByClimate[region.climate] ?? 0) *
         mosquitoSeason *
+        rains *
         after(rules, bits, 'vectorControl', rules.vectorControlEffect, comply) +
       pathogen.blood * (rules.bloodByWealth[region.wealth] ?? 1)) *
     after(rules, bits, 'lockdown', rules.lockdownOther, comply);

@@ -265,6 +265,26 @@ export interface EventDef {
   readonly amount?: number;
 }
 
+// ───── 日程 ─────
+
+/**
+ * 日程的种类（规则见 rules/calendar.ts）：
+ *   travel 出行高峰：各条路线上的出行量加 amount（0.4 是多四成）
+ *   rains  雨季：热带地区的水源、蚊媒传播加 amount
+ *   games  国际赛事：一个经济大国办赛，那里有一场集会，全世界坐飞机的出行量加 amount
+ */
+export type CalendarKind = 'travel' | 'rains' | 'games';
+
+/** 每年固定日子到来的一件事：提前 notice 天预告，从一年里的第 day 天（0 起）开始，持续 days 天 */
+export interface CalendarDef {
+  readonly id: string;
+  readonly kind: CalendarKind;
+  readonly day: number;
+  readonly days: number;
+  readonly notice: number;
+  readonly amount: number;
+}
+
 // ───── 世界 ─────
 
 export const TROPICAL = 0;
@@ -391,6 +411,10 @@ export interface Rules {
   /** 灾害期间医疗、检测剩下的比例，和水源传播的倍数 */
   readonly disasterCare: number;
   readonly disasterWater: number;
+  /** 灾害期间沿陆路离开那个地区的人是平时的几倍（逃难的人） */
+  readonly refugeeLand: number;
+  /** 日程的幅度乘这个数（表里写的是 1 倍时的）；0 是没有日程 */
+  readonly calendarStrength: number;
   /** 每天每一方碰上一件要拿主意的事的概率（手里没有等着的事时）；开局的头几天不出 */
   readonly decisionChance: number;
   readonly decisionAfter: number;
@@ -561,6 +585,7 @@ export interface OutbreakConfig {
   readonly traits: readonly TraitDef[];
   readonly techs: readonly TechDef[];
   readonly events: readonly EventDef[];
+  readonly calendar: readonly CalendarDef[];
   readonly skills: readonly SkillDef[];
   readonly decisions: readonly DecisionDef[];
   readonly tasks: readonly TaskDef[];
