@@ -8,6 +8,7 @@ export {
   createCanvasUi,
   type CanvasUi,
   type CanvasUiLayer,
+  type CanvasUiLayerOptions,
   type CanvasUiOptions,
 } from './canvas-ui.ts';
 export { Stage, type StageHandle, type StageProps } from './Stage.tsx';

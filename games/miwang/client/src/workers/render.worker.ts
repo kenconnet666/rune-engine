@@ -226,6 +226,7 @@ self.onmessage = ({ data }: MessageEvent<RenderControl>) => {
       break;
     case 'ui-image':
     case 'ui-material':
+    case 'ui-place':
     case 'ui-clear':
     case 'ui-remove':
       ui.handle(data);

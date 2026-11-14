@@ -16,17 +16,22 @@ import { inject, type InjectionKey, type ShallowRef } from 'vue';
 export const STAGE_LAYERS = ['world', 'hud', 'overlay', 'tips'] as const;
 export type StageLayerName = (typeof STAGE_LAYERS)[number];
 
-/** 舞台上的一层：改它的贴法、把它拿掉 */
+/** 舞台上的一层：改它的贴法、挪它的位置、把它拿掉 */
 export interface StageLayerHandle {
   set(material: Partial<UiMaterial>, durationMs?: number): void;
+  /** 只有内容那么大的层：把左上角放到舞台上的 (x, y)（CSS 像素）。界面画在画布里时这不用重拍 */
+  moveTo(x: number, y: number): void;
   remove(): void;
 }
 
 export interface StageContext {
   /** 舞台最外面的元素；舞台挂上之前是 null。自己加的层传送到它下面 */
   readonly root: ShallowRef<HTMLElement | null>;
-  /** 登记自己加的一层（见 StageLayer.tsx）：element 是舞台下面一个铺满的元素，order 定上下 */
-  addLayer(element: HTMLElement, order: number): StageLayerHandle;
+  /**
+   * 登记自己加的一层（见 StageLayer.tsx）：element 是舞台下面的一个元素，order 定上下。
+   * fill 是 false 时这一层只有内容那么大，位置用把手的 moveTo 说
+   */
+  addLayer(element: HTMLElement, order: number, options?: { fill?: boolean }): StageLayerHandle;
   /** 这个浏览器能不能把界面画进画布：不能的话贴法、效果都不起作用（相关的设置项可以不给） */
   readonly supported: boolean;
   /** 界面现在是不是画在画布里（渲染线程的画面接上之后才是；之前、之后断了的时候都叠在画布上面） */

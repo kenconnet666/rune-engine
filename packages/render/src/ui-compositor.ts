@@ -1,6 +1,6 @@
 /**
  * 界面合成器：把主线程拍下来的一层层界面贴到这一帧上（约定见 ui-types.ts）。
- * 每层一张和画布一样大的贴图，按 order 从下往上画；贴的时候可以带透明度、平移缩放旋转、颜色和几种效果。
+ * 每层一张贴图（和这一层一样大），按 order 从下往上画在它该在的位置；贴的时候可以带透明度、平移缩放旋转、颜色和几种效果。
  * 贴法的过渡在这里逐帧插值——主线程只说“用 300 毫秒变成这样”，之后它忙不忙都不影响动画。
  */
 import type { ElementImageQueue, FrameLayer } from './frame-layer.ts';
@@ -19,9 +19,10 @@ export interface UiCompositorOptions {
 }
 
 /** 一层的参数在着色器那头的样子：见 SHADER 里的 Layer */
-const UNIFORM_FLOATS = 20;
-/** 亮边的颜色从第几个浮点数开始放 */
+const UNIFORM_FLOATS = 24;
+/** 亮边的颜色、这一层的位置和大小各从第几个浮点数开始放 */
 const GLOW_AT = 16;
+const RECT_AT = 20;
 
 const SHADER = /* wgsl */ `
 struct Layer {
@@ -41,6 +42,8 @@ struct Layer {
   tint: vec4f,
   // 显现时亮边的颜色
   glow: vec4f,
+  // 这一层在画布上的左上角和它的大小（CSS 像素）
+  rect: vec4f,
 }
 @group(0) @binding(0) var<uniform> layer: Layer;
 @group(0) @binding(1) var smooth_sampler: sampler;
@@ -53,9 +56,10 @@ struct Varyings {
 
 @vertex fn vertex(@builtin(vertex_index) index: u32) -> Varyings {
   let corner = array(vec2f(0, 0), vec2f(1, 0), vec2f(0, 1), vec2f(1, 1))[index];
-  // 绕画布中心缩放、旋转，再平移
-  let center = layer.canvas * 0.5;
-  let local = (corner * layer.canvas - center) * layer.scale;
+  // 绕这一层自己的中心缩放、旋转，再平移
+  let size = layer.rect.zw * layer.pixelRatio;
+  let center = layer.rect.xy * layer.pixelRatio + size * 0.5;
+  let local = (corner - 0.5) * size * layer.scale;
   let c = cos(layer.rotate);
   let s = sin(layer.rotate);
   let pixel = center + vec2f(local.x * c - local.y * s, local.x * s + local.y * c)
@@ -72,7 +76,7 @@ fn hash(p: vec2f) -> f32 {
 
 @fragment fn fragment(in: Varyings) -> @location(0) vec4f {
   // 贴图里的像素位置（按 CSS 像素算：效果的粗细不跟着屏幕的缩放比变）
-  let at = in.uv * layer.canvas / layer.pixelRatio;
+  let at = in.uv * layer.rect.zw;
   var uv = in.uv;
   // 下面几个分支的条件只看这一层的参数（整层一样），所以里面可以取贴图
   if (layer.glitch > 0) {
@@ -85,7 +89,7 @@ fn hash(p: vec2f) -> f32 {
   var color = textureSample(image, smooth_sampler, uv);
   if (layer.glitch > 0) {
     // 色散：红、蓝两路各往两边偏一点（贴图是预乘过的，直接取分量）
-    let spread = vec2f(1.5 * layer.glitch * layer.pixelRatio / layer.canvas.x, 0);
+    let spread = vec2f(1.5 * layer.glitch / layer.rect.z, 0);
     color.r = textureSample(image, smooth_sampler, uv + spread).r;
     color.b = textureSample(image, smooth_sampler, uv - spread).b;
   }
@@ -131,6 +135,9 @@ const NUMBERS_AT = 4;
 interface LayerState {
   order: number;
   pixelRatio: number;
+  /** 左上角在画布上的位置（CSS 像素） */
+  x: number;
+  y: number;
   /** 过渡：从 from 到 to，start 是开始的时刻（毫秒），duration 是 0 时直接是 to */
   from: number[];
   to: number[];
@@ -161,6 +168,8 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
       layer = {
         order: 0,
         pixelRatio: 1,
+        x: 0,
+        y: 0,
         from: plain,
         to: plain,
         start: 0,
@@ -285,6 +294,12 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
           layer.start = lastNow;
           break;
         }
+        case 'ui-place': {
+          const layer = layerOf(message.layer);
+          layer.x = message.x;
+          layer.y = message.y;
+          break;
+        }
         case 'ui-clear': {
           const layer = layers.get(message.layer);
           if (layer) release(layer);
@@ -307,7 +322,7 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
       });
       pass.setPipeline(gpu.pipeline);
       for (const layer of ordered) {
-        if (!layer.bindings || !layer.uniform) continue;
+        if (!layer.bindings || !layer.uniform || !layer.texture) continue;
         if (layer.pendingStart) {
           layer.start = nowMs;
           layer.pendingStart = false;
@@ -316,6 +331,15 @@ export function createUiCompositor(options: UiCompositorOptions = {}): UiComposi
         if (numbers[OPACITY]! <= 0 || numbers[TINT_ALPHA]! <= 0) continue;
         uniformData.set([width, height, layer.pixelRatio, nowMs / 1000]);
         uniformData.set(numbers, NUMBERS_AT);
+        uniformData.set(
+          [
+            layer.x,
+            layer.y,
+            layer.texture.width / layer.pixelRatio,
+            layer.texture.height / layer.pixelRatio,
+          ],
+          RECT_AT,
+        );
         gpu.device.queue.writeBuffer(layer.uniform, 0, uniformData);
         pass.setBindGroup(0, layer.bindings);
         pass.draw(4);

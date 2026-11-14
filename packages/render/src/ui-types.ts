@@ -3,7 +3,9 @@
  * 用的是浏览器的 HTML-in-Canvas（Chrome 157 起）：界面还是普通的网页元素，照常排版、响应鼠标键盘、能被读屏念到，
  * 只是画到屏幕上的那一步改由我们来做——于是它能和地图在同一帧里合成，能过着色器，能做网页里做不了的过场。
  *
- * 一层（layer）是画布里一个带 drawable 属性的元素，和画布一样大，画成一张贴图。层按 order 从下往上叠。
+ * 一层（layer）是画布里一个带 drawable 属性的元素，画成一张贴图。层按 order 从下往上叠。
+ * 层可以和画布一样大（铺满的界面），也可以只有内容那么大、放在画布上的某个位置（一个气泡、一个下拉列表）：
+ * 重拍一层的代价跟它的面积走，挪位置不用重拍。
  * 这个文件不碰显卡的类型，主线程那头（运行时的界面采集、组件库）也用它；和显卡有关的在 frame-layer.ts。
  */
 
@@ -13,7 +15,7 @@ export interface ElementImage {
 }
 
 /**
- * 一层怎么贴。位置的单位是 CSS 像素（和排版一个单位），变换都绕画布的中心。
+ * 一层怎么贴。位置的单位是 CSS 像素（和排版一个单位），变换都绕这一层自己的中心。
  * 改这些不用重新拍那块界面：只是贴法变了，所以每帧都改也不花主线程的时间。
  */
 export interface UiMaterial {
@@ -67,6 +69,8 @@ export type UiMessage =
       readonly material: UiMaterial;
       readonly durationMs: number;
     }
+  /** 一层放在画布上的哪里：它的左上角（CSS 像素）。没说过就是 0,0（铺满的层） */
+  | { readonly type: 'ui-place'; readonly layer: number; readonly x: number; readonly y: number }
   /** 一层现在没有画面（被藏起来了）：别再画它，贴法留着，等它的新画面 */
   | { readonly type: 'ui-clear'; readonly layer: number }
   | { readonly type: 'ui-remove'; readonly layer: number };

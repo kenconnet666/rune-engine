@@ -105,6 +105,10 @@ export const Stage = _component(
     interface Extra {
       readonly element: HTMLElement;
       readonly order: number;
+      /** 铺满舞台，还是只有内容那么大、放在 (x, y) */
+      readonly fill: boolean;
+      x: number;
+      y: number;
       material: Partial<UiMaterial>;
       handle?: CanvasUiLayer;
     }
@@ -116,12 +120,13 @@ export const Stage = _component(
       element: HTMLElement,
       order: number,
       kept: Partial<UiMaterial> | undefined,
+      fill = true,
     ) => {
       if (!canvas) return undefined;
       // 画布里的元素要带这个属性才画得出来
       element.setAttribute('drawable', '');
       relocate(canvas, element);
-      const handle = created.addLayer(element, order);
+      const handle = created.addLayer(element, order, { fill });
       // 贴法是跟着层走的：搬出去又搬回来，接着用原来的
       if (kept) handle.set(kept);
       return handle;
@@ -156,9 +161,7 @@ export const Stage = _component(
           const element = layers[name].value;
           if (element) handles[name] = enter(created, element, order, materials[name]);
         });
-        for (const extra of extras) {
-          extra.handle = enter(created, extra.element, extra.order, extra.material);
-        }
+        for (const extra of extras) enterExtra(created, extra);
         if (send) created.connect(send);
         return;
       }
@@ -172,7 +175,26 @@ export const Stage = _component(
       for (const extra of extras) {
         extra.handle = undefined;
         leave(extra.element);
+        settle(extra);
       }
+    }
+
+    /**
+     * 只有内容那么大的层放在哪：在画布里时位置告诉采集（不写样式——写了就要重拍）；
+     * 叠在画布上面时用 translate 摆到那里
+     */
+    function settle(extra: Extra) {
+      if (extra.fill) return;
+      if (extra.handle) {
+        extra.element.style.translate = '';
+        extra.handle.moveTo(extra.x, extra.y);
+      } else {
+        extra.element.style.translate = `${extra.x}px ${extra.y}px`;
+      }
+    }
+    function enterExtra(created: CanvasUi, extra: Extra) {
+      extra.handle = enter(created, extra.element, extra.order, extra.material, extra.fill);
+      settle(extra);
     }
 
     provide(STAGE, {
@@ -184,15 +206,21 @@ export const Stage = _component(
       layers,
       material,
       pulse,
-      addLayer(element, order) {
-        const extra: Extra = { element, order, material: {} };
+      addLayer(element, order, { fill = true } = {}) {
+        const extra: Extra = { element, order, fill, x: 0, y: 0, material: {} };
         extras.add(extra);
         element.style.zIndex = stackOf(order);
-        if (ui) extra.handle = enter(ui, element, order, undefined);
+        if (ui) enterExtra(ui, extra);
+        else settle(extra);
         return {
           set(next, durationMs) {
             extra.material = { ...extra.material, ...next };
             extra.handle?.set(next, durationMs);
+          },
+          moveTo(x, y) {
+            extra.x = x;
+            extra.y = y;
+            settle(extra);
           },
           remove() {
             extras.delete(extra);
