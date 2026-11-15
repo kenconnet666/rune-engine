@@ -167,10 +167,16 @@ export const StageScroll = _component(
       const inner = element.getBoundingClientRect();
       const offset = inner.top - box.getBoundingClientRect().top;
       const margin = parseFloat(getComputedStyle(element).scrollMarginTop) || 0;
-      if (align === 'start' || offset - margin < top) scrollTo(offset - margin, smooth);
-      else if (offset + inner.height > top + view.height) {
-        scrollTo(offset + inner.height - view.height, smooth);
-      }
+      const start = offset - margin;
+      const end = offset + inner.height;
+      if (align === 'start') return scrollTo(start, smooth);
+      const above = start < top;
+      const below = end > top + view.height;
+      // 整个看得见，或者它比视口还大、已经把视口占满了：不动
+      if (above === below) return;
+      // 比视口高的露出离得近的那一头，放得下的滚最少的距离
+      const tall = end - start > view.height;
+      scrollTo(above !== tall ? start : end - view.height, smooth);
     };
 
     /** 视口在哪、多大：内容层跟着它 */

@@ -58,8 +58,16 @@ export interface StageLayerProps {
 
 const styles = css.create({
   stage: { position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' },
-  // 只有内容那么大：从舞台的左上角起，宽度跟着内容走；放到哪里由舞台来摆
-  content: { position: 'absolute', insetBlockStart: 0, insetInlineStart: 0, width: 'max-content' },
+  // 只有内容那么大：从舞台的左上角起，宽度跟着内容走；放到哪里由舞台来摆。
+  // 层自己不接指针（和铺满的层一样，里面的东西各自打开）：在画布里它本来就接不到，叠在画布上面时不写这句的话
+  // 层的空壳会把下面的东西挡住，两种摆法就不一样了
+  content: {
+    position: 'absolute',
+    insetBlockStart: 0,
+    insetInlineStart: 0,
+    width: 'max-content',
+    pointerEvents: 'none',
+  },
 });
 
 export const StageLayer = _component(
