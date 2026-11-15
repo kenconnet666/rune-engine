@@ -1,0 +1,24 @@
+{
+  "name": "@rune-engine/view",
+  "version": "0.0.0",
+  "private": true,
+  "description": "自己画的界面：节点树、样式、排版、命中都是自己的（不是网页元素），由 Vue 驱动，排好版交给渲染线程用 WebGPU 画",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./renderer": "./src/worker/run.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo && tsc -p tsconfig.worker.json --incremental --tsBuildInfoFile node_modules/.cache/typecheck-worker.tsbuildinfo"
+  },
+  "dependencies": {
+    "@rune-engine/render": "workspace:^",
+    "vue": "catalog:"
+  },
+  "devDependencies": {
+    "@webgpu/types": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

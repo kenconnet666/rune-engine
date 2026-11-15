@@ -41,3 +41,15 @@ export {
   type UiMessage,
   type UiReport,
 } from './ui-types.ts';
+// 自己画的界面：显示列表的约定、照着它画的那一层
+export { createViewPainter, type ViewPainter, type ViewPainterOptions } from './view-painter.ts';
+export {
+  VIEW_ITEM,
+  VIEW_ITEM_FLOATS,
+  VIEW_KIND_RECT,
+  VIEW_KIND_TEXT,
+  viewFontString,
+  type ViewFont,
+  type ViewMessage,
+  type ViewRun,
+} from './view-types.ts';

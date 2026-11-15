@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "pnpm --filter @miwang/client dev",
     "dev:docs": "pnpm --filter @rune-engine/docs dev",
+    "dev:lab": "pnpm --filter @rune-engine/lab dev",
     "online": "pnpm run \"/^online:/\"",
     "online:server": "pnpm --filter @miwang/server dev",
     "online:client": "pnpm --filter @miwang/client dev --mode online",

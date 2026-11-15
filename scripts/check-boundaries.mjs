@@ -18,6 +18,10 @@ const ALLOWED = {
   // 舞台认识渲染那头的界面合成器的约定（render/ui-types，不碰显卡）；组件库建在舞台上
   '@rune-engine/stage': ['@rune-engine/render'],
   '@rune-engine/ui': ['@rune-engine/stage'],
+  // 自己画的界面（节点树、排版、命中都是自己的，不是网页元素）：主线程这头只认识渲染那头的约定（render/view-types）
+  '@rune-engine/view': ['@rune-engine/render'],
+  // 试验场：自己画的界面和网页元素并排对比
+  '@rune-engine/lab': ['@rune-engine/view'],
   // 从 vue-tsx-pro 复制来的组件库（见它的 UPSTREAM.md）；接上舞台之后再加依赖
   '@rune-engine/components': [],
   // 组件库的文档站（也是复制来的）：整站放在一个舞台里

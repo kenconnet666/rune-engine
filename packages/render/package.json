@@ -2,14 +2,15 @@
   "name": "@rune-engine/render",
   "version": "0.0.0",
   "private": true,
-  "description": "WebGPU 2D 渲染：地区地图、数据纹理着色、把界面层贴到画面上的合成器；不碰 DOM，主线程和 Worker 里都能跑",
+  "description": "WebGPU 2D 渲染：地区地图、数据纹理着色、照着显示列表画界面、把界面层贴到画面上的合成器；不碰 DOM，主线程和 Worker 里都能跑",
   "type": "module",
   "license": "MIT",
   "exports": {
     ".": "./src/index.ts",
     "./mesh-format": "./src/mesh-format.ts",
     "./map-view": "./src/map-view.ts",
-    "./ui-types": "./src/ui-types.ts"
+    "./ui-types": "./src/ui-types.ts",
+    "./view-types": "./src/view-types.ts"
   },
   "scripts": {
     "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"

@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable"]
+  },
+  "include": ["src"],
+  // 渲染线程里的那个文件按 Worker 的环境另外检查（tsconfig.worker.json）
+  "exclude": ["src/worker/worker.ts"]
+}

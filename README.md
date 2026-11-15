@@ -33,6 +33,8 @@
 | [docs/design.md](docs/design.md)                                             | 规则设计：双方的目标、资源、胜负，五章   |
 | [docs/deploy.md](docs/deploy.md)                                             | 部署到 Cloudflare 的步骤（免费计划够用） |
 | [docs/performance.md](docs/performance.md)                                   | 性能预算：量什么、线在哪、怎么核对       |
+| [docs/view.md](docs/view.md)                                                 | 自己画的界面：节点、排版、文字、怎么用   |
+| [docs/interface.md](docs/interface.md)                                       | 把网页元素画进画布的那一套（在换掉）     |
 | [docs/credits.md](docs/credits.md)                                           | 数据来源与致谢                           |
 | [docs/research/infectious-diseases.md](docs/research/infectious-diseases.md) | 九种传染病的公开资料调研                 |
 | [ROADMAP.md](ROADMAP.md)                                                     | 做了什么、每一步的取舍和没做的事         |
@@ -53,11 +55,13 @@ packages/            引擎，不知道任何具体游戏
                      云存档的客户端
   edge               跑在 Cloudflare Workers 上的服务端：联机的房间、云存档的存档柜（各是一个 Durable Object 类）
   render             WebGPU 2D 渲染（不碰 DOM）：地区地图、色带、视野的坐标换算、点选；
-                     把主线程拍下来的界面贴到画面上的合成器
+                     照着显示列表画界面（自己画的那一套）；把主线程拍下来的界面贴到画面上的合成器
   input              手势：拖动、缩放、轻点、停留（鼠标、触屏、键盘同一套回调）
   audio              声音：设备解锁、分路音量、合成用的基本件
   runtime            把线程接起来：消息通道、画布尺寸、主机的计时循环、存在浏览器里的小东西
   stage              舞台：一张画布加画在画布里的几层界面，和画面同一帧合成；弹层的宿主、贴着锚点摆的层（见 docs/interface.md）；不认识具体的组件
+  view               自己画的界面（见 docs/view.md）：节点树、样式、排版、命中都是自己的，不是网页元素；由 Vue 驱动，
+                     排好版交给渲染线程用 WebGPU 画。现在是内核，之后界面都换到它上面
   ui                 游戏用的界面组件（TSX 编译与样式引擎、属性合并的约定用 vue-tsx-pro 的）；图标用 lucide
   components         组件库：从 vue-tsx-pro 复制来、在这边分叉着改，目标是整套能画进画布（见它的 UPSTREAM.md）；
                      游戏之后换到它上面，packages/ui 到时候删掉
@@ -65,6 +69,7 @@ packages/            引擎，不知道任何具体游戏
 apps/
   docs               组件库的文档站（从 vue-tsx-pro 的文档站复制来的）：整站放在一个舞台里，
                      可以画进画布（?stage=canvas）、也可以当普通网页看（?stage=dom），两种摆法对比着改
+  lab                试验场：同一张大表格，网页元素和自己画的并排对比（挂载、更新、滚动）
   assets-build       构建时的素材处理：地理数据 → 地区网格
 games/miwang/        《迷惘》
   sim                规则，只依赖 core：浏览器、Worker、Node 里算出逐位相同的结果；电脑对手也在这里
@@ -86,6 +91,7 @@ scripts/             检查与核对：包的边界、下载体积的预算、�
 pnpm install
 pnpm dev            # 《迷惘》的开发服务器：http://localhost:5180
 pnpm dev:docs       # 组件库的文档站：http://localhost:5181（右下角换“画进画布 / 普通网页”）
+pnpm dev:lab        # 试验场：http://localhost:5183（自己画的界面和网页元素对比）
 pnpm online         # 同上，再加本地的服务端（联机、云存档；wrangler 在本机模拟 Cloudflare，听 8787）
 pnpm check          # 格式、lint、边界、类型、测试
 ```
@@ -103,6 +109,7 @@ pnpm smoke:chapters # 章节：目标、提示、打到分出胜负、下一章
 pnpm smoke:online   # 两个页面一主一客，把联机走一遍
 pnpm smoke:cloud    # 两台“设备”把云存档走一遍（要带服务端）
 pnpm perf           # 量主线程卡不卡、渲染线程每帧花多久（--budget：超了线就报错）
+node scripts/browser/lab.mjs --out=目录   # 试验场（先 pnpm dev:lab）：两种落地各量一遍，核对画得一样
 pnpm check:budget   # 构建之后：下载体积的预算
 ```
 
