@@ -1,0 +1,25 @@
+{
+  "name": "@rune-engine/site",
+  "version": "0.0.0",
+  "private": true,
+  "description": "自己画的界面的文档站：整站都画在一张画布里（节点、排版、文字、选中都是 view 包的），拿来看它现在能做什么",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite --configLoader native",
+    "build": "vite build --configLoader native",
+    "preview": "vite preview --configLoader native",
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"
+  },
+  "dependencies": {
+    "@rune-engine/kit": "workspace:^",
+    "@rune-engine/view": "workspace:^",
+    "@zerodep-dev/vue-tsx-pro-tsx": "catalog:",
+    "vue": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}

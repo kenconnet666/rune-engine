@@ -8,6 +8,7 @@
  */
 export { createViewHost, type ViewHost, type ViewHostOptions, type ViewHostStats } from './host.ts';
 export { createViewApp, Text, View, type ViewProps } from './renderer.ts';
+export type { ViewRendererStats } from './worker/messages.ts';
 export { ViewNode, ViewTree, type ViewNodeType } from './node.ts';
 export { parseColor, type ViewAlign, type ViewStyle } from './style.ts';
 export { layoutTree } from './layout.ts';

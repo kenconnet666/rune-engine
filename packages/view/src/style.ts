@@ -49,6 +49,15 @@ export interface ViewStyle {
   marginRight?: number;
   marginTop?: number;
   marginBottom?: number;
+  /**
+   * absolute：不参加父节点的排队，按 left / top / right / bottom 贴着父节点（边线以内）的边放；
+   * 左右都写了宽度就是两边之间那么宽（上下同理）。它画在排着队的兄弟后面（盖在上面）
+   */
+  position?: 'relative' | 'absolute';
+  left?: number;
+  top?: number;
+  right?: number;
+  bottom?: number;
   /** 超出盒子的内容：照常显示（默认）、不显示、不显示但可以滚 */
   overflow?: 'visible' | 'hidden' | 'scroll';
 

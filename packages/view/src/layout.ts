@@ -24,17 +24,27 @@ import {
 
 /** 整棵树排一遍：根节点就是整个视口那么大 */
 export function layoutTree(tree: ViewTree, width: number, height: number): void {
+  resized.length = 0;
   layoutNode(tree.root, width, height, DEFAULT_TEXT);
   tree.root.x = 0;
   tree.root.y = 0;
   tree.needsLayout = false;
+  // 排完了再告诉使用方哪些盒子的大小变了：处理函数里改了东西也不会搅进正在排的这一趟
+  for (const node of resized.splice(0)) {
+    (node.props!.onLayout as (node: ViewNode) => void)(node);
+  }
 }
+
+/** 这一趟里大小（或者内容的大小）变了、又写了 onLayout 的节点 */
+const resized: ViewNode[] = [];
 
 const clamp = (value: number, min: number | undefined, max: number | undefined) =>
   Math.max(min ?? 0, max === undefined ? value : Math.min(max, value));
 
 /** 参与排版的子节点（Vue 的文字节点、注释节点不算） */
-const isBox = (node: ViewNode) => node.type === 'view' || node.type === 'text';
+const isElement = (node: ViewNode) => node.type === 'view' || node.type === 'text';
+/** 排着队的子节点：绝对定位的不排队 */
+const isBox = (node: ViewNode) => isElement(node) && node.look.position !== 'absolute';
 
 /**
  * 排一个节点。width、height 是父节点定下来的大小（含内边距和边线）；没定（undefined）就由内容撑出来。
@@ -90,7 +100,19 @@ function layoutNode(
     node.contentHeight = node.lines.length * text.lineHeight;
     return;
   }
+  const before = node.props?.onLayout
+    ? [node.width, node.height, node.contentWidth, node.contentHeight]
+    : undefined;
   layoutContainer(node, style, width, height, text);
+  if (
+    before &&
+    (before[0] !== node.width ||
+      before[1] !== node.height ||
+      before[2] !== node.contentWidth ||
+      before[3] !== node.contentHeight)
+  ) {
+    resized.push(node);
+  }
 }
 
 function layoutContainer(
@@ -194,8 +216,10 @@ function layoutContainer(
   for (const child of children) {
     if (!isBox(child)) {
       // Vue 的占位节点（文字、注释）不占地方，但位置跟着排：按位置二分找子节点时整列才是递增的
-      if (row) child.x = insetLeft + at;
-      else child.y = insetTop + at;
+      if (!isElement(child)) {
+        if (row) child.x = insetLeft + at;
+        else child.y = insetTop + at;
+      }
       continue;
     }
     const look = child.look;
@@ -214,7 +238,37 @@ function layoutContainer(
     }
     at += mainMargins(look, row) + gap + between;
   }
-  node.flowAxis = row ? 'x' : 'y';
+  // —— 绝对定位的子节点：自己的大小定下来之后，贴着（边线以内的）边放
+  let floating = false;
+  for (const child of children) {
+    if (!isElement(child) || child.look.position !== 'absolute') continue;
+    floating = true;
+    const { left, top, right, bottom } = child.look;
+    const span = (near: number | undefined, far: number | undefined, size: number) =>
+      near !== undefined && far !== undefined
+        ? Math.max(0, size - border * 2 - near - far)
+        : undefined;
+    layoutNode(
+      child,
+      child.look.width ?? span(left, right, node.width),
+      child.look.height ?? span(top, bottom, node.height),
+      text,
+    );
+    child.x =
+      left !== undefined
+        ? border + left
+        : right !== undefined
+          ? node.width - border - right - child.width
+          : insetLeft;
+    child.y =
+      top !== undefined
+        ? border + top
+        : bottom !== undefined
+          ? node.height - border - bottom - child.height
+          : insetTop;
+  }
+  // 有绝对定位的子节点时位置不再是递增的，找子节点不能二分
+  node.flowAxis = floating ? null : row ? 'x' : 'y';
   node.contentWidth = (row ? taken : cross) + insetLeft + insetRight;
   node.contentHeight = (row ? cross : taken) + insetTop + insetBottom;
   // 内容变短了：滚过头的收回来

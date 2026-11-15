@@ -83,6 +83,8 @@ export class ViewNode {
     this.scrollLeft = nextLeft;
     this.scrollTop = nextTop;
     this.tree.invalidatePaint();
+    const handler = this.props?.onScroll;
+    if (typeof handler === 'function') (handler as (node: ViewNode) => void)(this);
     return true;
   }
 

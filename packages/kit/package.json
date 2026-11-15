@@ -1,0 +1,22 @@
+{
+  "name": "@rune-engine/kit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "建在自己画的界面（view 包）上的一小套基础组件：主题、文字、按钮、卡片、标记、页签、开关、滚动区域、代码块",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p . --incremental --tsBuildInfoFile node_modules/.cache/typecheck.tsbuildinfo"
+  },
+  "dependencies": {
+    "@rune-engine/view": "workspace:^",
+    "@zerodep-dev/vue-tsx-pro-tsx": "catalog:",
+    "vue": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

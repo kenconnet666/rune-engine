@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    "jsxImportSource": "@zerodep-dev/vue-tsx-pro-tsx",
+    "types": ["node", "vite/client", "@zerodep-dev/vue-tsx-pro-tsx/runes"]
+  },
+  "include": ["src", "*.config.ts"]
+}

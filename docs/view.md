@@ -27,22 +27,25 @@ Vue 组件 ──→ 节点树 ──→ 排版 ──→ 显示列表 ──消
 
 ## 东西在哪
 
-| 位置                                   | 管什么                                                                     |
-| -------------------------------------- | -------------------------------------------------------------------------- |
-| `packages/render` 的 `view-types.ts`   | 约定：显示列表的格式、文字段、主线程发给渲染线程的消息                     |
-| `packages/render` 的 `view-painter.ts` | 渲染线程里照着显示列表画：圆角矩形、边线、文字，一次画完；文字图集         |
-| `packages/view` 的 `node.ts`           | 节点（`ViewNode`）和树（`ViewTree`）：样式、子节点、排版结果、变了没有     |
-| `packages/view` 的 `style.ts`          | 样式有哪些、文字样式怎么往下传、认颜色、哪些变了要重排                     |
-| `packages/view` 的 `layout.ts`         | 排版（弹性盒子的一小套），只重排变了的                                     |
-| `packages/view` 的 `text.ts`           | 量文字有多宽、折成几行、光标能停在哪                                       |
-| `packages/view` 的 `selection.ts`      | 选中文字：位置对着哪个字、选区的先后、选中的字连起来、哪几截要垫底色       |
-| `packages/view` 的 `renderer.ts`       | 把 Vue 接到节点树上（`createViewApp`）；写 TSX 用的 `View`、`Text`         |
-| `packages/view` 的 `events.ts`         | 命中、指针事件、指着 / 按着的状态、滚轮                                    |
-| `packages/view` 的 `display.ts`        | 把排好的树列成显示列表（只列露出来的）；登记文字段                         |
-| `packages/view` 的 `host.ts`           | 宿主：把一棵树接到一张画布上（尺寸、输入、什么时候刷新）                   |
-| `packages/view` 的 `worker/`           | 只画界面的渲染线程（整页都是界面时用；有自己画面的把画的那一层接进自己的） |
-| `apps/lab`                             | 试验场：同一张表，网页元素和自己画的并排比                                 |
-| `scripts/browser/lab.mjs`              | 无界面浏览器里跑试验场：量数、核对两边画得一样、点选和滚动生效             |
+| 位置                                   | 管什么                                                                                       |
+| -------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `packages/render` 的 `view-types.ts`   | 约定：显示列表的格式、文字段、主线程发给渲染线程的消息                                       |
+| `packages/render` 的 `view-painter.ts` | 渲染线程里照着显示列表画：圆角矩形、边线、文字，一次画完；文字图集                           |
+| `packages/view` 的 `node.ts`           | 节点（`ViewNode`）和树（`ViewTree`）：样式、子节点、排版结果、变了没有                       |
+| `packages/view` 的 `style.ts`          | 样式有哪些、文字样式怎么往下传、认颜色、哪些变了要重排                                       |
+| `packages/view` 的 `layout.ts`         | 排版（弹性盒子的一小套），只重排变了的                                                       |
+| `packages/view` 的 `text.ts`           | 量文字有多宽、折成几行、光标能停在哪                                                         |
+| `packages/view` 的 `selection.ts`      | 选中文字：位置对着哪个字、选区的先后、选中的字连起来、哪几截要垫底色                         |
+| `packages/view` 的 `renderer.ts`       | 把 Vue 接到节点树上（`createViewApp`）；写 TSX 用的 `View`、`Text`                           |
+| `packages/view` 的 `events.ts`         | 命中、指针事件、指着 / 按着的状态、滚轮                                                      |
+| `packages/view` 的 `display.ts`        | 把排好的树列成显示列表（只列露出来的）；登记文字段                                           |
+| `packages/view` 的 `host.ts`           | 宿主：把一棵树接到一张画布上（尺寸、输入、什么时候刷新）                                     |
+| `packages/view` 的 `worker/`           | 只画界面的渲染线程（整页都是界面时用；有自己画面的把画的那一层接进自己的）                   |
+| `apps/lab`                             | 试验场：同一张表，网页元素和自己画的并排比                                                   |
+| `packages/kit`                         | 建在内核上的一小套基础组件：主题、文字、按钮、卡片、标记、链接、开关、页签、滚动区域、代码块 |
+| `apps/site`                            | 画布版的文档站：整站画在一张画布里，每一页是内核的一块，示例都是活的                         |
+| `scripts/browser/site.mjs`             | 无界面浏览器里把文档站走一遍：每页打得开、导航、选中复制、滚动、换主题                       |
+| `scripts/browser/lab.mjs`              | 无界面浏览器里跑试验场：量数、核对两边画得一样、点选和滚动生效                               |
 
 ## 怎么用
 
@@ -79,7 +82,8 @@ host.mount(App);
 名字照着 CSS 起，现在只有一小部分：
 
 - 排版：`flexDirection`、`width` / `height`、`min*` / `max*`、`flex` / `flexGrow` / `flexShrink` / `flexBasis`、
-  `alignItems` / `alignSelf` / `justifyContent`、`gap`、`padding*`、`margin*`、`overflow`。
+  `alignItems` / `alignSelf` / `justifyContent`、`gap`、`padding*`、`margin*`、`overflow`、
+  `position: 'absolute'` 加 `left` / `top` / `right` / `bottom`（贴着父节点的边放，不排队，盖在兄弟上面）。
 - 画法：`backgroundColor`、`borderRadius`、`borderWidth` / `borderColor`、`opacity`。
 - 文字（往下传）：`color`、`fontFamily`、`fontSize`、`fontWeight`、`fontStyle`、`lineHeight`。
 - 一段字怎么排（写在 `Text` 上，不往下传）：`whiteSpace`、`textAlign`、`maxLines`、`textOverflow`。
@@ -124,6 +128,8 @@ host.mount(App);
 事件照网页的习惯：`onClick`、`onPointerdown`、`onPointerup`、`onPointermove` 从被点到的节点往上冒，
 可以 `stopPropagation`；`onPointerenter`、`onPointerleave` 不冒；点击落在按下和松开两处共同的最近祖先上。
 `overflow: 'scroll'` 的盒子滚轮能滚，到头了交给外面的；`onWheel` 里 `preventDefault` 可以拦住。
+滚了会叫 `onScroll`；盒子的大小或者内容的大小变了会叫 `onLayout`（滚动条靠这两个知道滑块该多长、在哪）。
+拖东西（滑块、滚动条）：在 `onPointerdown` 里叫 `event.capture()`，之后指针挪到哪、在哪松开都发给这个节点。
 
 滚动现在在主线程：改了位置，重列一遍显示列表（零点几毫秒）发过去。主线程卡住时它也跟着卡——
 之后要搬到渲染线程里（多列一截备着、渲染线程自己挪）。
@@ -161,6 +167,22 @@ host.mount(App);
 
 除了复制，这几样都还没做（见下面）。
 
+## 基础组件和文档站
+
+`packages/kit` 是建在内核上的一小套组件，全是 `View` 和 `Text` 搭的：`Heading`、`Paragraph`、`Muted`、`Caption`、
+`Button`、`Badge`、`Card`、`Divider`、`Link`、`Row` / `Column`、`Switch`、`Tabs`、`NavItem`、`ScrollArea`（带能拖的滚动条）、
+`CodeBlock`。主题是一套颜色（深色、浅色），`setTheme` 换；组件的样式按主题算一次记住（`themed`），
+同一个主题下每次渲染拿到的是同一批样式对象。
+
+`apps/site` 是用它搭的文档站（`pnpm dev:site`，http://localhost:5185）：整站画在一张画布里，页面上除了那张画布
+没有别的元素。每一页讲内核的一块（排版、文字、画法、指针和滚动、选中和复制、组件、性能），示例都是活的；
+右上角显示两条线程的帧率，可以换深浅色。路由是地址里的路径（`pushState`），浏览器的前进后退能用。
+
+`node scripts/browser/site.mjs --out=目录` 把它走一遍：整站没有可以按文字找的元素，核对靠界面的树
+（页面把宿主挂在 `window.__site` 上）——每页的标题、导航点得动、拖过六个字复制到的正是那六个字、滚轮、换主题。
+
+要知道的：一段字里只能是一种样式（中间不能夹加粗、行内代码、链接）；彩色的表情画出来是单色的（图集里只存有没有墨）。
+
 ## 量出来的数
 
 `pnpm dev:lab` 起试验场（http://localhost:5183，`?mode=view|dom&rows=2000`），
@@ -181,7 +203,7 @@ host.mount(App);
 
 按打算做的先后：
 
-1. 绝对定位；网格排版、百分比。
+1. 一段字里混排几种样式；网格排版、百分比。
 2. 过渡和动画（在渲染线程里走）；滚动搬到渲染线程；阴影、渐变、图片、图标（矢量路径画进图集）。
 3. 焦点和键盘；文字输入（`EditContext`）、粘贴。
 4. 无障碍用的那棵隐藏的元素树。

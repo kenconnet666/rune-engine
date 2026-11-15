@@ -22,6 +22,11 @@ export interface ViewPointerEvent {
   currentTarget: ViewNode;
   /** 不再往上冒 */
   stopPropagation(): void;
+  /**
+   * 抓住指针（在 pointerdown 里叫）：之后的 pointermove、pointerup 不管指针挪到哪都发给这个节点，直到松开。
+   * 拖滚动条、拖滑块用
+   */
+  capture(): void;
 }
 
 export interface ViewWheelEvent {
@@ -106,6 +111,8 @@ export function createPointerInput(
   tree: ViewTree,
   { now = () => performance.now() }: PointerInputOptions = {},
 ): PointerInput {
+  /** 抓住了指针的节点（见 ViewPointerEvent.capture） */
+  let captured: ViewNode | null = null;
   /** 正拖着选文字：从哪个位置开始的 */
   let selectingFrom: TextPoint | null = null;
   /** 上一次按下：什么时候、在哪、是第几连击 */
@@ -132,6 +139,11 @@ export function createPointerInput(
       target,
       currentTarget: target,
       stopPropagation: () => (stopped = true),
+      capture: () => {
+        captured = event.currentTarget;
+        // 抓着指针拖的不是在选字
+        selectingFrom = null;
+      },
     };
     const name = handlerName(type);
     for (
@@ -184,6 +196,10 @@ export function createPointerInput(
       return cursor;
     },
     move(x, y) {
+      if (captured) {
+        dispatch('pointermove', captured, x, y);
+        return;
+      }
       const target = hitTest(tree, x, y);
       hoverTo(target, x, y);
       if (target) dispatch('pointermove', target, x, y);
@@ -221,6 +237,11 @@ export function createPointerInput(
     },
     up(x, y) {
       selectingFrom = null;
+      if (captured) {
+        const holder = captured;
+        captured = null;
+        dispatch('pointerup', holder, x, y);
+      }
       const target = hitTest(tree, x, y);
       setState(pressed, 'pressed', false);
       pressed = [];

@@ -20,6 +20,10 @@ export interface ViewProps {
   onPointerenter?: (event: ViewPointerEvent) => void;
   onPointerleave?: (event: ViewPointerEvent) => void;
   onWheel?: (event: ViewWheelEvent) => void;
+  /** 排版之后这个盒子的大小、或者它里面内容的大小变了（滚动条据此知道该多长） */
+  onLayout?: (node: ViewNode) => void;
+  /** 这个盒子滚了（滚轮、scrollTo）：从节点上读 scrollTop、maxScrollTop */
+  onScroll?: (node: ViewNode) => void;
   children?: VNodeChild;
 }
 

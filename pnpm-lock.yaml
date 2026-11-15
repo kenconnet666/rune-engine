@@ -451,6 +451,31 @@ importers:
         specifier: 'catalog:'
         version: 8.3.4(@types/node@24.19.2)(esbuild@0.28.2)
 
+  apps/site:
+    dependencies:
+      '@rune-engine/kit':
+        specifier: workspace:^
+        version: link:../../packages/kit
+      '@rune-engine/view':
+        specifier: workspace:^
+        version: link:../../packages/view
+      '@zerodep-dev/vue-tsx-pro-tsx':
+        specifier: 'catalog:'
+        version: 0.25.0(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2))(vue@3.5.44(typescript@7.1.0-dev.20261104.1))
+      vue:
+        specifier: 'catalog:'
+        version: 3.5.44(typescript@7.1.0-dev.20261104.1)
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      typescript:
+        specifier: 'catalog:'
+        version: 7.1.0-dev.20261104.1
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.4(@types/node@24.19.2)(esbuild@0.28.2)
+
   games/miwang/client:
     dependencies:
       '@miwang/content':
@@ -764,6 +789,22 @@ importers:
         version: 5.0.5(@types/node@24.19.2)(happy-dom@21.0.3)(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2))
 
   packages/input:
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 7.1.0-dev.20261104.1
+
+  packages/kit:
+    dependencies:
+      '@rune-engine/view':
+        specifier: workspace:^
+        version: link:../view
+      '@zerodep-dev/vue-tsx-pro-tsx':
+        specifier: 'catalog:'
+        version: 0.25.0(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2))(vue@3.5.44(typescript@7.1.0-dev.20261104.1))
+      vue:
+        specifier: 'catalog:'
+        version: 3.5.44(typescript@7.1.0-dev.20261104.1)
     devDependencies:
       typescript:
         specifier: 'catalog:'

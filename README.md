@@ -62,6 +62,7 @@ packages/            引擎，不知道任何具体游戏
   stage              舞台：一张画布加画在画布里的几层界面，和画面同一帧合成；弹层的宿主、贴着锚点摆的层（见 docs/interface.md）；不认识具体的组件
   view               自己画的界面（见 docs/view.md）：节点树、样式、排版、命中都是自己的，不是网页元素；由 Vue 驱动，
                      排好版交给渲染线程用 WebGPU 画。现在是内核，之后界面都换到它上面
+  kit                建在 view 上的一小套基础组件（主题、文字、按钮、卡片、页签、开关、滚动区域、代码块）
   ui                 游戏用的界面组件（TSX 编译与样式引擎、属性合并的约定用 vue-tsx-pro 的）；图标用 lucide
   components         组件库：从 vue-tsx-pro 复制来、在这边分叉着改，目标是整套能画进画布（见它的 UPSTREAM.md）；
                      游戏之后换到它上面，packages/ui 到时候删掉
@@ -70,6 +71,7 @@ apps/
   docs               组件库的文档站（从 vue-tsx-pro 的文档站复制来的）：整站放在一个舞台里，
                      可以画进画布（?stage=canvas）、也可以当普通网页看（?stage=dom），两种摆法对比着改
   lab                试验场：同一张大表格，网页元素和自己画的并排对比（挂载、更新、滚动）
+  site               自己画的界面的文档站：整站画在一张画布里（用的是 view 和 kit），示例都是活的
   assets-build       构建时的素材处理：地理数据 → 地区网格
 games/miwang/        《迷惘》
   sim                规则，只依赖 core：浏览器、Worker、Node 里算出逐位相同的结果；电脑对手也在这里
@@ -92,6 +94,7 @@ pnpm install
 pnpm dev            # 《迷惘》的开发服务器：http://localhost:5180
 pnpm dev:docs       # 组件库的文档站：http://localhost:5181（右下角换“画进画布 / 普通网页”）
 pnpm dev:lab        # 试验场：http://localhost:5183（自己画的界面和网页元素对比）
+pnpm dev:site       # 自己画的界面的文档站：http://localhost:5185（整站画在画布里）
 pnpm online         # 同上，再加本地的服务端（联机、云存档；wrangler 在本机模拟 Cloudflare，听 8787）
 pnpm check          # 格式、lint、边界、类型、测试
 ```
@@ -110,6 +113,7 @@ pnpm smoke:online   # 两个页面一主一客，把联机走一遍
 pnpm smoke:cloud    # 两台“设备”把云存档走一遍（要带服务端）
 pnpm perf           # 量主线程卡不卡、渲染线程每帧花多久（--budget：超了线就报错）
 node scripts/browser/lab.mjs --out=目录   # 试验场（先 pnpm dev:lab）：两种落地各量一遍，核对画得一样
+node scripts/browser/site.mjs --out=目录  # 画布版文档站（先 pnpm dev:site）：每页走一遍，选中复制、滚动、换主题
 pnpm check:budget   # 构建之后：下载体积的预算
 ```
 
