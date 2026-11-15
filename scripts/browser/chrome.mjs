@@ -301,6 +301,11 @@ export async function launchChrome({
           writeFileSync(path, Buffer.from(data, 'base64'));
         },
         /**
+         * 直接发一条调试协议的命令（上面没包的那些：输入法的组字 Input.imeSetComposition、
+         * 无障碍树 Accessibility.getFullAXTree、带编辑命令的按键……），返回它的结果
+         */
+        cdp: (method, params) => call(method, params),
+        /**
          * 录一段浏览器自己的跟踪（run 跑着的那段时间），返回跟踪事件：主线程的时间不在我们的脚本里时，
          * 用它看是花在排版、绘制还是别的哪一步上。
          * categories 换成 ['disabled-by-default-v8.cpu_profiler'] 就是 CPU 采样（事件里的 ProfileChunk）：看时间花在哪个函数上。
