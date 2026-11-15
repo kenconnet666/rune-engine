@@ -4,7 +4,8 @@
  * 和 CSS 不一样、要知道的：
  *   - 每个盒子都是弹性容器，默认**竖着排**（flexDirection: 'column'）、子节点横向撑满；
  *   - flexShrink 默认是 0（放不下就溢出去，不会自己缩）；
- *   - 长度只有像素（数字）；lineHeight 也是像素，不是倍数。
+ *   - 长度只有像素（数字）；lineHeight 也是像素，不是倍数；
+ *   - 怎么折行、靠哪边（whiteSpace、textAlign……）写在那段字自己身上，不从父节点传下来。
  */
 import type { ViewFont } from '@rune-engine/render/view-types';
 
@@ -69,9 +70,21 @@ export interface ViewStyle {
   /** 一行占多高（像素）；没写是字号的 1.4 倍 */
   lineHeight?: number;
 
+  // —— 一段字怎么排（写在 text 上，不往下传）
+  /** normal（默认）：放不下就折行；nowrap：一行到底；pre：只在换行符处断（代码） */
+  whiteSpace?: 'normal' | 'nowrap' | 'pre';
+  /** 每一行在这段字的宽度里靠哪边 */
+  textAlign?: 'left' | 'center' | 'right';
+  /** 最多几行，多出来的不显示 */
+  maxLines?: number;
+  /** 被截掉了的话最后一行末尾放省略号（不折行的一行放不下、或者超过了 maxLines） */
+  textOverflow?: 'clip' | 'ellipsis';
+
   // —— 交互
   /** 指针在它上面时的光标（CSS 的 cursor） */
   cursor?: string;
+  /** 里面的字能不能被选中（拖选、复制）：默认能；写了 none 的连同子孙都不能，子孙里再写 text 的又能 */
+  userSelect?: 'text' | 'none';
   /** 自己不接指针（点到的是它下面的东西）；子节点不受影响 */
   pointerEvents?: 'auto' | 'none';
   /** 指针在它上面、按着它的时候另外加的样式 */
@@ -189,6 +202,8 @@ export const marginBottom = (s: ViewStyle) => s.marginBottom ?? s.marginBlock ??
 
 /** 只影响怎么画、不影响排版的那几样：只有它们变了的话不用重排 */
 const PAINT_ONLY = new Set<string>([
+  'userSelect',
+  'textAlign',
   'backgroundColor',
   'borderRadius',
   'borderColor',

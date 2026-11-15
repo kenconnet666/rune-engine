@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { childRange, createPointerInput, hitTest, type ViewPointerEvent } from './events.ts';
+import { createPointerInput, hitTest, type ViewPointerEvent } from './events.ts';
 import { layoutTree } from './layout.ts';
+import { childRange } from './node.ts';
 import { arrange, box, createTestTree, label } from './test-helpers.ts';
 
 describe('命中', () => {

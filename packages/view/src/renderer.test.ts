@@ -50,8 +50,8 @@ describe('Vue 落到节点树上', () => {
     measurer.calls.length = 0;
     layoutTree(tree, 200, 100);
     expect(changing!.text).toBe('数到 25');
-    // 竖排里的一行字横向是撑满的，不用量；没变的那一行整个跳过了
-    expect(measurer.calls).toEqual([]);
+    // 只量了变了的那一段（看它在这个宽度里放不放得下）；没变的那一行整个跳过了
+    expect(measurer.calls).toEqual(['数到 25']);
     expect(steady!.layoutDirty).toBe(false);
   });
 

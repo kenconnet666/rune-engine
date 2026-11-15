@@ -5,15 +5,10 @@
  * 位置（x、y）是相对父节点左上角的，所以挪动、滚动一棵子树不用重排它里面的东西。
  */
 import { affectsLayout, NO_STYLE, type TextStyle, type ViewStyle } from './style.ts';
-import type { TextMeasurer } from './text.ts';
+import type { ViewSelection } from './selection.ts';
+import type { TextLine, TextMeasurer } from './text.ts';
 
 export type ViewNodeType = 'root' | 'view' | 'text' | '#text' | '#comment';
-
-/** 登记的一段文字：它的号、最近是第几帧用到的（见 display.ts） */
-export interface ViewRunEntry {
-  readonly id: number;
-  usedAt: number;
-}
 
 export class ViewNode {
   parent: ViewNode | null = null;
@@ -43,10 +38,9 @@ export class ViewNode {
   scrollTop = 0;
   /** 子节点是顺着主轴一个接一个排的（位置递增）：找哪些露出来时可以二分 */
   flowAxis: 'x' | 'y' | null = null;
-  /** text 元素用的文字样式、登记的文字段（见 display.ts；null 是还没登记，runEpoch 是哪一回登记的） */
+  /** text 元素用的文字样式、排好的各行（一行从上到下各占一个行高） */
   textStyle: TextStyle | null = null;
-  run: ViewRunEntry | null = null;
-  runEpoch = -1;
+  lines: TextLine[] = [];
 
   // —— 排版的缓存：自己和子孙都没变、给的大小和传下来的文字样式也没变，就不用重排
   layoutDirty = true;
@@ -110,6 +104,10 @@ export class ViewTree {
   readonly root: ViewNode;
   needsLayout = true;
   needsPaint = true;
+  /** 选中的文字（见 selection.ts）；没有选区是 null */
+  selection: ViewSelection | null = null;
+  /** 选中的字下面那层底色 */
+  selectionColor = 'rgba(86, 128, 255, 0.4)';
 
   /**
    * measurer：量文字用的；changed：树变了（要重排或者重画）时叫一声，使用方据此安排下一次刷新
@@ -132,9 +130,43 @@ export class ViewTree {
     this.changed();
   }
 
+  /** 换一个选区（null 是不选了） */
+  select(selection: ViewSelection | null): void {
+    if (selection === this.selection) return;
+    this.selection = selection;
+    this.invalidatePaint();
+  }
+
   /** 只是画出来的样子变了（颜色、滚到哪）：不用重排 */
   invalidatePaint(): void {
     this.needsPaint = true;
     this.changed();
   }
+}
+
+/** 子节点多于这么多、又是顺着一条线排的，找的时候二分 */
+const BISECT_FROM = 32;
+/**
+ * 顺着一条线排的子节点里，和 [start, end) 这一段（主轴上的位置）有重叠的是第几个到第几个（不含后一个）。
+ * 画、找命中都用它：两万行的表格里只看露出来的那几十行
+ */
+export function childRange(node: ViewNode, start: number, end: number): [number, number] {
+  const { children, flowAxis } = node;
+  if (!flowAxis || children.length < BISECT_FROM) return [0, children.length];
+  const vertical = flowAxis === 'y';
+  /** 头一个满足条件的下标（条件对下标是单调的） */
+  const first = (test: (child: ViewNode) => boolean) => {
+    let low = 0;
+    let high = children.length;
+    while (low < high) {
+      const middle = (low + high) >> 1;
+      if (test(children[middle]!)) high = middle;
+      else low = middle + 1;
+    }
+    return low;
+  };
+  return [
+    first((child) => (vertical ? child.y + child.height : child.x + child.width) > start),
+    first((child) => (vertical ? child.y : child.x) >= end),
+  ];
 }

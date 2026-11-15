@@ -25,3 +25,10 @@ export {
   type DisplayFrame,
 } from './display.ts';
 export { createCanvasMeasurer, type TextMeasurer } from './text.ts';
+export {
+  pointAt,
+  selectAll,
+  selectedText,
+  type TextPoint,
+  type ViewSelection,
+} from './selection.ts';

@@ -13,9 +13,16 @@ import {
   type ViewFont,
   type ViewRun,
 } from '@rune-engine/render/view-types';
-import { childRange } from './events.ts';
-import type { ViewNode, ViewRunEntry, ViewTree } from './node.ts';
-import { parseColor } from './style.ts';
+import { childRange, type ViewNode, type ViewTree } from './node.ts';
+import {
+  lineOffset,
+  offsetToX,
+  orderSelection,
+  selectedRange,
+  type OrderedSelection,
+} from './selection.ts';
+import { parseColor, type TextStyle } from './style.ts';
+import type { TextLine } from './text.ts';
 
 export interface DisplayFrame {
   /** 显示列表，前 count 项有效。每帧是一个新数组（交给渲染线程时是转移过去的） */
@@ -40,7 +47,7 @@ export function createDisplayBuilder({
   runLimit = 8000,
 }: DisplayBuilderOptions = {}): DisplayBuilder {
   /** 字体 → “行高:内容” → 登记的那一段 */
-  const table = new Map<ViewFont, Map<string, ViewRunEntry>>();
+  const table = new Map<ViewFont, Map<string, NonNullable<TextLine['run']>>>();
   let registered = 0;
   let nextId = 1;
   /** 清过几回：节点上记着的号是哪一回登记的，对不上就重新查 */
@@ -50,27 +57,30 @@ export function createDisplayBuilder({
   let items = new Float32Array(0);
   let count = 0;
   let fresh: ViewRun[] = [];
+  /** 这一帧的选区（排好先后的）和它的底色；trail 是画到的这个节点在树里的位置（每一层第几个子节点） */
+  let selection: OrderedSelection | null = null;
+  let selectionColor: readonly number[] = NONE;
+  const trail: number[] = [];
 
-  /** 这个节点的那段字是几号：节点上记着的还作数就直接用，不然按“字体、行高、内容”去查，没有就登记 */
-  function runOf(node: ViewNode): number {
-    if (node.run && node.runEpoch === epoch) {
-      node.run.usedAt = frame;
-      return node.run.id;
+  /** 这一行字是几号文字段：行上记着的还作数就直接用，不然按“字体、行高、内容”去查，没有就登记 */
+  function runOf(line: TextLine, style: TextStyle): number {
+    if (line.run && line.runEpoch === epoch) {
+      line.run.usedAt = frame;
+      return line.run.id;
     }
-    const style = node.textStyle!;
     let byText = table.get(style.font);
     if (!byText) table.set(style.font, (byText = new Map()));
-    const key = `${style.lineHeight}:${node.text}`;
+    const key = `${style.lineHeight}:${line.text}`;
     let entry = byText.get(key);
     if (!entry) {
       entry = { id: nextId++, usedAt: frame };
       byText.set(key, entry);
       registered++;
-      fresh.push({ id: entry.id, text: node.text, font: style.font, lineHeight: style.lineHeight });
+      fresh.push({ id: entry.id, text: line.text, font: style.font, lineHeight: style.lineHeight });
     }
     entry.usedAt = frame;
-    node.run = entry;
-    node.runEpoch = epoch;
+    line.run = entry;
+    line.runEpoch = epoch;
     return entry.id;
   }
 
@@ -112,6 +122,7 @@ export function createDisplayBuilder({
     clipRight: number,
     clipBottom: number,
     opacity: number,
+    depth: number,
   ): void {
     const x = originX + node.x;
     const y = originY + node.y;
@@ -158,22 +169,62 @@ export function createDisplayBuilder({
     }
 
     if (node.type === 'text') {
-      if (!node.text || !node.textStyle) return;
-      const run = runOf(node);
-      const color = node.textStyle.color;
-      const at = slot();
-      items[at + VIEW_ITEM.kind] = VIEW_KIND_TEXT;
-      items[at + VIEW_ITEM.x] = x;
-      items[at + VIEW_ITEM.y] = y;
-      items[at + VIEW_ITEM.clipLeft] = clipLeft;
-      items[at + VIEW_ITEM.clipTop] = clipTop;
-      items[at + VIEW_ITEM.clipRight] = clipRight;
-      items[at + VIEW_ITEM.clipBottom] = clipBottom;
-      items[at + VIEW_ITEM.color] = color[0];
-      items[at + VIEW_ITEM.color + 1] = color[1];
-      items[at + VIEW_ITEM.color + 2] = color[2];
-      items[at + VIEW_ITEM.color + 3] = color[3] * alpha;
-      items[at + VIEW_ITEM.run] = run;
+      const text = node.textStyle;
+      if (!text) return;
+      const { color, lineHeight } = text;
+      const align = style.textAlign === 'center' ? 0.5 : style.textAlign === 'right' ? 1 : 0;
+      // 一行一项；裁剪框上下以外的行不列
+      const { lines } = node;
+      const from = Math.max(0, Math.floor((clipTop - y) / lineHeight));
+      const to = Math.min(lines.length, Math.ceil((clipBottom - y) / lineHeight));
+      const chosen = selection ? selectedRange(selection, node, trail, depth) : null;
+      for (let index = from; index < to; index++) {
+        const line = lines[index]!;
+        // 选中的那一截下面先垫一块底色
+        if (chosen && chosen[0] < line.end + 1 && chosen[1] > line.start) {
+          const length = line.end - line.start;
+          const begin = Math.max(0, chosen[0] - line.start);
+          const end = Math.min(length, chosen[1] - line.start);
+          const left = x + lineOffset(node, line);
+          const startX = offsetToX(node, line, begin);
+          // 选区越过了这一行的末尾（接着选到下一行、下一段字）：底色多出一小截，看得出换行也被选上了
+          const beyond =
+            chosen[1] > line.end || (chosen[2] && index === lines.length - 1 && end === length);
+          const endX = offsetToX(node, line, end) + (beyond ? lineHeight / 4 : 0);
+          if (endX > startX) {
+            const at = slot();
+            items[at + VIEW_ITEM.kind] = VIEW_KIND_RECT;
+            items[at + VIEW_ITEM.x] = left + startX;
+            items[at + VIEW_ITEM.y] = y + index * lineHeight;
+            items[at + VIEW_ITEM.width] = endX - startX;
+            items[at + VIEW_ITEM.height] = lineHeight;
+            items[at + VIEW_ITEM.clipLeft] = clipLeft;
+            items[at + VIEW_ITEM.clipTop] = clipTop;
+            items[at + VIEW_ITEM.clipRight] = clipRight;
+            items[at + VIEW_ITEM.clipBottom] = clipBottom;
+            items[at + VIEW_ITEM.color] = selectionColor[0]!;
+            items[at + VIEW_ITEM.color + 1] = selectionColor[1]!;
+            items[at + VIEW_ITEM.color + 2] = selectionColor[2]!;
+            items[at + VIEW_ITEM.color + 3] = selectionColor[3]! * alpha;
+            items[at + VIEW_ITEM.radius] = 0;
+            items[at + VIEW_ITEM.borderWidth] = 0;
+          }
+        }
+        if (!line.text) continue;
+        const at = slot();
+        items[at + VIEW_ITEM.kind] = VIEW_KIND_TEXT;
+        items[at + VIEW_ITEM.x] = x + (node.width - line.width) * align;
+        items[at + VIEW_ITEM.y] = y + index * lineHeight;
+        items[at + VIEW_ITEM.clipLeft] = clipLeft;
+        items[at + VIEW_ITEM.clipTop] = clipTop;
+        items[at + VIEW_ITEM.clipRight] = clipRight;
+        items[at + VIEW_ITEM.clipBottom] = clipBottom;
+        items[at + VIEW_ITEM.color] = color[0];
+        items[at + VIEW_ITEM.color + 1] = color[1];
+        items[at + VIEW_ITEM.color + 2] = color[2];
+        items[at + VIEW_ITEM.color + 3] = color[3] * alpha;
+        items[at + VIEW_ITEM.run] = runOf(line, text);
+      }
       return;
     }
 
@@ -195,7 +246,8 @@ export function createDisplayBuilder({
     for (let index = from; index < to; index++) {
       const child = children[index]!;
       if (child.type[0] === '#') continue;
-      paint(child, childX, childY, clipLeft, clipTop, clipRight, clipBottom, alpha);
+      trail[depth] = index;
+      paint(child, childX, childY, clipLeft, clipTop, clipRight, clipBottom, alpha, depth + 1);
     }
   }
 
@@ -206,7 +258,9 @@ export function createDisplayBuilder({
       items = new Float32Array(Math.max(256, count + 64) * VIEW_ITEM_FLOATS);
       count = 0;
       fresh = [];
-      paint(tree.root, 0, 0, 0, 0, width, height, 1);
+      selection = orderSelection(tree, tree.selection);
+      selectionColor = parseColor(tree.selectionColor);
+      paint(tree.root, 0, 0, 0, 0, width, height, 1, 0);
       tree.needsPaint = false;
       const dropped = registered > runLimit ? sweep() : [];
       return { items, count, runs: fresh, dropped };

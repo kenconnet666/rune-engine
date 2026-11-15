@@ -5,8 +5,11 @@
  * 事件照网页的习惯：从被点到的节点往上冒，处理函数写在节点的属性上（onClick、onPointerdown……）；
  * 进来、出去（pointerenter / pointerleave）不冒，进到子节点里不算出去。
  * 指着、按着的节点带上 hovered / pressed，样式里的 hover、active 跟着生效。
+ *
+ * 选中文字也在这里：在一段字上按下开始选，拖到哪选到哪；双击选一个词，三击选整段，按着 Shift 点是接着选。
  */
-import type { ViewNode, ViewTree } from './node.ts';
+import { childRange, type ViewNode, type ViewTree } from './node.ts';
+import { blockAt, pointAt, selectable, wordAt, type TextPoint } from './selection.ts';
 
 export interface ViewPointerEvent {
   readonly type:
@@ -34,35 +37,8 @@ export interface ViewWheelEvent {
   preventDefault(): void;
 }
 
-/** 子节点多于这么多、又是顺着一条线排的，找的时候二分 */
-const BISECT_FROM = 32;
 /** 一个点在主轴上占的“宽度”：找命中时拿它当一小段去找重叠的子节点 */
 const POINT = 1e-6;
-
-/**
- * 顺着一条线排的子节点里，和 [start, end) 这一段（主轴上的位置）有重叠的是第几个到第几个（不含后一个）。
- * 画、找命中都用它：两万行的表格里只看露出来的那几十行
- */
-export function childRange(node: ViewNode, start: number, end: number): [number, number] {
-  const { children, flowAxis } = node;
-  if (!flowAxis || children.length < BISECT_FROM) return [0, children.length];
-  const vertical = flowAxis === 'y';
-  /** 头一个满足条件的下标（条件对下标是单调的） */
-  const first = (test: (child: ViewNode) => boolean) => {
-    let low = 0;
-    let high = children.length;
-    while (low < high) {
-      const middle = (low + high) >> 1;
-      if (test(children[middle]!)) high = middle;
-      else low = middle + 1;
-    }
-    return low;
-  };
-  return [
-    first((child) => (vertical ? child.y + child.height : child.x + child.width) > start),
-    first((child) => (vertical ? child.y : child.x) >= end),
-  ];
-}
 
 /** 画布上的这个位置落在哪个节点上（最上面、最里面的那个）；谁也没落到是 null */
 export function hitTest(tree: ViewTree, x: number, y: number): ViewNode | null {
@@ -105,7 +81,8 @@ const handlerName = (type: string) => `on${type[0]!.toUpperCase()}${type.slice(1
 export interface PointerInput {
   /** 指针挪到了画布上的 (x, y) */
   move(x: number, y: number): void;
-  down(x: number, y: number): void;
+  /** shift：按着 Shift（接着上回的选区选到这里） */
+  down(x: number, y: number, options?: { shift?: boolean }): void;
   up(x: number, y: number): void;
   /** 指针离开了画布 */
   leave(): void;
@@ -116,7 +93,23 @@ export interface PointerInput {
 }
 
 /** 把指针的动作变成节点上的事件和状态 */
-export function createPointerInput(tree: ViewTree): PointerInput {
+/** 两次按下隔得比这短（毫秒）、离得比这近（像素）算连击（双击选词、三击选整段） */
+const MULTI_CLICK_MS = 400;
+const MULTI_CLICK_DISTANCE = 4;
+
+export interface PointerInputOptions {
+  /** 现在是什么时候（毫秒）：算连击用，测试里可以换成假的钟 */
+  now?: () => number;
+}
+
+export function createPointerInput(
+  tree: ViewTree,
+  { now = () => performance.now() }: PointerInputOptions = {},
+): PointerInput {
+  /** 正拖着选文字：从哪个位置开始的 */
+  let selectingFrom: TextPoint | null = null;
+  /** 上一次按下：什么时候、在哪、是第几连击 */
+  let lastDown = { at: -Infinity, x: 0, y: 0, count: 0 };
   /** 现在指着的那一串节点（从最里面到根） */
   let hovered: ViewNode[] = [];
   /** 按下时落在谁身上（松开时算点击用）、哪些节点正按着 */
@@ -175,7 +168,8 @@ export function createPointerInput(tree: ViewTree): PointerInput {
     setState(entered, 'hovered', true);
     // 进来是从外往里一个个进的
     for (const node of entered.reverse()) dispatch('pointerenter', node, x, y, false);
-    let shape = 'default';
+    // 指着能选的字是“工”字形的光标，除非它或者祖先另外写了
+    let shape = target?.type === 'text' && selectable(target) ? 'text' : 'default';
     for (const node of next) {
       if (node.look.cursor) {
         shape = node.look.cursor;
@@ -193,17 +187,40 @@ export function createPointerInput(tree: ViewTree): PointerInput {
       const target = hitTest(tree, x, y);
       hoverTo(target, x, y);
       if (target) dispatch('pointermove', target, x, y);
+      // 拖着选：选到指针现在对着的那个位置（指针在空白处就取最近的一段字）
+      if (selectingFrom) {
+        const focus = pointAt(tree, x, y);
+        if (focus) tree.select({ anchor: selectingFrom, focus });
+      }
     },
-    down(x, y) {
+    down(x, y, { shift = false } = {}) {
       const target = hitTest(tree, x, y);
       hoverTo(target, x, y);
       downTarget = target;
+      const at = now();
+      const again =
+        at - lastDown.at < MULTI_CLICK_MS &&
+        Math.hypot(x - lastDown.x, y - lastDown.y) < MULTI_CLICK_DISTANCE;
+      lastDown = { at, x, y, count: again ? lastDown.count + 1 : 1 };
+      // 在一段能选的字上按下：开始选。按在别处：原来的选区不要了
+      const point = target?.type === 'text' && selectable(target) ? pointAt(tree, x, y) : null;
+      if (!point) tree.select(null);
+      else if (shift && tree.selection) {
+        selectingFrom = tree.selection.anchor;
+        tree.select({ anchor: selectingFrom, focus: point });
+      } else if (lastDown.count === 2) tree.select(wordAt(point));
+      else if (lastDown.count >= 3) tree.select(blockAt(point));
+      else {
+        selectingFrom = point;
+        tree.select({ anchor: point, focus: point });
+      }
       if (!target) return;
       pressed = pathOf(target);
       setState(pressed, 'pressed', true);
       dispatch('pointerdown', target, x, y);
     },
     up(x, y) {
+      selectingFrom = null;
       const target = hitTest(tree, x, y);
       setState(pressed, 'pressed', false);
       pressed = [];

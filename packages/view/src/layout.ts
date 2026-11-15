@@ -1,11 +1,12 @@
 /**
  * 排版：给每个节点算出位置和大小。弹性盒子的一小套——横排 / 竖排（不换行）、定宽定高、按份数伸缩、
- * 内外边距、间隔、交叉轴对齐、主轴对齐；一行字（text）按内容定宽、按行高定高。
+ * 内外边距、间隔、交叉轴对齐、主轴对齐；一段字（text）宽度定了就在里面折行，没定就一行到底。
  *
  * 只重排变了的：一个节点自己和子孙都没变（layoutDirty 是 false）、父节点给的大小和传下来的文字样式也和上回一样，
  * 就整棵子树跳过。所以改一个格子的字，重排的只有它到根的那一条线上的节点。
  */
 import type { ViewNode, ViewTree } from './node.ts';
+import { breakLines } from './text.ts';
 import {
   DEFAULT_TEXT,
   inheritText,
@@ -67,25 +68,26 @@ function layoutNode(
   node.layoutDirty = false;
 
   if (node.type === 'text') {
-    const content = node.textContent;
-    if (content !== node.text || node.textStyle !== text) {
-      node.text = content;
-      node.textStyle = text;
-      // 换了字或者换了字体：登记的那段文字作废
-      node.run = null;
-    }
-    node.width = clamp(
-      width ?? style.width ?? node.tree.measurer.width(text.font, content),
-      style.minWidth,
-      style.maxWidth,
-    );
+    node.text = node.textContent;
+    node.textStyle = text;
+    // 宽度定了（父节点给的、自己写的）就在这个宽度里折行；没定就一行到底，宽度是最宽的那一行
+    const limit = width ?? style.width;
+    node.lines = breakLines(node.tree.measurer, text.font, node.text, {
+      maxWidth: limit,
+      whiteSpace: style.whiteSpace,
+      maxLines: style.maxLines,
+      ellipsis: style.textOverflow === 'ellipsis',
+    });
+    let widest = 0;
+    for (const each of node.lines) widest = Math.max(widest, each.width);
+    node.width = clamp(limit ?? widest, style.minWidth, style.maxWidth);
     node.height = clamp(
-      height ?? style.height ?? text.lineHeight,
+      height ?? style.height ?? node.lines.length * text.lineHeight,
       style.minHeight,
       style.maxHeight,
     );
-    node.contentWidth = node.width;
-    node.contentHeight = node.height;
+    node.contentWidth = Math.max(node.width, widest);
+    node.contentHeight = node.lines.length * text.lineHeight;
     return;
   }
   layoutContainer(node, style, width, height, text);

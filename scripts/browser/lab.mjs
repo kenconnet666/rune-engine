@@ -67,6 +67,25 @@ for (let round = 0; round < rounds; round++) {
         const state = () => page.evaluate('JSON.stringify(window.__lab.state())').then(JSON.parse);
         const picked = (await state()).selected;
         check(picked === 5, `${mode}：点第 5 行，选中的却是 ${picked}`);
+        if (mode === 'view') {
+          // 选中文字、复制：从第 1 行的单号拖到第 2 行的客户，按 Ctrl+C，看交给剪贴板的是什么
+          await page.evaluate(
+            `document.addEventListener('copy', (event) => { window.__copied = event.clipboardData.getData('text/plain'); })`,
+          );
+          const from = rowCenter(0);
+          const to = rowCenter(1);
+          await page.drag(83, from.y, 300, to.y);
+          await sleep(200);
+          if (out) await page.screenshot(join(out, 'lab-view-selected.png'));
+          const key = { key: 'c', code: 'KeyC', windowsVirtualKeyCode: 67, modifiers: 2 };
+          await page.cdp('Input.dispatchKeyEvent', { type: 'keyDown', ...key, commands: ['copy'] });
+          await page.cdp('Input.dispatchKeyEvent', { type: 'keyUp', ...key });
+          await sleep(100);
+          const copied = await page.evaluate('window.__copied ?? null');
+          const expected =
+            'SO100001\t陈默\t西安\t¥412.33\t待付款\tfragile · handle with care\n2\tSO100002\t林小满';
+          check(copied === expected, `view：拖选两行复制到的是 ${JSON.stringify(copied)}`);
+        }
         await page.wheel(400, 400, 720);
         // 网页元素那版的滚轮是缓着滚的：等它停
         await sleep(700);

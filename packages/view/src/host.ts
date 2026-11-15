@@ -7,6 +7,9 @@
  * 刷新不等下一帧：树一变，这一轮事件处理完马上排、马上发（Vue 自己的更新在它前头已经做完了），
  * 渲染线程下一帧就能画上。指针位置用的是 pointerrawupdate（一到就发，不像 pointermove 要攒到帧边上）——
  * 量过，这样渲染线程拿到的输入比主线程自己画还新鲜；没有这个事件的浏览器退回 pointermove，多一帧。
+ *
+ * 画布能聚焦（点一下就聚焦）：键盘事件、浏览器的“复制”事件是发给有焦点的元素的。
+ * 选中的字按 Ctrl+C 复制、Ctrl+A 全选、Esc 取消。
  */
 import type { ViewMessage } from '@rune-engine/render/view-types';
 import type { App, Component } from 'vue';
@@ -14,6 +17,7 @@ import { createDisplayBuilder } from './display.ts';
 import { createPointerInput } from './events.ts';
 import { layoutTree } from './layout.ts';
 import { ViewTree, type ViewNode } from './node.ts';
+import { selectAll, selectedText } from './selection.ts';
 import { createViewApp } from './renderer.ts';
 import { createCanvasMeasurer, type TextMeasurer } from './text.ts';
 
@@ -124,8 +128,9 @@ export function createViewHost(canvas: HTMLCanvasElement, options: ViewHostOptio
   const down = (event: PointerEvent) => {
     // 按住拖到画布外面也接着收得到
     canvas.setPointerCapture(event.pointerId);
+    canvas.focus({ preventScroll: true });
     pointer = { x: event.offsetX, y: event.offsetY };
-    input.down(pointer.x, pointer.y);
+    input.down(pointer.x, pointer.y, { shift: event.shiftKey });
     syncCursor();
   };
   const up = (event: PointerEvent) => {
@@ -144,6 +149,24 @@ export function createViewHost(canvas: HTMLCanvasElement, options: ViewHostOptio
       event.preventDefault();
     }
   };
+  const key = (event: KeyboardEvent) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+      tree.select(selectAll(tree));
+      event.preventDefault();
+    } else if (event.key === 'Escape' && tree.selection) tree.select(null);
+  };
+  // 浏览器的“复制”（Ctrl+C、菜单里的复制）：把选中的字交给剪贴板
+  const copy = (event: ClipboardEvent) => {
+    const text = selectedText(tree, tree.selection);
+    if (!text || !event.clipboardData) return;
+    event.clipboardData.setData('text/plain', text);
+    event.preventDefault();
+  };
+  // 能聚焦才收得到键盘和复制；聚焦时不要浏览器画的那圈框（焦点在哪由界面自己画）
+  if (canvas.tabIndex < 0) canvas.tabIndex = 0;
+  canvas.style.outline = 'none';
+  canvas.addEventListener('keydown', key);
+  canvas.addEventListener('copy', copy);
   const moveEvent = 'onpointerrawupdate' in canvas ? 'pointerrawupdate' : 'pointermove';
   canvas.addEventListener(moveEvent, move as EventListener);
   canvas.addEventListener('pointerdown', down);
@@ -171,6 +194,8 @@ export function createViewHost(canvas: HTMLCanvasElement, options: ViewHostOptio
       canvas.removeEventListener('pointercancel', leave);
       canvas.removeEventListener('pointerleave', leave);
       canvas.removeEventListener('wheel', wheel);
+      canvas.removeEventListener('keydown', key);
+      canvas.removeEventListener('copy', copy);
     },
   };
 }
